@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useRef, useEffect } from 'react';
-import { User, Settings, LogOut, ChevronDown } from 'lucide-react';
+import { User, LogOut, ChevronDown } from 'lucide-react';
 
 interface ProfileDropdownProps {
   onViewProfile: () => void;
@@ -34,9 +34,6 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onViewProfile,
         <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-slate-100 py-1 z-50 animate-in fade-in zoom-in-95 duration-200">
           <button onClick={() => { onViewProfile(); setIsOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
             <User size={14} /> View Profile
-          </button>
-          <button onClick={() => { /* Handle settings */ setIsOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
-            <Settings size={14} /> Settings
           </button>
           <div className="border-t border-slate-100 my-1"></div>
           <button onClick={() => { onLogout(); setIsOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
