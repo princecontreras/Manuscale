@@ -603,7 +603,18 @@ export const generateProjectOutline = async (blueprint: ProjectBlueprint, memory
     
     ${context}
     Return valid JSON containing an array of 'chapters'.
-    IMPORTANT: Keep chapter titles concise (max 5-7 words). Do not include summaries or descriptions in the title field.`;
+    
+    CRITICAL OUTLINE RULES:
+    1. Keep chapter titles concise (max 5-7 words). Do not include summaries or descriptions in the title field.
+    2. Each chapter beat MUST cover unique ground — no two chapters should overlap in their core content.
+    3. Each beat should specify what NEW information this chapter introduces (not covered elsewhere).
+    4. The FINAL chapter MUST be explicitly designed as the book's CONCLUSION/SYNTHESIS. Its beat should reference:
+       - Tying together the book's key themes
+       - Revisiting the central thesis with final proof
+       - Providing a definitive closing thought or call to action
+       Do NOT place a conclusion or summary in any chapter other than the last.
+    5. Non-final chapters should each end with a natural transition hook into the next chapter's topic.
+    6. Ensure a logical progression: early chapters build foundations, middle chapters develop depth, final chapters synthesize.`;
 
     const response = await retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
         model: MODEL_FLASH,
@@ -733,6 +744,60 @@ const validateAndRepairHtml = (html: string): string => {
     }
 };
 
+// --- DYNAMIC CONTENT BLOCK SELECTOR ---
+// Selects appropriate content blocks based on chapter mode, position, and type
+const selectDynamicContentBlocks = (
+    chapter: OutlineItem,
+    blueprint: ProjectBlueprint,
+    chapterPosition: 'opening' | 'middle' | 'closing',
+    assignedMode?: ChapterMode
+): string => {
+    // All available content block types
+    const allBlocks = [
+        { tag: 'callout-box', label: 'Callout Box', trigger: 'key insight, important warning, or critical takeaway', best: ['Instructional'] },
+        { tag: 'data-table', label: 'Data Table', trigger: 'comparison data, statistics, or structured information', best: ['Instructional'] },
+        { tag: 'pull-quote', label: 'Pull Quote', trigger: 'memorable quote, pivotal statement, or key testimony', best: ['Narrative', 'Instructional'] },
+        { tag: 'action-plan', label: 'Action Plan', trigger: 'step-by-step instructions, exercises, or actionable advice', best: ['Instructional'] },
+        { tag: 'case-study', label: 'Case Study', trigger: 'real-world example, historical event analysis, or biographical spotlight', best: ['Narrative', 'Instructional'] },
+        { tag: 'self-assessment', label: 'Self Assessment', trigger: 'reflection questions, self-evaluation, or reader engagement prompts', best: ['Instructional'] },
+        { tag: 'timeline', label: 'Timeline', trigger: 'chronological events, historical progression, or milestone tracking', best: ['Narrative'] },
+        { tag: 'key-concept', label: 'Key Concept', trigger: 'foundational idea, definition, or theoretical framework', best: ['Instructional'] },
+    ];
+
+    const mode = blueprint.mode || 'Instructional';
+    
+    // Filter blocks relevant to this mode
+    let relevant = allBlocks.filter(b => b.best.includes(mode));
+    
+    // Position-based adjustments
+    if (chapterPosition === 'opening') {
+        // Opening chapters benefit from pull quotes and case studies to hook readers
+        relevant = relevant.filter(b => !['self-assessment', 'action-plan'].includes(b.tag));
+    } else if (chapterPosition === 'closing') {
+        // Closing chapters benefit from action plans and self-assessments for synthesis
+        relevant = relevant.filter(b => !['timeline'].includes(b.tag));
+    }
+    
+    // Mode-based adjustments: if chapter has a specific mode, prioritize blocks that match
+    if (assignedMode) {
+        const modeName = assignedMode.name.toLowerCase();
+        if (modeName.includes('deep dive') || modeName.includes('concept')) {
+            relevant = relevant.filter(b => ['callout-box', 'key-concept', 'data-table', 'pull-quote'].includes(b.tag));
+        } else if (modeName.includes('tactical') || modeName.includes('guide') || modeName.includes('action')) {
+            relevant = relevant.filter(b => ['action-plan', 'callout-box', 'self-assessment', 'data-table'].includes(b.tag));
+        } else if (modeName.includes('case') || modeName.includes('story') || modeName.includes('narrative')) {
+            relevant = relevant.filter(b => ['case-study', 'pull-quote', 'timeline'].includes(b.tag));
+        }
+    }
+
+    // Build the instruction: max 3-4 blocks per chapter to avoid clutter
+    const selected = relevant.slice(0, 4);
+    
+    return `DYNAMIC CONTENT BLOCKS (use 1-3 where naturally appropriate, never force):
+    ${selected.map((b, i) => `${i + 1}. <div class="${b.tag}">...</div> — USE WHEN: ${b.trigger}`).join('\n    ')}
+    RULE: Only use a block if the content genuinely calls for it. Quality over quantity. Never use more than 3 blocks per chapter.`;
+};
+
 export const streamChapterContent = async (
     blueprint: ProjectBlueprint,
     profile: NarrativeProfile,
@@ -748,15 +813,21 @@ export const streamChapterContent = async (
 ): Promise<string> => {
     const ai = getAI();
     const targetWords = chapter.targetWordCount || 1500;
+    const totalChapters = fullOutline.length;
+    const chapterIndex = fullOutline.findIndex(c => c.id === chapter.id);
 
-    // Detect last chapter to prevent transition hallucinations
-    const isLastChapter = fullOutline.length > 0 && fullOutline[fullOutline.length - 1].id === chapter.id;
+    // --- CHAPTER POSITION AWARENESS ---
+    const isFirstChapter = chapterIndex === 0;
+    const isLastChapter = totalChapters > 0 && chapterIndex === totalChapters - 1;
+    const isSecondToLast = totalChapters > 1 && chapterIndex === totalChapters - 2;
+    const chapterPosition: 'opening' | 'middle' | 'closing' = 
+        isFirstChapter ? 'opening' : 
+        (chapterIndex >= totalChapters - 2) ? 'closing' : 'middle';
+    const progressPercent = totalChapters > 0 ? Math.round((chapterIndex / totalChapters) * 100) : 0;
 
     // --- SMART CONTEXT INJECTION (RAG-LITE) ---
-    // Retrieve context specific to this chapter's beat
     let relevantContext: any[] = [];
     try {
-       // Only run if we actually have memory to search
        if (memory.research.length > 0 || memory.keyFigures.length > 0 || memory.concepts.length > 0) {
            relevantContext = await getRelevantContext(chapter.beat, memory, signal);
        }
@@ -764,13 +835,39 @@ export const streamChapterContent = async (
         console.warn("Smart context retrieval failed, proceeding with basic slice.", e);
         relevantContext = memory.research.slice(0, 5);
     }
-    // -------------------------------------
+
+    // --- ANTI-REPETITION: Extract topics already covered ---
+    let coveredTopics = "";
+    if (globalSummary && globalSummary.length > 20) {
+        // Extract key noun phrases from the summary to explicitly ban
+        const summaryWords = globalSummary.split(/[.!?]+/).filter(s => s.trim().length > 10).slice(-8);
+        coveredTopics = `\nTOPICS ALREADY COVERED (DO NOT REPEAT OR REPHRASE THESE):\n${summaryWords.map(s => `- ${s.trim()}`).join('\n')}`;
+    }
+    
+    // Build list of what previous chapters covered
+    let previousChapterTopics = "";
+    if (chapterIndex > 0) {
+        const prevChapters = fullOutline.slice(Math.max(0, chapterIndex - 3), chapterIndex);
+        previousChapterTopics = `\nRECENT CHAPTERS (already written — do NOT overlap with their content):\n${prevChapters.map(c => `- Ch${c.chapterNumber} "${c.title}": ${c.beat}`).join('\n')}`;
+    }
+
+    // --- FLOW CONTINUITY GUIDE ---
+    let flowGuide = "";
+    if (isFirstChapter) {
+        flowGuide = `FLOW GUIDE: This is the OPENING chapter. Set the stage, introduce the core premise, and build reader curiosity. End with a natural bridge that makes the reader want to continue to the next chapter.`;
+    } else if (isLastChapter) {
+        flowGuide = `FLOW GUIDE: This is the FINAL chapter (Chapter ${chapter.chapterNumber} of ${totalChapters}). Begin by connecting to the thread from the previous chapter, then build toward a powerful synthesis. The ending of this chapter IS the ending of the entire book.`;
+    } else if (isSecondToLast) {
+        flowGuide = `FLOW GUIDE: This is the SECOND-TO-LAST chapter. Build momentum toward the book's climax. Do NOT conclude or summarize the book here — that belongs in the final chapter. End by setting up the final chapter's payoff.`;
+    } else {
+        flowGuide = `FLOW GUIDE: This is chapter ${chapter.chapterNumber} of ${totalChapters} (${progressPercent}% through the book). Open by naturally connecting to the previous chapter's thread without repeating its content. Close with a bridge that flows into the next topic.`;
+    }
 
     // INJECT STRATEGIC DNA
     let structureInstruction = "";
-    
-    // Token Optimization: Only pass the current phase to the LLM instead of the entire blueprint structure
     let currentPhaseContext = "";
+    let assignedMode: ChapterMode | undefined;
+    
     if (blueprint.structure && blueprint.structure.phases) {
         let currentChapterCount = 0;
         for (const phase of blueprint.structure.phases) {
@@ -782,9 +879,8 @@ export const streamChapterContent = async (
         }
     }
     
-    // Check if the chapter has a specific MODE assigned (Non-Fiction)
     if (chapter.mode && blueprint.chapterModes) {
-        const assignedMode = blueprint.chapterModes.find(m => m.id === chapter.mode);
+        assignedMode = blueprint.chapterModes.find(m => m.id === chapter.mode);
         if (assignedMode) {
             structureInstruction = `
             CHAPTER ARCHETYPE: "${assignedMode.name}"
@@ -794,7 +890,6 @@ export const streamChapterContent = async (
         }
     }
     
-    // Fallback to global signature if no specific mode logic applies
     if (!structureInstruction && blueprint.structuralSignature && blueprint.structuralSignature.length > 0) {
         structureInstruction = `STRICT CHAPTER FORMULA: You MUST structure this chapter using exactly these sections in order: ${blueprint.structuralSignature.join(' -> ')}.`;
     }
@@ -817,15 +912,38 @@ export const streamChapterContent = async (
         ? `EDITORIAL MANDATES:\n- ${blueprint.editorialRules.join('\n- ')}`
         : "";
 
-    const endingInstruction = isLastChapter 
-        ? `\nSPECIAL INSTRUCTION: This is the FINAL chapter of the book. You MUST provide a conclusive ending that wraps up the book's thesis. Do NOT write a transition to a next chapter. Do NOT say "In the next chapter". End with a strong closing thought.` 
-        : "";
+    // --- ENDING / TRANSITION LOGIC ---
+    let endingInstruction = "";
+    if (isLastChapter) {
+        endingInstruction = `
+    ===== FINAL CHAPTER DIRECTIVE =====
+    This is the LAST chapter of the entire book (Chapter ${chapter.chapterNumber} of ${totalChapters}).
+    
+    MANDATORY CONCLUSION REQUIREMENTS:
+    1. Synthesize the book's key themes and arguments into a cohesive closing narrative.
+    2. Revisit the central thesis/controlling idea and show how the book has proven it.
+    3. Provide a powerful, memorable closing paragraph that gives the reader a sense of completion.
+    4. Do NOT introduce major new concepts — this is for synthesis and reflection.
+    5. Do NOT write "In the next chapter" or any forward-looking transitions.
+    6. Do NOT use phrases like "stay tuned", "we'll explore more", or "in upcoming sections".
+    7. End with a resonant final thought, call to action, or emotional capstone that feels like a definitive ending.
+    ===================================`;
+    } else {
+        endingInstruction = `
+    TRANSITION RULE: Do NOT write a conclusion or summary for the entire book. This is chapter ${chapter.chapterNumber} of ${totalChapters}.
+    End this chapter with a natural bridge or hook into the next topic: "${nextContext}".  
+    Do NOT use concluding language like "In conclusion", "To sum up", or "Overall" at the end of this chapter.`;
+    }
 
     const liveContextBlock = additionalContext ? `\n\nFRESH RESEARCH: ${additionalContext.substring(0, 750)}` : "";
+    
+    // --- DYNAMIC CONTENT BLOCKS ---
+    const contentBlocksInstruction = selectDynamicContentBlocks(chapter, blueprint, chapterPosition, assignedMode);
 
     const prompt = `Write Chapter ${chapter.chapterNumber}: "${chapter.title}" for the book "${blueprint.title}".
     LENGTH GOAL: ~${targetWords} words.
     Style Guide: ${profile.voice}, ${profile.archetype}.
+    Book Progress: Chapter ${chapter.chapterNumber} of ${totalChapters} (${progressPercent}%).
     
     EXPANSIVE NON-FICTION INSTRUCTION: Write a detailed, comprehensive, and authoritative chapter. Do not use fictional characters, invented scenarios, or fabricated dialogues. All narrative elements—including scenes, dialogues, and actions—must be strictly grounded in documented historical facts, real-world events, and actual people. For instructional content, use real-world case studies and clear factual analysis. Focus on depth, clarity, and accuracy. Aim to fully meet or exceed the word count goal.
     
@@ -834,13 +952,23 @@ export const streamChapterContent = async (
     ${currentPhaseContext}
     ${structureInstruction}
     ${editorialInstruction}
+    
+    ${flowGuide}
     ${endingInstruction}
 
     STORY SO FAR: ${globalSummary || "This is the first chapter."}
-    Context: Previous: ${prevContext}. Next: ${isLastChapter ? "NONE" : nextContext}.
+    Context: Previous: ${prevContext}. Next: ${isLastChapter ? "NONE — this is the final chapter" : nextContext}.
     Plan: ${chapter.beat}
     
-    CRITICAL: Do NOT repeat content already covered in 'STORY SO FAR' or 'Context: Previous'.
+    === ANTI-REPETITION PROTOCOL ===
+    CRITICAL: Each chapter must cover UNIQUE ground. Never restate, rephrase, or rehash points from prior chapters.
+    - Do NOT re-explain concepts already introduced. Reference them briefly if needed, then advance.
+    - Do NOT reuse the same examples, anecdotes, or case studies from earlier chapters.
+    - Do NOT open with a generic recap of previous material. Start with fresh content immediately.
+    - If a prior chapter introduced a concept, BUILD on it — add depth, nuance, or application, not repetition.
+    ${coveredTopics}
+    ${previousChapterTopics}
+    ===============================
     
     CRITICAL KNOWLEDGE VAULT: 
     ${JSON.stringify(relevantContext.slice(0, 4))}
@@ -853,9 +981,7 @@ export const streamChapterContent = async (
     4. Start the narrative text immediately.
     5. **IMPORTANT:** Do NOT use Markdown styling. You MUST use standard HTML tags <strong> and <em>.
     
-    STRATEGIC FORMATTING PROTOCOL:
-    Use components ONLY if triggers are met. Rule of Two applies.
-    1. <div class="callout-box">...</div> 2. <table class="data-table">...</table> 3. <blockquote class="pull-quote">...</blockquote> 4. <div class="action-plan">...</div> 5. <div class="case-study">...</div> 6. <div class="self-assessment">...</div>
+    ${contentBlocksInstruction}
     
     Write the full chapter in HTML format.`;
 
@@ -1417,7 +1543,14 @@ export const analyzeChapterAftermath = async (content: string, memory: any, type
 
 export const compressGlobalSummary = async (s: string, e: string, signal?: AbortSignal) => {
     const ai = getAI();
-    const prompt = `Compress the following global story summary, incorporating the new event. Keep it under 1000 words, focusing on the main narrative arc and key developments.
+    const prompt = `Compress the following global story summary, incorporating the new event. Keep it under 1000 words.
+    
+    COMPRESSION RULES:
+    1. Focus on the main narrative arc and key developments.
+    2. Preserve the SPECIFIC topics, arguments, examples, and case studies covered — these are used to prevent repetition in future chapters.
+    3. Maintain a clear chronological flow of what has been established so far.
+    4. Keep track of key terms introduced, major conclusions drawn, and transitions made.
+    5. Do NOT generalize — retain enough specificity that a future chapter writer can clearly see what has already been said.
     
     Current Summary:
     ${s}
