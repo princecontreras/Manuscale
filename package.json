@@ -1,0 +1,46 @@
+{
+  "name": "lore-ai",
+  "private": true,
+  "version": "1.0.2",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev -H 0.0.0.0 -p 3000",
+    "build": "next build && npx esbuild server.ts --platform=node --outfile=server.js --bundle --packages=external",
+    "start": "node server.js",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@google/genai": "^1.30.0",
+    "@tanstack/react-query": "^5.90.21",
+    "axios": "^1.13.6",
+    "dompurify": "^3.0.9",
+    "firebase": "^12.11.0",
+    "idb-keyval": "^6.2.1",
+    "jsonrepair": "^3.13.3",
+    "lucide-react": "^0.344.0",
+    "motion": "^12.36.0",
+    "next": "^16.1.6",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-markdown": "^9.0.1",
+    "sharp": "^0.34.5",
+    "socket.io": "^4.8.3",
+    "socket.io-client": "^4.8.3",
+    "tw-animate-css": "^1.4.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.2.1",
+    "@types/dompurify": "^3.0.5",
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.2.64",
+    "@types/react-dom": "^18.2.21",
+    "autoprefixer": "^10.4.19",
+    "esbuild": "^0.27.4",
+    "eslint": "^9.39.4",
+    "eslint-config-next": "^16.1.6",
+    "postcss": "^8.4.38",
+    "tailwindcss": "^4.2.1",
+    "typescript": "^5.4.2"
+  }
+}

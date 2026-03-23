@@ -1,0 +1,535 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-sans);
+  --font-heading: var(--font-heading);
+  --font-mono: 'Courier Prime', monospace;
+
+  /* Primary: Purple (Brand) */
+  --color-primary-50: #f5f3ff;
+  --color-primary-100: #e0dbfe;
+  --color-primary-200: #c7c0fd;
+  --color-primary-300: #a59afb;
+  --color-primary-400: #8575f8;
+  --color-primary-500: #6c5ce7;
+  --color-primary-600: #5a4bd0;
+  --color-primary-700: #4a3eb8;
+  --color-primary-800: #3c329a;
+  --color-primary-900: #2f277a;
+
+  /* Action: Blue */
+  --color-action-50: #eff6ff;
+  --color-action-100: #dbeafe;
+  --color-action-200: #bfdbfe;
+  --color-action-300: #93c5fd;
+  --color-action-400: #60a5fa;
+  --color-action-500: #3b82f6;
+  --color-action-600: #2563eb;
+  --color-action-700: #1d4ed8;
+  --color-action-800: #1e40af;
+  --color-action-900: #1e3a8a;
+
+  /* Neutrals */
+  --color-neutral-50: #F5F7FB;
+  --color-neutral-white: #FFFFFF;
+  --color-neutral-900: #111827;
+
+  --text-display: 1.875rem;
+  --text-display--line-height: 2.25rem;
+  --text-display--letter-spacing: -0.025em;
+  --text-display--font-weight: 900;
+
+  --text-title: 1.125rem;
+  --text-title--line-height: 1.75rem;
+  --text-title--letter-spacing: -0.015em;
+  --text-title--font-weight: 700;
+
+  --text-heading: 0.875rem;
+  --text-heading--line-height: 1.25rem;
+  --text-heading--font-weight: 700;
+
+  --text-body: 0.875rem;
+  --text-body--line-height: 1.625rem;
+  --text-body--font-weight: 400;
+
+  --text-label: 0.75rem;
+  --text-label--line-height: 1rem;
+  --text-label--letter-spacing: 0.05em;
+  --text-label--font-weight: 700;
+
+  --text-micro: 0.625rem;
+  --text-micro--line-height: 1rem;
+  --text-micro--font-weight: 500;
+}
+
+:root {
+  --ebook-font: var(--font-sans);
+  /* Individual Margin Variables */
+  --margin-top: 0.75in;
+  --margin-right: 0.75in;
+  --margin-bottom: 0.75in;
+  --margin-left: 0.75in;
+  /* Typography Variables */
+  --font-size: 11pt;
+  --line-height: 1.6;
+  --page-bg: #ffffff;
+  --text-color: #1e293b;
+}
+
+body {
+  /* Premium Textured Background (Desk Mat Look) */
+  background-color: #d1d5db;
+  background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.08'/%3E%3C/svg%3E");
+}
+
+/* Desk Vignette - Simulates a focused desk lamp lighting */
+.desk-vignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 45%, transparent 35%, rgba(0,0,0,0.15) 80%, rgba(0,0,0,0.3) 100%);
+  z-index: 0;
+}
+
+/* --- BOOK PAGE STYLING --- */
+.book-page {
+  width: 6in;
+  height: 9in;
+  background: var(--page-bg);
+  
+  /* Realistic Paper Stack Effect */
+  box-shadow: 
+    /* The Stack Layers (Simulating pages underneath) */
+    1px 1px 0px 0px #cbd5e1,
+    2px 2px 0px 0px #f8fafc,
+    3px 3px 0px 0px #cbd5e1,
+    4px 4px 0px 0px #f8fafc,
+    5px 5px 0px 0px #94a3b8,
+    /* Deep ambient shadow for lift */
+    0 25px 50px -12px rgba(0,0,0,0.25), 
+    0 10px 15px -5px rgba(0,0,0,0.1),
+    /* Inner highlights for paper texture feel */
+    inset 0 0 40px rgba(0,0,0,0.02);
+    
+  margin: 0 auto 2.5rem auto;
+  padding: var(--margin-top) var(--margin-right) var(--margin-bottom) var(--margin-left);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  color: var(--text-color);
+  transition: transform 0.2s ease;
+  z-index: 10;
+}
+
+.book-content {
+  flex: 1;
+  overflow: hidden;
+  font-family: var(--ebook-font);
+  font-size: var(--font-size);
+  line-height: var(--line-height);
+  text-align: justify;
+  hyphens: auto;
+}
+
+/* Margin Interaction Zone */
+.margin-zone {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: var(--margin-right);
+  cursor: text;
+  z-index: 20;
+}
+.margin-zone:hover {
+  background: rgba(0,0,0,0.02);
+}
+
+/* Headings */
+.book-content h1 { 
+  font-family: var(--font-heading); 
+  font-size: 2.2em; 
+  line-height: 1.1;
+  font-weight: 700; 
+  text-align: center; 
+  margin-top: 2rem; 
+  margin-bottom: 2rem; 
+  color: var(--text-color);
+}
+
+.book-content h2 {
+  font-family: var(--font-heading);
+  font-size: 1.5em;
+  margin-top: 1.5em;
+  margin-bottom: 0.75em;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 0.25em;
+  color: var(--text-color);
+}
+
+.book-content h3 {
+  font-family: var(--font-heading); 
+  font-size: 1.25em;
+  font-weight: 700;
+  margin-top: 1.25em;
+  margin-bottom: 0.5em;
+  color: var(--text-color);
+}
+
+.book-content h4 {
+  font-family: var(--font-sans);
+  font-size: 1em;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 1em;
+  margin-bottom: 0.5em;
+  color: #64748b; 
+}
+
+/* Paragraph Styles */
+/* Style 1: Block (Non-Fiction) */
+.paragraph-block p {
+  margin-bottom: var(--paragraph-spacing, 1em);
+  text-indent: var(--first-line-indent, 0);
+  margin-left: var(--block-indent, 0);
+  margin-right: var(--block-indent, 0);
+}
+
+/* Style 2: Indented (Fiction) */
+.paragraph-indent p {
+  margin-bottom: var(--paragraph-spacing, 0);
+  text-indent: var(--first-line-indent, 1.5em);
+  margin-left: var(--block-indent, 0);
+  margin-right: var(--block-indent, 0);
+}
+.paragraph-indent p:first-of-type, 
+.paragraph-indent h1 + p,
+.paragraph-indent h2 + p,
+.paragraph-indent h3 + p,
+.paragraph-indent h4 + p {
+  text-indent: 0;
+}
+
+/* Formatting Elements */
+.book-content blockquote {
+  margin: 1.5em 2em;
+  font-style: italic;
+  color: #64748b;
+  border-left: 2px solid #cbd5e1;
+  padding-left: 1em;
+}
+
+.book-content hr {
+  border: 0;
+  text-align: center;
+  margin: 2em 0;
+}
+.book-content hr::before {
+  content: "✻ ✻ ✻";
+  color: #cbd5e1;
+  font-size: 1.2em;
+  letter-spacing: 0.5em;
+}
+
+/* --- EDITORIAL COMPONENTS (New) --- */
+
+/* 1. Callout Box (Key Concept) */
+.book-content .callout-box {
+  background-color: #f8fafc;
+  border-left: 4px solid #64748b;
+  padding: 1.5rem;
+  margin: 2rem 0;
+  border-radius: 0 8px 8px 0;
+  page-break-inside: avoid;
+}
+.book-content .callout-box h4 {
+  margin-top: 0;
+  color: #334155;
+  border: none;
+  padding: 0;
+  font-size: 0.9em;
+}
+.book-content .callout-box p {
+  margin-bottom: 0;
+  font-size: 0.95em;
+  color: #475569;
+}
+
+/* 2. Data Table */
+.book-content .data-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 2rem 0;
+  font-size: 0.85em;
+  page-break-inside: avoid;
+}
+.book-content .data-table th {
+  background-color: #f1f5f9;
+  text-align: left;
+  padding: 0.5rem;
+  border-bottom: 2px solid #cbd5e1;
+  font-weight: 700;
+  color: #334155;
+}
+.book-content .data-table td {
+  padding: 0.5rem;
+  border-bottom: 1px solid #e2e8f0;
+  vertical-align: top;
+}
+
+/* 3. Pull Quote (Authority Voice) */
+.book-content .pull-quote {
+  font-family: var(--font-heading);
+  font-size: 1.3em;
+  font-style: italic;
+  text-align: center;
+  margin: 2.5rem 1.5rem;
+  color: #334155;
+  border: none;
+  padding: 0;
+  position: relative;
+  line-height: 1.4;
+}
+.book-content .pull-quote::before {
+  content: "“";
+  font-family: var(--font-sans);
+  font-size: 4em;
+  position: absolute;
+  top: -0.4em;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #e2e8f0;
+  z-index: -1;
+}
+
+/* 4. Action Plan / Checklist */
+.book-content .action-plan {
+  background-color: #f0fdf4; /* emerald-50 */
+  border: 1px solid #bbf7d0;
+  padding: 1.5rem;
+  border-radius: 8px;
+  margin: 2rem 0;
+  page-break-inside: avoid;
+}
+.book-content .action-plan h4 {
+  color: #166534; /* emerald-800 */
+  border-bottom: 1px solid #86efac;
+  padding-bottom: 0.5rem;
+  margin-top: 0;
+}
+.book-content .action-plan ul {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+}
+.book-content .action-plan li {
+  padding-left: 1.5rem;
+  position: relative;
+  margin-bottom: 0.5rem;
+  color: #14532d;
+}
+.book-content .action-plan li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  color: #16a34a;
+  font-weight: bold;
+}
+
+/* Drop Caps */
+.drop-caps p:first-of-type::first-letter,
+.drop-caps h1 + p::first-letter {
+  float: left;
+  font-family: var(--font-heading);
+  font-size: 3.5em;
+  line-height: 0.8;
+  padding-top: 0.1em;
+  padding-right: 0.1em;
+  padding-left: 0;
+  color: var(--text-color);
+  font-weight: bold;
+}
+
+/* Running Headers & Footers */
+.running-header {
+  position: absolute;
+  top: 0.35in;
+  left: var(--margin-left);
+  right: var(--margin-right);
+  height: 0.25in;
+  display: flex;
+  align-items: center;
+  font-family: var(--font-sans);
+  font-size: 8pt;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #94a3b8;
+  border-bottom: 1px solid transparent;
+}
+
+.header-left { justify-content: flex-start; }
+.header-right { justify-content: flex-end; }
+
+.page-number {
+  position: absolute;
+  bottom: 0.35in;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-family: var(--font-sans);
+  font-size: 9pt;
+  color: #64748b;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- RED PEN CRITIQUE STYLES --- */
+.red-pen-mark {
+  background-color: rgba(254, 202, 202, 0.4); /* red-200 opacity */
+  border-bottom: 2px solid #ef4444; /* red-500 */
+  cursor: help;
+  transition: all 0.2s ease;
+  border-radius: 2px;
+}
+.red-pen-mark:hover, .red-pen-mark.active {
+  background-color: rgba(254, 202, 202, 0.9);
+}
+
+/* --- NOIR THEME --- */
+body.theme-noir {
+  background-color: #0f172a;
+  background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.6' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.05'/%3E%3C/svg%3E");
+}
+body.theme-noir .desk-vignette {
+  background: radial-gradient(circle at 50% 40%, transparent 20%, rgba(0,0,0,0.85) 100%);
+}
+body.theme-noir .book-page {
+  background: #1e1e1e;
+  --page-bg: #1e1e1e;
+  --text-color: #e2e8f0;
+  box-shadow: 
+    /* Stack effect for dark mode */
+    2px 2px 0px 0px #171717,
+    3px 3px 0px 0px #2a2a2a,
+    4px 4px 0px 0px #171717,
+    0 20px 40px rgba(0,0,0,0.8);
+}
+body.theme-noir .book-content blockquote { color: #94a3b8; border-color: #334155; }
+body.theme-noir .book-content h2 { border-color: #334155; }
+body.theme-noir .running-header, body.theme-noir .page-number { color: #475569; }
+/* Noir overrides for Editorial Components */
+body.theme-noir .book-content .callout-box { background-color: #27272a; border-left-color: #52525b; }
+body.theme-noir .book-content .callout-box h4 { color: #e4e4e7; }
+body.theme-noir .book-content .callout-box p { color: #a1a1aa; }
+body.theme-noir .book-content .data-table th { background-color: #27272a; border-bottom-color: #3f3f46; color: #e4e4e7; }
+body.theme-noir .book-content .data-table td { border-bottom-color: #3f3f46; color: #d4d4d8; }
+body.theme-noir .book-content .pull-quote { color: #e4e4e7; }
+body.theme-noir .book-content .pull-quote::before { color: #3f3f46; }
+body.theme-noir .book-content .action-plan { background-color: #064e3b; border-color: #065f46; }
+body.theme-noir .book-content .action-plan h4 { color: #d1fae5; border-bottom-color: #34d399; }
+body.theme-noir .book-content .action-plan li { color: #a7f3d0; }
+
+/* Print Overrides */
+@media print {
+  @page { size: 6in 9in; margin: 0; }
+  body { background: white; background-image: none; }
+  .book-page {
+    margin: 0;
+    box-shadow: none;
+    page-break-after: always;
+    width: 100%;
+    height: 100%;
+  }
+  .no-print, .desk-vignette, .chapter-ribbon, .margin-zone, .session-tracker { display: none !important; }
+  .red-pen-mark { background: none; border: none; } /* Hide critique in print */
+}
+
+/* Selection Menu Animation */
+@keyframes popIn {
+  from { opacity: 0; transform: translate(-50%, -90%) scale(0.95); }
+  to { opacity: 1; transform: translate(-50%, -100%) scale(1); }
+}
+.selection-menu-enter {
+  animation: popIn 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+/* Margin Popover Animation */
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+.popover-enter {
+  animation: scaleIn 0.15s ease-out forwards;
+}
+
+/* --- MOBILE & RESPONSIVE UTILITIES --- */
+
+/* Safe area insets for notched devices */
+@supports (padding: env(safe-area-inset-top)) {
+  .safe-area-top { padding-top: env(safe-area-inset-top); }
+  .safe-area-bottom { padding-bottom: env(safe-area-inset-bottom); }
+  .safe-area-left { padding-left: env(safe-area-inset-left); }
+  .safe-area-right { padding-right: env(safe-area-inset-right); }
+}
+
+/* Touch-friendly minimum targets */
+@media (hover: none) and (pointer: coarse) {
+  .touch-target {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  /* Make hover-dependent UI visible on touch devices */
+  .group-hover\:opacity-100 {
+    opacity: 1 !important;
+  }
+  /* Prevent text size adjustment on orientation change */
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+}
+
+/* Responsive book page - scales on mobile */
+@media (max-width: 640px) {
+  .book-page {
+    width: 100% !important;
+    height: auto !important;
+    min-height: auto !important;
+    padding: 1rem !important;
+  }
+}
+
+/* Prevent horizontal overflow on mobile */
+@media (max-width: 768px) {
+  body {
+    overflow-x: hidden;
+  }
+  /* Scale down page-like content */
+  .max-w-\[8\.5in\] {
+    max-width: 100% !important;
+  }
+  .min-h-\[11in\] {
+    min-height: auto !important;
+  }
+  .p-\[1in\] {
+    padding: 1.5rem !important;
+  }
+  .m-\[1in\] {
+    margin: 1.5rem !important;
+  }
+}
+
+/* Smooth scrolling on iOS */
+.overflow-y-auto, .overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Scrollbar hide utility that works across browsers */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
