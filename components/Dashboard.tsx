@@ -127,14 +127,11 @@ const ApiSettingsModal: React.FC<{ onClose: () => void, onExit: () => void }> = 
             if ('letterSpacing' in ctx) { (ctx as any).letterSpacing = "0px"; }
             const scaleWidth = ctx.measureText("scale").width;
 
-            // Draw Dot (Brand Color)
+            // Draw Dot (Brand Color) - circular dot
             ctx.fillStyle = "#d97706"; // Brand 600
             ctx.beginPath();
-            // A square dot looks more technical
-            ctx.rect(startX + manuWidth + scaleWidth - 10, baselineY - 30, 30, 30);
+            ctx.arc(startX + manuWidth + scaleWidth + 20, baselineY - 50, 20, 0, Math.PI * 2);
             ctx.fill();
-
-            // Note: Subtitle removed per request
 
             const dataUrl = canvas.toDataURL('image/png');
             const link = document.createElement('a');
