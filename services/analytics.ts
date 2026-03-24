@@ -7,12 +7,12 @@ declare global {
 }
 
 // Get ID from environment variables
-const GA_MEASUREMENT_ID = process.env.VITE_GA_ID;
+const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
 
 export const initAnalytics = () => {
   if (typeof window === 'undefined') return;
   if (!GA_MEASUREMENT_ID) {
-      console.log("[Analytics] No Measurement ID found (VITE_GA_ID). Analytics disabled.");
+      console.log("[Analytics] No Measurement ID found (NEXT_PUBLIC_GA_MEASUREMENT_ID). Analytics disabled.");
       return;
   }
 
@@ -44,7 +44,7 @@ export const trackEvent = (eventName: string, params?: Record<string, any>) => {
     window.gtag('event', eventName, params);
     
     // Log to console in development for verification
-    if ((import.meta as any).env && (import.meta as any).env.DEV) {
+    if (process.env.NODE_ENV === 'development') {
         console.log(`[Analytics Event] ${eventName}`, params);
     }
   }

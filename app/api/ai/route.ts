@@ -1,4 +1,5 @@
 import { NextResponse, NextRequest } from 'next/server';
+import { verifyIdToken } from '../../../services/firebaseAdmin';
 import {
   analyzeTopicAndConfigure,
   generateProjectOutline,
@@ -29,6 +30,13 @@ import {
 export const maxDuration = 120; // seconds (Vercel function timeout)
 
 export async function POST(req: NextRequest) {
+  // Verify Firebase ID token — rejects unauthenticated requests before any AI call.
+  try {
+    await verifyIdToken(req.headers.get('Authorization'));
+  } catch (authErr: any) {
+    return NextResponse.json({ error: authErr.message || 'Unauthorized' }, { status: authErr.status || 401 });
+  }
+
   const { action, params } = await req.json();
   const signal = req.signal; // Use the request's abort signal
 

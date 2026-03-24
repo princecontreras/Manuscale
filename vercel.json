@@ -1,0 +1,10 @@
+{
+  "functions": {
+    "app/api/ai/route.ts": {
+      "maxDuration": 120
+    },
+    "app/api/ai/stream/route.ts": {
+      "maxDuration": 180
+    }
+  }
+}

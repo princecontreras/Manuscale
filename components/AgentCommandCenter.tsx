@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useRef, useEffect } from 'react';
+import DOMPurify from 'dompurify';
 import { AgentLog, EbookData, AgentRole, ProjectMemory } from '../types';
 import { consultDirector, runSpecialistAgent, generateProjectOutline, streamChapterContent, generateImageFromPrompt, analyzeTopicAndConfigure, generateBibliography, gatherChapterFacts, generateMarketingPack, generateBookMockup, generateCopyright, generateMarketingImage } from '../services/aiClient';
 import { saveProject, loadLocal, saveLocal, getProjectMemoryKey, loadFromDB, saveToDB, STORAGE_KEYS } from '../services/storage';
@@ -871,7 +872,7 @@ CRITICAL: Do NOT duplicate the title. Only include the title text once.`;
                                             </div>
                                             <div 
                                                 className="prose prose-invert prose-sm max-w-none text-slate-300 font-serif leading-relaxed"
-                                                dangerouslySetInnerHTML={{__html: c.content || ''}}
+                                                dangerouslySetInnerHTML={{__html: DOMPurify.sanitize(c.content || '', { ADD_ATTR: ['class', 'style'] })}}
                                             />
                                         </div>
                                     ))}
@@ -883,7 +884,7 @@ CRITICAL: Do NOT duplicate the title. Only include the title text once.`;
                                             </div>
                                             <div 
                                                 className="prose prose-invert prose-sm max-w-none text-slate-300 font-serif leading-relaxed"
-                                                dangerouslySetInnerHTML={{__html: liveStreamContent}}
+                                                dangerouslySetInnerHTML={{__html: DOMPurify.sanitize(liveStreamContent, { ADD_ATTR: ['class', 'style'] })}}
                                             />
                                         </div>
                                     )}

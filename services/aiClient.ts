@@ -3,6 +3,7 @@
  * This keeps API keys server-side only.
  */
 
+import { getAuth } from 'firebase/auth';
 import { ProjectBlueprint, ProjectMemory, OutlineItem, NarrativeProfile, MarketingAssets, AgentRole, DirectorDirective, ChapterMode } from '../types';
 
 // --- Shared utilities (client-safe, no API key needed) ---
@@ -50,10 +51,23 @@ export const trackResponseUsage = (_response: any, _model: string) => {};
 
 // --- Core API call helper ---
 
+async function getIdToken(): Promise<string | null> {
+  try {
+    const user = getAuth().currentUser;
+    return user ? await user.getIdToken() : null;
+  } catch {
+    return null;
+  }
+}
+
 async function callAI(action: string, params: Record<string, any>, signal?: AbortSignal): Promise<any> {
+  const token = await getIdToken();
   const res = await fetch('/api/ai', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     body: JSON.stringify({ action, params }),
     signal,
   });
@@ -109,9 +123,13 @@ export const streamChapterContent = async (
   additionalContext?: string,
   signal?: AbortSignal
 ): Promise<string> => {
+  const token = await getIdToken();
   const res = await fetch('/api/ai/stream', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     body: JSON.stringify({
       params: {
         blueprint,

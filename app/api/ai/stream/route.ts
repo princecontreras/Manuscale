@@ -1,9 +1,20 @@
 import { NextRequest } from 'next/server';
+import { verifyIdToken } from '../../../../services/firebaseAdmin';
 import { streamChapterContent } from '../../../../services/geminiService';
 
 export const maxDuration = 180; // 3 minutes for chapter generation
 
 export async function POST(req: NextRequest) {
+  // Verify Firebase ID token before streaming.
+  try {
+    await verifyIdToken(req.headers.get('Authorization'));
+  } catch (authErr: any) {
+    return new Response(JSON.stringify({ error: authErr.message || 'Unauthorized' }), {
+      status: authErr.status || 401,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
   const { params } = await req.json();
   const encoder = new TextEncoder();
 
