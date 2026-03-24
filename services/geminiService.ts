@@ -6,12 +6,12 @@ import { ProjectBlueprint, ProjectMemory, OutlineItem, NarrativeProfile, EbookDa
 
 // --- Configuration ---
 
-export const MODEL_PRO = 'gemini-3.1-pro-preview';
-export const MODEL_PRO_STABLE = 'gemini-3-pro-preview'; // Fallback for 3.1
-export const MODEL_FLASH = 'gemini-3.1-flash-lite-preview';
-export const MODEL_FLASH_STABLE = 'gemini-2.0-flash'; // Stable fallback when preview is overloaded
-export const MODEL_IMAGE = 'gemini-3.1-flash-image-preview';
-export const MODEL_IMAGE_STABLE = 'gemini-2.5-flash-image';
+export const MODEL_PRO = 'gemini-2.5-pro';          // Best quality, stable
+export const MODEL_PRO_STABLE = 'gemini-2.5-flash'; // Fast stable fallback
+export const MODEL_FLASH = 'gemini-2.5-flash';       // Fast & stable primary
+export const MODEL_FLASH_STABLE = 'gemini-2.0-flash-lite'; // Lightest stable fallback
+export const MODEL_IMAGE = 'gemini-2.5-flash-image'; // Stable image model
+export const MODEL_IMAGE_STABLE = 'gemini-2.5-flash'; // Image fallback
 export const MODEL_TTS = 'gemini-2.5-flash-preview-tts';
 
 // Helper to get API Key (server-side only)
@@ -177,7 +177,7 @@ const isRetryableError = (error: any): { retryable: boolean; isRateLimit: boolea
 };
 
 // Retry Logic
-export async function retryWithBackoff<T>(fn: () => Promise<T>, retries = 5, delay = 2000, signal?: AbortSignal): Promise<T> {
+export async function retryWithBackoff<T>(fn: () => Promise<T>, retries = 5, delay = 2000, signal?: AbortSignal, _initialRetries: number = retries): Promise<T> {
     try {
         if (signal?.aborted) throw new Error("Aborted by user");
         // Wrap in queue
@@ -191,9 +191,11 @@ export async function retryWithBackoff<T>(fn: () => Promise<T>, retries = 5, del
         if (!retryable && error?.status) throw error;
         
         // Exponential backoff with jitter
-        const backoffDelay = delay * Math.pow(2, 5 - retries);
+        // Use _initialRetries to correctly compute attempt number regardless of initial retries value
+        const attemptsMade = _initialRetries - retries;
+        const backoffDelay = delay * Math.pow(2, attemptsMade);
         const jitter = Math.random() * 1000;
-        const waitTime = isRateLimit ? Math.max(backoffDelay + jitter, 15000) : (backoffDelay + jitter);
+        const waitTime = isRateLimit ? Math.max(backoffDelay + jitter, 5000) : (backoffDelay + jitter);
         
         console.warn(`API Error (${isRateLimit ? '429 Rate Limit' : 'Server'}). Pausing for ${Math.round(waitTime/1000)}s... (${retries} left)`);
         
@@ -207,7 +209,7 @@ export async function retryWithBackoff<T>(fn: () => Promise<T>, retries = 5, del
             }
         });
         
-        return retryWithBackoff(fn, retries - 1, delay, signal);
+        return retryWithBackoff(fn, retries - 1, delay, signal, _initialRetries);
     }
 }
 
@@ -1249,7 +1251,7 @@ export const generateBibliography = async (sources: {title: string, uri: string}
 
 export const generateImageFromPrompt = async (prompt: string, quality: 'fast' | 'high' = 'fast'): Promise<string | null> => {
     const ai = getAI();
-    let usedModel = quality === 'high' ? 'gemini-3.1-flash-image-preview' : MODEL_IMAGE;
+    let usedModel = MODEL_IMAGE; // gemini-2.5-flash-image for both quality levels
     
     try {
         let response = await retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
@@ -1275,7 +1277,7 @@ export const generateImageFromPrompt = async (prompt: string, quality: 'fast' | 
         return null;
     } catch (e: any) {
         const isQuotaErr = e?.status === 429 || e?.message?.includes('429') || e?.status === 503 || e?.error?.code === 503 || e?.message?.includes('503');
-        if ((usedModel === 'gemini-3.1-flash-image-preview' || usedModel === MODEL_IMAGE) && isQuotaErr) {
+        if (usedModel === MODEL_IMAGE && isQuotaErr) {
             console.warn("⚠️ IMAGE 3.1 QUOTA EXCEEDED. Falling back to Image 2.5.");
             try {
                 const fallbackModel = MODEL_IMAGE_STABLE;

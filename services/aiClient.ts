@@ -39,12 +39,12 @@ export const getRelevantContext = async (
 };
 
 // Re-export model constants (safe, they're just strings)
-export const MODEL_PRO = 'gemini-3.1-pro-preview';
-export const MODEL_PRO_STABLE = 'gemini-3-pro-preview';
-export const MODEL_FLASH = 'gemini-3.1-flash-lite-preview';
-export const MODEL_FLASH_STABLE = 'gemini-2.0-flash';
-export const MODEL_IMAGE = 'gemini-3.1-flash-image-preview';
-export const MODEL_IMAGE_STABLE = 'gemini-2.5-flash-image';
+export const MODEL_PRO = 'gemini-2.5-pro';
+export const MODEL_PRO_STABLE = 'gemini-2.5-flash';
+export const MODEL_FLASH = 'gemini-2.5-flash';
+export const MODEL_FLASH_STABLE = 'gemini-2.0-flash-lite';
+export const MODEL_IMAGE = 'gemini-2.5-flash-image';
+export const MODEL_IMAGE_STABLE = 'gemini-2.5-flash';
 export const MODEL_TTS = 'gemini-2.5-flash-preview-tts';
 
 // Stub for tracking (disabled)
