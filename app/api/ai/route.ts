@@ -174,11 +174,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ result });
   } catch (error: any) {
     console.error(`[API] Error in action "${action}":`, error?.message || error);
-    
-    const status = error?.status === 429 ? 429 : error?.status >= 500 ? 502 : 500;
-    return NextResponse.json(
-      { error: error?.message || 'Internal server error' },
-      { status }
-    );
+
+    const statusStr = String(error?.status ?? '');
+    const msgStr = String(error?.message ?? '');
+    const isOverloaded = statusStr === 'UNAVAILABLE' ||
+                         msgStr.includes('UNAVAILABLE') ||
+                         msgStr.includes('high demand') ||
+                         msgStr.includes('overloaded') ||
+                         msgStr.includes('503');
+    const isRateLimit = error?.status === 429 || msgStr.includes('429') || msgStr.includes('RESOURCE_EXHAUSTED');
+
+    const httpStatus = isRateLimit ? 429 : isOverloaded ? 503 : (typeof error?.status === 'number' && error.status >= 500) ? 502 : 500;
+    const userMessage = isOverloaded
+      ? 'The AI model is currently experiencing high demand. Please try again in a moment.'
+      : isRateLimit
+      ? 'Rate limit reached. Please wait a moment before trying again.'
+      : error?.message || 'Internal server error';
+
+    return NextResponse.json({ error: userMessage }, { status: httpStatus });
   }
 }

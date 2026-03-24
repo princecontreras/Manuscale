@@ -45,7 +45,16 @@ export async function POST(req: NextRequest) {
           encoder.encode(`data: ${JSON.stringify({ type: 'done', data: fullContent })}\n\n`)
         );
       } catch (error: any) {
-        const msg = error?.message || 'Stream generation failed';
+        const statusStr = String(error?.status ?? '');
+        const msgStr = String(error?.message ?? '');
+        const isOverloaded = statusStr === 'UNAVAILABLE' ||
+                             msgStr.includes('UNAVAILABLE') ||
+                             msgStr.includes('high demand') ||
+                             msgStr.includes('overloaded') ||
+                             msgStr.includes('503');
+        const msg = isOverloaded
+          ? 'The AI model is currently experiencing high demand. Please try again in a moment.'
+          : msgStr || 'Stream generation failed';
         controller.enqueue(
           encoder.encode(`data: ${JSON.stringify({ type: 'error', error: msg })}\n\n`)
         );

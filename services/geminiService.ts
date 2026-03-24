@@ -9,6 +9,7 @@ import { ProjectBlueprint, ProjectMemory, OutlineItem, NarrativeProfile, EbookDa
 export const MODEL_PRO = 'gemini-3.1-pro-preview';
 export const MODEL_PRO_STABLE = 'gemini-3-pro-preview'; // Fallback for 3.1
 export const MODEL_FLASH = 'gemini-3.1-flash-lite-preview';
+export const MODEL_FLASH_STABLE = 'gemini-2.0-flash'; // Stable fallback when preview is overloaded
 export const MODEL_IMAGE = 'gemini-3.1-flash-image-preview';
 export const MODEL_IMAGE_STABLE = 'gemini-2.5-flash-image';
 export const MODEL_TTS = 'gemini-2.5-flash-preview-tts';
@@ -138,16 +139,21 @@ export async function retryWithBackoff<T>(fn: () => Promise<T>, retries = 5, del
         if (signal?.aborted || error.message === "Aborted by user") throw new Error("Aborted by user");
         if (retries <= 0) throw error;
         
-        const isRateLimit = error?.status === 429 || 
-                            error?.response?.status === 429 || 
-                            (error?.message && error.message.includes('429')) || 
+        const statusStr = String(error?.status ?? '');
+        const msgStr = String(error?.message ?? '');
+        const isRateLimit = error?.status === 429 ||
+                            error?.response?.status === 429 ||
+                            msgStr.includes('429') ||
                             error?.error?.code === 429 ||
-                            JSON.stringify(error).includes('"code":429');
-        const isServerErr = (error?.status >= 500 && error?.status < 600) || 
-                            error?.error?.code === 503 || 
-                            (error?.message && error.message.includes('503')) ||
-                            JSON.stringify(error).includes('"code":503');
-        
+                            msgStr.includes('RESOURCE_EXHAUSTED');
+        const isServerErr = statusStr === 'UNAVAILABLE' ||
+                            msgStr.includes('UNAVAILABLE') ||
+                            msgStr.includes('high demand') ||
+                            (typeof error?.status === 'number' && error.status >= 500 && error.status < 600) ||
+                            error?.error?.code === 503 ||
+                            msgStr.includes('503') ||
+                            msgStr.includes('overloaded');
+
         if (!isRateLimit && !isServerErr && error?.status) throw error;
         
         // Exponential backoff with jitter
@@ -1009,29 +1015,42 @@ export const streamChapterContent = async (
     } catch (e: any) {
         console.error("Error generating chapter content:", e);
         // ... (rest of the error handling remains the same)
-        const isQuotaErr = e?.status === 429 || 
-                           e?.message?.includes('429') || 
-                           e?.status === 503 || 
-                           e?.error?.code === 503 || 
-                           e?.message?.includes('503') ||
-                           JSON.stringify(e).includes('"code":429') ||
-                           JSON.stringify(e).includes('"code":503');
-        if (isQuotaErr) {
-            console.warn("⚠️ FLASH QUOTA EXCEEDED. Falling back to Pro 3.");
+        const eMsg = String(e?.message ?? '');
+        const eStatus = String(e?.status ?? '');
+        const isServiceErr = e?.status === 429 ||
+                             eMsg.includes('429') ||
+                             eStatus === 'UNAVAILABLE' ||
+                             eMsg.includes('UNAVAILABLE') ||
+                             eMsg.includes('high demand') ||
+                             eMsg.includes('overloaded') ||
+                             e?.status === 503 ||
+                             e?.error?.code === 503 ||
+                             eMsg.includes('503') ||
+                             eMsg.includes('RESOURCE_EXHAUSTED');
+        if (isServiceErr) {
+            console.warn('⚠️ Preview model overloaded. Falling back to stable flash model.');
             try {
-                usedModel = MODEL_PRO_STABLE;
+                usedModel = MODEL_FLASH_STABLE;
                 result = await retryWithBackoff(() => ai.models.generateContentStream({
-                    model: MODEL_PRO_STABLE,
+                    model: MODEL_FLASH_STABLE,
                     contents: prompt
-                }), 2, 2000, combinedSignal);
+                }), 3, 2000, combinedSignal);
             } catch (e2: any) {
-                console.error("Error generating chapter content (fallback):", e2);
-                console.warn("⚠️ PRO 3 QUOTA EXCEEDED. Switching to Pro 3.1.");
-                usedModel = MODEL_PRO;
-                result = await retryWithBackoff(() => ai.models.generateContentStream({
-                    model: MODEL_PRO,
-                    contents: prompt
-                }), 5, 3000, combinedSignal);
+                console.warn('⚠️ Stable flash overloaded. Falling back to Pro Stable.');
+                try {
+                    usedModel = MODEL_PRO_STABLE;
+                    result = await retryWithBackoff(() => ai.models.generateContentStream({
+                        model: MODEL_PRO_STABLE,
+                        contents: prompt
+                    }), 2, 3000, combinedSignal);
+                } catch (e3: any) {
+                    console.warn('⚠️ Pro Stable overloaded. Final fallback to Pro 3.1.');
+                    usedModel = MODEL_PRO;
+                    result = await retryWithBackoff(() => ai.models.generateContentStream({
+                        model: MODEL_PRO,
+                        contents: prompt
+                    }), 3, 4000, combinedSignal);
+                }
             }
         } else {
             throw e;
