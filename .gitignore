@@ -39,3 +39,6 @@ next-env.d.ts
 temp_grep.txt
 # Firebase config with sensitive keys
 firebase-applet-config.json
+
+# Build artifacts
+server.js

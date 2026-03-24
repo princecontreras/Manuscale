@@ -137,10 +137,9 @@ export async function POST(req: NextRequest) {
         break;
 
       case 'generateMarketingImage': {
-        // Server-side image generation
-        const { GoogleGenAI } = await import('@google/genai');
-        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
-        const { MODEL_IMAGE } = await import('../../../services/geminiService');
+        // Server-side image generation — reuse the singleton from geminiService
+        const { getAI, MODEL_IMAGE } = await import('../../../services/geminiService');
+        const ai = getAI();
         
         const response = await ai.models.generateContent({
           model: MODEL_IMAGE,
