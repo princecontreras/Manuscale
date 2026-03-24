@@ -24,11 +24,31 @@ const getApiKey = (): string => {
     return key || '';
 };
 
-// Singleton-ish accessor
-export const getAI = () => {
+// True singleton — reuse the same GoogleGenAI instance across all calls so the
+// underlying HTTP client can pool connections and avoid repeated TLS handshakes.
+let _aiInstance: GoogleGenAI | null = null;
+export const getAI = (): GoogleGenAI => {
+    if (_aiInstance) return _aiInstance;
     const key = getApiKey();
     if (!key) throw new Error("API Key missing");
-    return new GoogleGenAI({ apiKey: key });
+    _aiInstance = new GoogleGenAI({ apiKey: key });
+    return _aiInstance;
+};
+
+// Fast keyword heuristic that replaces full-LLM classification roundtrips (~1s each).
+// Returns 'Narrative' when the combined topic/genre text contains strong narrative
+// markers; defaults to 'Instructional' otherwise.
+const NARRATIVE_KEYWORDS = [
+    'memoir', 'biography', 'biograph', 'autobiography',
+    'history', 'historical', 'historic',
+    'true crime', 'journalism', 'journalistic',
+    'travel writing', 'adventure story',
+    'civil rights', 'war story', 'battle of',
+    'rise and fall', 'story of', 'life of',
+];
+export const classifyTopicHeuristic = (topic: string, genre?: string): 'Narrative' | 'Instructional' => {
+    const combined = `${topic} ${genre ?? ''}`.toLowerCase();
+    return NARRATIVE_KEYWORDS.some(k => combined.includes(k)) ? 'Narrative' : 'Instructional';
 };
 
 // Helper: Strip Markdown Code Blocks & Meta-Commentary
@@ -252,37 +272,9 @@ export const analyzeTopicAndConfigure = async (
 ): Promise<ProjectBlueprint> => {
     const ai = getAI();
 
-    // STEP 1: CLASSIFICATION (Fast & Cheap)
+    // STEP 1: CLASSIFICATION (keyword heuristic — no LLM roundtrip needed)
     if (onProgress) onProgress("Detecting narrative mode...");
-
-    const classificationPrompt = `Classify this book topic: "${topic}".
-    Return JSON with a single field 'mode'.
-    Values:
-    - 'Instructional': How-to, Self-Help, Business, Textbooks, Guides.
-    - 'Narrative': Memoir, Biography, History, True Crime, Journalism, Storytelling.`;
-
-    let mode = 'Instructional'; // Default
-
-    try {
-        const classResponse = await retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
-            model: MODEL_FLASH,
-            contents: classificationPrompt,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        mode: { type: Type.STRING, enum: ['Instructional', 'Narrative'] }
-                    }
-                }
-            }
-        }), 2, 1000, signal);
-        trackResponseUsage(classResponse, MODEL_FLASH);
-        const modeRaw = safeJsonParse(classResponse.text || '{"mode": "Instructional"}', {mode: "Instructional"});
-        mode = modeRaw.mode || 'Instructional';
-    } catch (e) {
-        console.warn("Classification failed, defaulting to Instructional", e);
-    }
+    const mode = classifyTopicHeuristic(topic, genre);
 
     if (onProgress) onProgress(`${mode} Mode active. Architecting blueprint...`);
 
@@ -548,7 +540,9 @@ export const generateProjectOutline = async (blueprint: ProjectBlueprint, memory
     const isNarrative = blueprint.mode === 'Narrative';
     let generatedModes: ChapterMode[] = [];
 
-    // STEP 1: Generate Modes (For both Narrative and Instructional)
+    // STEP 1 & 2: Generate Modes AND Outline in PARALLEL (saves ~1-2s vs sequential)
+    // The outline is generated without mode-ID assignments first; modes are merged in a
+    // very fast post-processing step below, avoiding a sequential dependency.
     const modePrompt = `Design 3 distinct 'CHAPTER MODES' (Templates) for the book: "${blueprint.title}".
     Mode: ${blueprint.mode || 'Instructional'}
     Summary: ${blueprint.summary}.
@@ -563,49 +557,13 @@ export const generateProjectOutline = async (blueprint: ProjectBlueprint, memory
     
     Return valid JSON array of objects.`;
 
-    try {
-        const modeResponse = await retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
-            model: MODEL_FLASH,
-            contents: modePrompt,
-            config: {
-                responseMimeType: "application/json",
-            }
-        }), 3, 2000, signal);
-        
-        trackResponseUsage(modeResponse, MODEL_FLASH);
-        
-        const rawText = modeResponse.text || "[]";
-        const cleanJson = stripMarkdownWrapper(rawText);
-        const repairedJson = jsonrepair(cleanJson);
-        const rawModes = z.array(ChapterModeSchema).parse(JSON.parse(repairedJson));
-        
-        generatedModes = rawModes.map((m: any) => ({
-            id: m.id,
-            name: m.name,
-            purpose: m.purpose,
-            signature: typeof m.signature === 'string' 
-                ? m.signature.split('->').map((s: string) => s.trim()) 
-                : (Array.isArray(m.signature) ? m.signature : [])
-        }));
-    } catch (e: any) {
-        if (signal?.aborted || e?.message === "Aborted by user") throw e;
-        console.warn("Mode generation failed, proceeding with default outlines.", e);
-    }
-
-    // STEP 2: Generate Outline
-    const modeContext = generatedModes.length > 0 
-        ? `AVAILABLE CHAPTER MODES: ${JSON.stringify(generatedModes.map(m => ({ id: m.id, name: m.name, purpose: m.purpose })))}. 
-           For each chapter, you MUST assign one of these 'mode' IDs to the 'mode' field.`
-        : "";
-
-    const prompt = `Create a detailed chapter outline for "${blueprint.title}". 
+    const outlinePrompt = `Create a detailed chapter outline for "${blueprint.title}". 
     Mode: ${blueprint.mode || 'Instructional'}
     Summary: ${blueprint.summary}.
     ${thesisContext}
     ${themeContext}
     
     ${structureInstruction}
-    ${modeContext}
     
     ${context}
     Return valid JSON containing an array of 'chapters'.
@@ -622,38 +580,81 @@ export const generateProjectOutline = async (blueprint: ProjectBlueprint, memory
     5. Non-final chapters should each end with a natural transition hook into the next chapter's topic.
     6. Ensure a logical progression: early chapters build foundations, middle chapters develop depth, final chapters synthesize.`;
 
-    const response = await retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
-        model: MODEL_FLASH,
-        contents: prompt,
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: Type.OBJECT,
-                properties: {
-                    chapters: {
-                        type: Type.ARRAY,
-                        items: {
-                            type: Type.OBJECT,
-                            properties: {
-                                id: { type: Type.STRING },
-                                chapterNumber: { type: Type.NUMBER },
-                                title: { type: Type.STRING },
-                                beat: { type: Type.STRING },
-                                targetWordCount: { type: Type.NUMBER },
-                                mode: { type: Type.STRING, description: "The ID of the ChapterMode assigned to this chapter (if applicable)." }
-                            },
-                            required: ["id", "chapterNumber", "title", "beat", "targetWordCount"]
+    const [modeResult, outlineResult] = await Promise.allSettled([
+        retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
+            model: MODEL_FLASH,
+            contents: modePrompt,
+            config: { responseMimeType: "application/json" }
+        }), 3, 2000, signal),
+        retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
+            model: MODEL_FLASH,
+            contents: outlinePrompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        chapters: {
+                            type: Type.ARRAY,
+                            items: {
+                                type: Type.OBJECT,
+                                properties: {
+                                    id: { type: Type.STRING },
+                                    chapterNumber: { type: Type.NUMBER },
+                                    title: { type: Type.STRING },
+                                    beat: { type: Type.STRING },
+                                    targetWordCount: { type: Type.NUMBER },
+                                },
+                                required: ["id", "chapterNumber", "title", "beat", "targetWordCount"]
+                            }
                         }
-                    }
-                },
-                required: ["chapters"]
+                    },
+                    required: ["chapters"]
+                }
             }
-        }
-    }), 3, 2000, signal);
-    trackResponseUsage(response, MODEL_FLASH);
+        }), 3, 2000, signal)
+    ]);
 
-    const rawData = safeJsonParse(response.text || "{}", {});
+    // Process modes
+    if (modeResult.status === 'fulfilled') {
+        try {
+            trackResponseUsage(modeResult.value, MODEL_FLASH);
+            const rawText = modeResult.value.text || "[]";
+            const cleanJson = stripMarkdownWrapper(rawText);
+            const repairedJson = jsonrepair(cleanJson);
+            const rawModes = z.array(ChapterModeSchema).parse(JSON.parse(repairedJson));
+            generatedModes = rawModes.map((m: any) => ({
+                id: m.id,
+                name: m.name,
+                purpose: m.purpose,
+                signature: typeof m.signature === 'string'
+                    ? m.signature.split('->').map((s: string) => s.trim())
+                    : (Array.isArray(m.signature) ? m.signature : [])
+            }));
+        } catch (e: any) {
+            if (signal?.aborted || e?.message === "Aborted by user") throw e;
+            console.warn("Mode generation failed, chapters will have no mode assignments.", e);
+        }
+    } else {
+        const e: any = modeResult.reason;
+        if (signal?.aborted || e?.message === "Aborted by user") throw e;
+        console.warn("Mode generation failed, proceeding with default outlines.", e);
+    }
+
+    // Rethrow abort/user cancel from outline
+    if (outlineResult.status === 'rejected') {
+        const e: any = outlineResult.reason;
+        if (signal?.aborted || e?.message === "Aborted by user") throw e;
+        throw e;
+    }
+
+    trackResponseUsage(outlineResult.value, MODEL_FLASH);
+
+    const rawData = safeJsonParse(outlineResult.value.text || "{}", {});
     const rawChapters: any[] = rawData.chapters || [];
+
+    // Assign modes round-robin so every chapter has a mode even without LLM assignment
+    const modeIds = generatedModes.map(m => m.id);
 
     // Process Chapters
     const outline = rawChapters.map((item, idx) => ({
@@ -663,7 +664,7 @@ export const generateProjectOutline = async (blueprint: ProjectBlueprint, memory
         beat: item.beat,
         targetWordCount: item.targetWordCount || 2000,
         logicFlow: item.logicFlow || [],
-        mode: item.mode, // Capture the assigned mode
+        mode: item.mode ?? (modeIds.length > 0 ? modeIds[idx % modeIds.length] : undefined),
         status: 'draft' as const
     }));
 
@@ -1102,53 +1103,19 @@ export const agenticChapterGeneration = async (
 export const gatherChapterFacts = async (beat: string, blueprint: ProjectBlueprint, signal?: AbortSignal): Promise<{ context: string, sources: {title: string, uri: string}[] }> => {
     const ai = getAI();
     
-    // Token Optimization: Fast heuristic check to see if live research is actually needed
-    const needsResearchPrompt = `You are an expert researcher. Determine if the following chapter beat requires live internet research.
+    // Fast keyword heuristic — no LLM roundtrip needed to decide if research is worthwhile.
+    // Research genres: non-fiction, history, biography, technical, science, business, journalism.
+    // Skip genres: fiction, self-help (conceptual), philosophy, mindset.
+    const NEEDS_RESEARCH_GENRES = ['non-fiction', 'nonfiction', 'history', 'histor', 'biograph', 'autobiography', 'memoir', 'true crime', 'science', 'technical', 'technology', 'business', 'journalism', 'social', 'political', 'economics'];
+    const SKIP_BEAT_KEYWORDS = ['hypothetical', 'metaphorical', 'philosophical', 'fictional', 'parable', 'personal reflection', 'self-reflection', 'mindset exercise', 'imagine if'];
+    const genreLower = `${blueprint.genre ?? ''} ${blueprint.type ?? ''}`.toLowerCase();
+    const beatLower = beat.toLowerCase();
+    const needsResearch = NEEDS_RESEARCH_GENRES.some(k => genreLower.includes(k)) &&
+                         !SKIP_BEAT_KEYWORDS.some(k => beatLower.includes(k));
     
-    Book Title: "${blueprint.title}"
-    Book Genre: "${blueprint.genre}"
-    Chapter Beat: "${beat}"
-    
-    Criteria for YES:
-    - Requires historical facts, dates, or specific events.
-    - Requires recent news, statistics, or data.
-    - Requires real-world examples, case studies, or biographies.
-    - The book genre is non-fiction, history, biography, or technical.
-    
-    Criteria for NO:
-    - The beat is purely conceptual, philosophical, or theoretical.
-    - The beat is about personal reflection, storytelling, or fiction.
-    - The beat is about general advice or common knowledge.
-    
-    Return JSON with:
-    - reasoning: A brief explanation of why research is or isn't needed.
-    - needsResearch: boolean (true for YES, false for NO).`;
-    
-    try {
-        const checkResponse = await retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
-            model: MODEL_FLASH,
-            contents: needsResearchPrompt,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        reasoning: { type: Type.STRING },
-                        needsResearch: { type: Type.BOOLEAN }
-                    }
-                }
-            }
-        }), 2, 1000, signal);
-        
-        const data = safeJsonParse(checkResponse.text || '{"needsResearch": true}', {needsResearch: true});
-        const needsResearch = data.needsResearch;
-        
-        if (!needsResearch) {
-            console.log("Skipping live research for conceptual chapter. Reasoning:", data.reasoning);
-            return { context: "No external research required for this conceptual chapter.", sources: [] };
-        }
-    } catch (e) {
-        console.warn("Research check failed, defaulting to YES", e);
+    if (!needsResearch) {
+        console.log("Skipping live research for conceptual/fiction chapter.");
+        return { context: "No external research required for this conceptual chapter.", sources: [] };
     }
 
     const response = await retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
@@ -1734,36 +1701,8 @@ export const proofreadChapter = async (content: string, signal?: AbortSignal) =>
 export const analyzeRemixContent = async (text: string, signal?: AbortSignal): Promise<{ blueprint: ProjectBlueprint, memory: ProjectMemory } | null> => {
     const ai = getAI();
     
-    // STEP 1: CLASSIFICATION
-    const classificationPrompt = `Classify the following source material into a book topic mode.
-    Return JSON with a single field 'mode'.
-    Values:
-    - 'Instructional': How-to, Self-Help, Business, Textbooks, Guides.
-    - 'Narrative': Memoir, Biography, History, True Crime, Journalism, Storytelling.
-    
-    Source Material:
-    ${text.substring(0, 5000)}`;
-
-    let mode = 'Instructional';
-    try {
-        const classResponse = await retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
-            model: MODEL_FLASH,
-            contents: classificationPrompt,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        mode: { type: Type.STRING, enum: ['Instructional', 'Narrative'] }
-                    }
-                }
-            }
-        }), 2, 1000, signal);
-        const modeRaw = safeJsonParse(classResponse.text || '{"mode": "Instructional"}', {mode: "Instructional"});
-        mode = modeRaw.mode || 'Instructional';
-    } catch (e) {
-        console.warn("Classification failed, defaulting to Instructional", e);
-    }
+    // STEP 1: CLASSIFICATION (keyword heuristic on source text — no LLM roundtrip needed)
+    const mode = classifyTopicHeuristic(text.substring(0, 2000));
 
     // Base Profile Schema (Common)
     const baseProfileSchema = {
