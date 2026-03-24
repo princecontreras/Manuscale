@@ -1,5 +1,8 @@
-import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
-import { MODEL_IMAGE, getAI, trackResponseUsage, retryWithBackoff } from "./geminiService";
+// DEPRECATED: This file is no longer used. Marketing image generation
+// is handled via aiClient.ts -> /api/ai server route.
+// Kept for reference only.
+
+import type { GenerateContentResponse } from "@google/genai";
 
 const imageCache = new Map<string, string>();
 const coverImageCache = new Map<string, string>(); // Cache compressed cover images
@@ -80,39 +83,6 @@ export const generateMarketingImage = async (
     }
     const mimeType = 'image/jpeg';
 
-    // 3. Generation
-    const ai = getAI();
-    try {
-        const response = await retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
-            model: MODEL_IMAGE,
-            contents: {
-                parts: [
-                    {
-                        inlineData: {
-                            mimeType: mimeType,
-                            data: compressedBase64
-                        }
-                    },
-                    { text: `Create a marketing graphic using the provided book cover as the central element. ${prompt}. High quality, professional design.` }
-                ]
-            }
-        }), 2, 1000); // Reduced retries and delay for faster failure detection
-        trackResponseUsage(response, MODEL_IMAGE);
-
-        for (const part of response.candidates?.[0]?.content?.parts || []) {
-            if (part.inlineData) {
-                const imageUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-                imageCache.set(hash, imageUrl);
-                onProgress(imageUrl);
-                return imageUrl;
-            }
-        }
-    } catch (e) {
-        // Silently fail for image generation - fallback to text-only assets
-        // Log error only in development
-        if (process.env.NODE_ENV === 'development') {
-            console.warn("Marketing image generation failed:", e instanceof Error ? e.message : String(e));
-        }
-    }
+    // DEPRECATED: This function is no longer called. Use generateMarketingImage from aiClient.ts instead.
     return undefined;
 };

@@ -149,6 +149,33 @@ class RequestQueue {
 }
 const aiQueue = new RequestQueue(6); // Increased concurrency for faster image generation
 
+// --- Error Classification Helper ---
+const isRetryableError = (error: any): { retryable: boolean; isRateLimit: boolean } => {
+    const statusStr = String(error?.status ?? '');
+    const msgStr = String(error?.message ?? '');
+    const statusCode = typeof error?.status === 'number' ? error.status : (error?.response?.status ?? 0);
+    const errorCode = error?.error?.code;
+
+    const isRateLimit = statusCode === 429 ||
+                        errorCode === 429 ||
+                        msgStr.includes('429') ||
+                        msgStr.includes('RESOURCE_EXHAUSTED');
+
+    const isServerErr = statusStr === 'UNAVAILABLE' ||
+                        msgStr.includes('UNAVAILABLE') ||
+                        msgStr.includes('high demand') ||
+                        msgStr.includes('overloaded') ||
+                        msgStr.includes('503') ||
+                        msgStr.includes('502') ||
+                        msgStr.includes('504') ||
+                        msgStr.includes('DEADLINE_EXCEEDED') ||
+                        msgStr.includes('INTERNAL') ||
+                        errorCode === 503 || errorCode === 502 || errorCode === 504 ||
+                        (statusCode >= 500 && statusCode < 600);
+
+    return { retryable: isRateLimit || isServerErr, isRateLimit };
+};
+
 // Retry Logic
 export async function retryWithBackoff<T>(fn: () => Promise<T>, retries = 5, delay = 2000, signal?: AbortSignal): Promise<T> {
     try {
@@ -159,27 +186,14 @@ export async function retryWithBackoff<T>(fn: () => Promise<T>, retries = 5, del
         if (signal?.aborted || error.message === "Aborted by user") throw new Error("Aborted by user");
         if (retries <= 0) throw error;
         
-        const statusStr = String(error?.status ?? '');
-        const msgStr = String(error?.message ?? '');
-        const isRateLimit = error?.status === 429 ||
-                            error?.response?.status === 429 ||
-                            msgStr.includes('429') ||
-                            error?.error?.code === 429 ||
-                            msgStr.includes('RESOURCE_EXHAUSTED');
-        const isServerErr = statusStr === 'UNAVAILABLE' ||
-                            msgStr.includes('UNAVAILABLE') ||
-                            msgStr.includes('high demand') ||
-                            (typeof error?.status === 'number' && error.status >= 500 && error.status < 600) ||
-                            error?.error?.code === 503 ||
-                            msgStr.includes('503') ||
-                            msgStr.includes('overloaded');
+        const { retryable, isRateLimit } = isRetryableError(error);
 
-        if (!isRateLimit && !isServerErr && error?.status) throw error;
+        if (!retryable && error?.status) throw error;
         
         // Exponential backoff with jitter
         const backoffDelay = delay * Math.pow(2, 5 - retries);
         const jitter = Math.random() * 1000;
-        const waitTime = isRateLimit ? Math.max(backoffDelay + jitter, 20000) : (backoffDelay + jitter);
+        const waitTime = isRateLimit ? Math.max(backoffDelay + jitter, 15000) : (backoffDelay + jitter);
         
         console.warn(`API Error (${isRateLimit ? '429 Rate Limit' : 'Server'}). Pausing for ${Math.round(waitTime/1000)}s... (${retries} left)`);
         
@@ -194,6 +208,51 @@ export async function retryWithBackoff<T>(fn: () => Promise<T>, retries = 5, del
         });
         
         return retryWithBackoff(fn, retries - 1, delay, signal);
+    }
+}
+
+// --- Model Fallback Helper ---
+// Tries primary model, falls back to stable model on 429/503/502/504 errors.
+async function callWithModelFallback<T>(
+    callFn: (model: string) => Promise<T>,
+    primaryModel: string,
+    signal?: AbortSignal
+): Promise<T> {
+    try {
+        return await callFn(primaryModel);
+    } catch (error: any) {
+        if (signal?.aborted || error?.message === "Aborted by user") throw error;
+        const { retryable } = isRetryableError(error);
+        if (!retryable) throw error;
+
+        // Determine fallback model
+        let fallbackModel: string | null = null;
+        if (primaryModel === MODEL_FLASH) fallbackModel = MODEL_FLASH_STABLE;
+        else if (primaryModel === MODEL_PRO) fallbackModel = MODEL_PRO_STABLE;
+        else if (primaryModel === MODEL_PRO_STABLE) fallbackModel = MODEL_FLASH_STABLE;
+        else if (primaryModel === MODEL_IMAGE) fallbackModel = MODEL_IMAGE_STABLE;
+
+        if (!fallbackModel) throw error;
+
+        console.warn(`⚠️ ${primaryModel} unavailable (${error?.status || error?.message}). Falling back to ${fallbackModel}.`);
+        try {
+            return await callFn(fallbackModel);
+        } catch (fallbackError: any) {
+            if (signal?.aborted || fallbackError?.message === "Aborted by user") throw fallbackError;
+            // If primary was a preview flash/pro and stable also failed, try the other stable
+            const { retryable: retryable2 } = isRetryableError(fallbackError);
+            if (!retryable2) throw fallbackError;
+
+            let lastResort: string | null = null;
+            if (fallbackModel === MODEL_FLASH_STABLE && primaryModel !== MODEL_PRO_STABLE) lastResort = MODEL_FLASH;
+            else if (fallbackModel === MODEL_PRO_STABLE) lastResort = MODEL_FLASH_STABLE;
+
+            if (lastResort && lastResort !== primaryModel) {
+                console.warn(`⚠️ ${fallbackModel} also unavailable. Final attempt with ${lastResort}.`);
+                return await callFn(lastResort);
+            }
+            throw fallbackError;
+        }
     }
 }
 
@@ -476,13 +535,17 @@ export const analyzeTopicAndConfigure = async (
     
     for (let attempt = 0; attempt < 3; attempt++) {
         try {
-            response = await retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
-                model: MODEL_FLASH,
-                contents: specificPrompt,
-                config: {
-                    responseMimeType: "application/json",
-                }
-            }), 3, 2000, signal);
+            response = await callWithModelFallback(
+                (model) => retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
+                    model,
+                    contents: specificPrompt,
+                    config: {
+                        responseMimeType: "application/json",
+                    }
+                }), 3, 2000, signal),
+                MODEL_FLASH,
+                signal
+            );
             
             trackResponseUsage(response, usedModel);
             
@@ -581,38 +644,46 @@ export const generateProjectOutline = async (blueprint: ProjectBlueprint, memory
     6. Ensure a logical progression: early chapters build foundations, middle chapters develop depth, final chapters synthesize.`;
 
     const [modeResult, outlineResult] = await Promise.allSettled([
-        retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
-            model: MODEL_FLASH,
-            contents: modePrompt,
-            config: { responseMimeType: "application/json" }
-        }), 3, 2000, signal),
-        retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
-            model: MODEL_FLASH,
-            contents: outlinePrompt,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        chapters: {
-                            type: Type.ARRAY,
-                            items: {
-                                type: Type.OBJECT,
-                                properties: {
-                                    id: { type: Type.STRING },
-                                    chapterNumber: { type: Type.NUMBER },
-                                    title: { type: Type.STRING },
-                                    beat: { type: Type.STRING },
-                                    targetWordCount: { type: Type.NUMBER },
-                                },
-                                required: ["id", "chapterNumber", "title", "beat", "targetWordCount"]
+        callWithModelFallback(
+            (model) => retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
+                model,
+                contents: modePrompt,
+                config: { responseMimeType: "application/json" }
+            }), 3, 2000, signal),
+            MODEL_FLASH,
+            signal
+        ),
+        callWithModelFallback(
+            (model) => retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
+                model,
+                contents: outlinePrompt,
+                config: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: Type.OBJECT,
+                        properties: {
+                            chapters: {
+                                type: Type.ARRAY,
+                                items: {
+                                    type: Type.OBJECT,
+                                    properties: {
+                                        id: { type: Type.STRING },
+                                        chapterNumber: { type: Type.NUMBER },
+                                        title: { type: Type.STRING },
+                                        beat: { type: Type.STRING },
+                                        targetWordCount: { type: Type.NUMBER },
+                                    },
+                                    required: ["id", "chapterNumber", "title", "beat", "targetWordCount"]
+                                }
                             }
-                        }
-                    },
-                    required: ["chapters"]
+                        },
+                        required: ["chapters"]
+                    }
                 }
-            }
-        }), 3, 2000, signal)
+            }), 3, 2000, signal),
+            MODEL_FLASH,
+            signal
+        )
     ]);
 
     // Process modes
@@ -688,13 +759,17 @@ export const generateAuthorityBible = async (blueprint: ProjectBlueprint, outlin
     }
     Ensure the JSON is complete and valid.`;
 
-    const response = await retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
-        model: MODEL_FLASH,
-        contents: prompt,
-        config: {
-            responseMimeType: "application/json",
-        }
-    }), 3, 2000, signal);
+    const response = await callWithModelFallback(
+        (model) => retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
+            model,
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+            }
+        }), 3, 2000, signal),
+        MODEL_FLASH,
+        signal
+    );
     
     trackResponseUsage(response, MODEL_FLASH);
 
@@ -1118,15 +1193,19 @@ export const gatherChapterFacts = async (beat: string, blueprint: ProjectBluepri
         return { context: "No external research required for this conceptual chapter.", sources: [] };
     }
 
-    const response = await retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
-        model: MODEL_FLASH,
-        contents: `Research facts relevant to: "${beat}". 
-        CRITICAL: Prioritize official primary sources (official websites of the subject), high-authority domains. 
-        Provide a detailed list of verified facts.`,
-        config: { 
-            tools: [{ googleSearch: {} }]
-        }
-    }), 3, 2000, signal);
+    const response = await callWithModelFallback(
+        (model) => retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
+            model,
+            contents: `Research facts relevant to: "${beat}". 
+            CRITICAL: Prioritize official primary sources (official websites of the subject), high-authority domains. 
+            Provide a detailed list of verified facts.`,
+            config: { 
+                tools: [{ googleSearch: {} }]
+            }
+        }), 3, 2000, signal),
+        MODEL_FLASH,
+        signal
+    );
     trackResponseUsage(response, MODEL_FLASH);
     
     let text = response.text || "";
@@ -1153,10 +1232,14 @@ export const generateBibliography = async (sources: {title: string, uri: string}
     Input Data: ${JSON.stringify(cleanSources)}
     Output Rules: Return semantic HTML (<div>, <ul>, <li>). Include clickable links.`;
 
-    const response = await retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
-        model: MODEL_FLASH,
-        contents: prompt
-    }), 3, 2000, signal);
+    const response = await callWithModelFallback(
+        (model) => retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
+            model,
+            contents: prompt
+        }), 3, 2000, signal),
+        MODEL_FLASH,
+        signal
+    );
     
     trackResponseUsage(response, MODEL_FLASH);
     return stripMarkdownWrapper(response.text || "");
@@ -1180,7 +1263,7 @@ export const generateImageFromPrompt = async (prompt: string, quality: 'fast' | 
                     imageSize: quality === 'high' ? "2K" : "1K"
                 }
             }
-        }), 0, 0);
+        }), 3, 2000);
         
         trackResponseUsage(response, usedModel);
 
@@ -1234,22 +1317,23 @@ export const generateBookMockup = async (title: string, coverImageBase64: string
     const mimeType = coverImageBase64.split(',')[0].split(':')[1].split(';')[0];
 
     try {
-        const response = await retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
-            model: MODEL_IMAGE, // gemini-2.5-flash-image
-            contents: {
-                parts: [
-                    {
-                        inlineData: {
-                            mimeType: mimeType,
-                            data: base64Data
-                        }
-                    },
-                    { text: prompt }
-                ]
-            }
-        }));
-        
-        trackResponseUsage(response, MODEL_IMAGE);
+        const response = await callWithModelFallback(
+            (model) => retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
+                model,
+                contents: {
+                    parts: [
+                        {
+                            inlineData: {
+                                mimeType: mimeType,
+                                data: base64Data
+                            }
+                        },
+                        { text: prompt }
+                    ]
+                }
+            }), 3, 2000),
+            MODEL_IMAGE
+        );
 
         for (const part of response.candidates?.[0]?.content?.parts || []) {
             if (part.inlineData) {
@@ -1312,11 +1396,14 @@ const generateCoreAndAPlus = async (blueprint: ProjectBlueprint) => {
     
     Return pure JSON: {"blurb": "string", "keywords": ["string"], "categories": ["string"], "priceStrategy": "string", "amazonDescription": "string", "aPlusContent": [{"headline": "string", "body": "string", "imagePrompt": "string"}], "quoteGraphics": [{"quote": "string"}]}`;
 
-    const response = await retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
-        model: MODEL_FLASH,
-        contents: prompt,
-        config: { responseMimeType: "application/json" }
-    }), 2, 1000);
+    const response = await callWithModelFallback(
+        (model) => retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
+            model,
+            contents: prompt,
+            config: { responseMimeType: "application/json" }
+        }), 3, 2000),
+        MODEL_FLASH
+    );
     return safeJsonParse(response.text || "{}");
 };
 
@@ -1336,11 +1423,14 @@ const generateSocialAndAds = async (blueprint: ProjectBlueprint) => {
     
     Return pure JSON: {"socialPosts": [{"platform": "string", "content": "string"}], "emailAnnouncement": "string", "emailPromotionTemplate": "string", "facebookAdCreatives": [{"prompt": "string"}], "socialMediaGraphics": [{"prompt": "string"}], "adCopyExamples": [{"platform": "string", "copy": "string"}]}`;
 
-    const response = await retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
-        model: MODEL_FLASH,
-        contents: prompt,
-        config: { responseMimeType: "application/json" }
-    }), 2, 1000);
+    const response = await callWithModelFallback(
+        (model) => retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
+            model,
+            contents: prompt,
+            config: { responseMimeType: "application/json" }
+        }), 3, 2000),
+        MODEL_FLASH
+    );
     return safeJsonParse(response.text || "{}");
 };
 
@@ -1350,10 +1440,13 @@ export const generateAboutAuthor = async (authorName: string, bookSummary: strin
     Context: They wrote a book about: ${bookSummary}.
     Tone: Authoritative but approachable. 150 words max.`;
     
-    const response = await retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
-        model: MODEL_FLASH,
-        contents: prompt
-    }));
+    const response = await callWithModelFallback(
+        (model) => retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
+            model,
+            contents: prompt
+        }), 3, 2000),
+        MODEL_FLASH
+    );
     trackResponseUsage(response, MODEL_FLASH);
     return stripMarkdownWrapper(response.text || "");
 };
@@ -1364,10 +1457,13 @@ export const generateDedication = async (bookTitle: string, bookSummary: string)
     Context: The book is about: ${bookSummary}.
     Tone: Sincere, inspiring, or appreciative. Keep it to 1-2 sentences. Do not include quotes or formatting.`;
     
-    const response = await retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
-        model: MODEL_FLASH,
-        contents: prompt
-    }));
+    const response = await callWithModelFallback(
+        (model) => retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
+            model,
+            contents: prompt
+        }), 3, 2000),
+        MODEL_FLASH
+    );
     trackResponseUsage(response, MODEL_FLASH);
     return stripMarkdownWrapper(response.text || "").trim();
 };
@@ -1386,20 +1482,24 @@ export const generateSpeech = async (text: string, voiceName: string = 'Kore', q
     // Using gemini-2.5-flash-preview-tts as per guidelines
     
     try {
-        const response = await retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
-            model: MODEL_TTS,
-            contents: {
-                parts: [{ text: text }]
-            },
-            config: {
-                responseModalities: ['AUDIO'],
-                speechConfig: {
-                    voiceConfig: {
-                        prebuiltVoiceConfig: { voiceName: voiceName }
+        const response = await callWithModelFallback(
+            (model) => retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
+                model: model === MODEL_FLASH_STABLE ? MODEL_TTS : MODEL_TTS, // TTS only has one model
+                contents: {
+                    parts: [{ text: text }]
+                },
+                config: {
+                    responseModalities: ['AUDIO'],
+                    speechConfig: {
+                        voiceConfig: {
+                            prebuiltVoiceConfig: { voiceName: voiceName }
+                        }
                     }
                 }
-            }
-        }), 2, 2000, signal);
+            }), 3, 2000, signal),
+            MODEL_TTS,
+            signal
+        );
         
         trackResponseUsage(response, MODEL_TTS);
 
@@ -1490,14 +1590,18 @@ export const analyzeChapterAftermath = async (content: string, memory: any, type
 
     for (let attempt = 0; attempt < 3; attempt++) {
         try {
-            const response = await retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
-                model: MODEL_FLASH,
-                contents: prompt,
-                config: {
-                    thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
-                    responseMimeType: "application/json",
-                }
-            }), 2, 1000, signal);
+            const response = await callWithModelFallback(
+                (model) => retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
+                    model,
+                    contents: prompt,
+                    config: {
+                        thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+                        responseMimeType: "application/json",
+                    }
+                }), 3, 2000, signal),
+                MODEL_FLASH,
+                signal
+            );
             
             const rawText = response.text || "{}";
             const cleanJson = stripMarkdownWrapper(rawText);
@@ -1547,10 +1651,14 @@ export const compressGlobalSummary = async (s: string, e: string, signal?: Abort
     Return ONLY the compressed summary text.`;
 
     try {
-        const response = await retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
-            model: MODEL_FLASH,
-            contents: prompt
-        }), 2, 1000, signal);
+        const response = await callWithModelFallback(
+            (model) => retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
+                model,
+                contents: prompt
+            }), 3, 2000, signal),
+            MODEL_FLASH,
+            signal
+        );
         return response.text?.trim() || s + "\n" + e;
     } catch (err) {
         console.warn("Summary compression failed", err);
@@ -1576,10 +1684,14 @@ export const expandChapterBeat = async (beat: string, title: string, summary: st
     Return ONLY the expanded text, no conversational filler.`;
 
     try {
-        const response = await retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
-            model: MODEL_FLASH,
-            contents: prompt
-        }), 2, 1000, signal);
+        const response = await callWithModelFallback(
+            (model) => retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
+                model,
+                contents: prompt
+            }), 3, 2000, signal),
+            MODEL_FLASH,
+            signal
+        );
         return response.text?.trim() || beat;
     } catch (e) {
         console.warn("Beat expansion failed", e);
@@ -1597,19 +1709,23 @@ export const breakDownChapter = async (title: string, beat: string, type: string
     Return JSON with a single array of strings called 'logicFlow'. Each string should be a 1-2 sentence description of the section/sub-point.`;
 
     try {
-        const response = await retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
-            model: MODEL_FLASH,
-            contents: prompt,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        logicFlow: { type: Type.ARRAY, items: { type: Type.STRING } }
+        const response = await callWithModelFallback(
+            (model) => retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
+                model,
+                contents: prompt,
+                config: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: Type.OBJECT,
+                        properties: {
+                            logicFlow: { type: Type.ARRAY, items: { type: Type.STRING } }
+                        }
                     }
                 }
-            }
-        }), 2, 1000, signal);
+            }), 3, 2000, signal),
+            MODEL_FLASH,
+            signal
+        );
         
         const data = safeJsonParse(response.text || '{"logicFlow": []}', {logicFlow: []});
         return data.logicFlow || [];
@@ -1637,10 +1753,14 @@ export const expandNonFictionOutline = async (beat: string, title: string, summa
     Return ONLY the expanded text, no conversational filler.`;
 
     try {
-        const response = await retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
-            model: MODEL_FLASH,
-            contents: prompt
-        }), 2, 1000, signal);
+        const response = await callWithModelFallback(
+            (model) => retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
+                model,
+                contents: prompt
+            }), 3, 2000, signal),
+            MODEL_FLASH,
+            signal
+        );
         return response.text?.trim() || beat;
     } catch (e) {
         console.warn("Beat expansion failed", e);
@@ -1651,14 +1771,18 @@ export const performMagicRefinement = async (text: string, instruction: string, 
     const ai = getAI();
     if (!ai) return text;
     try {
-        const response = await retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
-            model: 'gemini-3.1-pro-preview',
-            contents: `You are an expert editor. Apply the following instruction to the provided text. Return ONLY the modified text, without any conversational filler, markdown formatting blocks, or explanations.\n\nInstruction: ${instruction}\n\nText:\n${text}`,
-            config: {
-                systemInstruction: "You are an expert editor. Return ONLY the modified text.",
-                temperature: 0.4
-            }
-        }), 3, 2000, signal);
+        const response = await callWithModelFallback(
+            (model) => retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
+                model,
+                contents: `You are an expert editor. Apply the following instruction to the provided text. Return ONLY the modified text, without any conversational filler, markdown formatting blocks, or explanations.\n\nInstruction: ${instruction}\n\nText:\n${text}`,
+                config: {
+                    systemInstruction: "You are an expert editor. Return ONLY the modified text.",
+                    temperature: 0.4
+                }
+            }), 3, 2000, signal),
+            MODEL_PRO,
+            signal
+        );
         
         let refinedText = response.text || text;
         
@@ -1672,16 +1796,20 @@ export const proofreadChapter = async (content: string, signal?: AbortSignal) =>
     const ai = getAI();
     if (!ai) return content;
     try {
-        const response = await retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
-            model: MODEL_FLASH,
-            contents: `You are a professional book proofreader. Review the following chapter content (which is in HTML format) for grammar, spelling, punctuation, and typographical errors. 
+        const response = await callWithModelFallback(
+            (model) => retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
+                model,
+                contents: `You are a professional book proofreader. Review the following chapter content (which is in HTML format) for grammar, spelling, punctuation, and typographical errors. 
             Fix the errors directly in the text. Do NOT change the author's voice, style, or the HTML structure. 
             Return ONLY the corrected HTML content. Do not include any explanations, markdown code blocks, or conversational filler.\n\nContent to proofread:\n${content}`,
-            config: {
-                systemInstruction: "You are an expert proofreader. Return ONLY the corrected HTML.",
-                temperature: 0.2
-            }
-        }), 3, 2000, signal);
+                config: {
+                    systemInstruction: "You are an expert proofreader. Return ONLY the corrected HTML.",
+                    temperature: 0.2
+                }
+            }), 3, 2000, signal),
+            MODEL_FLASH,
+            signal
+        );
         
         let refinedText = response.text || content;
         
@@ -1825,14 +1953,18 @@ export const analyzeRemixContent = async (text: string, signal?: AbortSignal): P
     };
 
     try {
-        const response = await retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
-            model: MODEL_FLASH,
-            contents: specificPrompt,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: fullSchema
-            }
-        }), 3, 2000, signal);
+        const response = await callWithModelFallback(
+            (model) => retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
+                model,
+                contents: specificPrompt,
+                config: {
+                    responseMimeType: "application/json",
+                    responseSchema: fullSchema
+                }
+            }), 3, 2000, signal),
+            MODEL_FLASH,
+            signal
+        );
         
         trackResponseUsage(response, MODEL_FLASH);
         
@@ -1870,13 +2002,17 @@ export const analyzeRemixContent = async (text: string, signal?: AbortSignal): P
 export const performResearch = async (q: string, signal?: AbortSignal): Promise<{ facts: string[], sources: any[] }> => {
     const ai = getAI();
     try {
-        const response = await retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
-            model: MODEL_FLASH,
-            contents: `Research the following query: ${q}. Return a list of 3-5 key facts.`,
-            config: {
-                tools: [{ googleSearch: {} }]
-            }
-        }), 2, 1000, signal);
+        const response = await callWithModelFallback(
+            (model) => retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
+                model,
+                contents: `Research the following query: ${q}. Return a list of 3-5 key facts.`,
+                config: {
+                    tools: [{ googleSearch: {} }]
+                }
+            }), 3, 2000, signal),
+            MODEL_FLASH,
+            signal
+        );
         
         const facts = (response.text || "").split('\n').filter(line => line.trim().length > 0);
         const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
@@ -1890,7 +2026,106 @@ export const performResearch = async (q: string, signal?: AbortSignal): Promise<
         return { facts: [], sources: [] };
     }
 };
-export const synthesizeBlueprintFromMemory = async (m: any, t: string, signal?: AbortSignal): Promise<ProjectBlueprint | null> => null;
+export const synthesizeBlueprintFromMemory = async (memory: ProjectMemory, thesis: string, signal?: AbortSignal): Promise<ProjectBlueprint | null> => {
+    const ai = getAI();
+
+    const researchSummary = memory.research.map(r => `- ${r.name}: ${r.description}`).join('\n');
+    const figuresSummary = memory.keyFigures.map(f => `- ${f.name}: ${f.description}`).join('\n');
+    const conceptsSummary = memory.concepts.map(c => `- ${c.name}: ${c.description}`).join('\n');
+    const glossarySummary = memory.glossary.map(g => `- ${g.name}: ${g.description}`).join('\n');
+
+    const prompt = `You are a book architect. Based on the following curated research and thesis, generate a complete project blueprint for a Non-Fiction book.
+
+THESIS / CENTRAL ARGUMENT:
+${thesis}
+
+RESEARCH FACTS:
+${researchSummary || 'None'}
+
+KEY FIGURES:
+${figuresSummary || 'None'}
+
+CORE CONCEPTS:
+${conceptsSummary || 'None'}
+
+GLOSSARY TERMS:
+${glossarySummary || 'None'}
+
+Generate a complete book blueprint with:
+- A compelling title and subtitle
+- Book type (Non-Fiction)
+- Genre
+- A visual style description for the cover
+- A cover art prompt
+- A comprehensive summary
+- A narrative profile (voice, tense, POV, target audience, complexity, archetype, target word count, chapter count, pacing)
+- A central thesis
+- A reader persona (primary pain point, desired outcome)
+- A book structure with 3-5 phases
+
+Return valid JSON matching this schema:
+{
+  "title": "string",
+  "subtitle": "string",
+  "type": "Non-Fiction",
+  "genre": "string",
+  "visualStyle": "string",
+  "coverPrompt": "string",
+  "summary": "string",
+  "profile": {
+    "voice": "string",
+    "tense": "string",
+    "pov": "string",
+    "targetAudience": "string",
+    "complexity": "string",
+    "archetype": "string",
+    "targetWordCount": number,
+    "chapterCount": number,
+    "pacing": "string"
+  },
+  "centralThesis": "string",
+  "readerPersona": {
+    "primaryPainPoint": "string",
+    "desiredOutcome": "string"
+  },
+  "structure": {
+    "archetype": "string",
+    "description": "string",
+    "phases": [
+      { "title": "string", "intent": "string", "chapterCount": number }
+    ]
+  }
+}`;
+
+    try {
+        const response = await callWithModelFallback(
+            (model) => retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
+                model,
+                contents: prompt,
+                config: {
+                    responseMimeType: "application/json",
+                }
+            }), 3, 2000, signal),
+            MODEL_FLASH,
+            signal
+        );
+
+        trackResponseUsage(response, MODEL_FLASH);
+
+        const rawText = response.text || "{}";
+        const cleanJson = stripMarkdownWrapper(rawText);
+        const repairedJson = jsonrepair(cleanJson);
+        const data = ProjectBlueprintSchema.parse(JSON.parse(repairedJson));
+
+        if (!data.structuralSignature) data.structuralSignature = [];
+        if (!data.chapterModes) data.chapterModes = [];
+
+        return { ...data, mode: 'Instructional' as const };
+    } catch (e) {
+        console.error("synthesizeBlueprintFromMemory failed:", e);
+        return null;
+    }
+};
 
 // --- DIRECTOR ENGINE (Function Calling) ---
 
@@ -1962,15 +2197,19 @@ export const consultDirector = async (mission: string, slimProject: any, history
     CRITICAL: Do NOT ask the user for Author Name, Copyright, or Bibliography. These are provided in the project state.
     `;
 
-    const response = await retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
-        model: MODEL_FLASH,
-        contents: `Current Project State: ${JSON.stringify(slimProject)}. Recent History: ${JSON.stringify(history)}. decide the next step.`,
-        config: { 
-            tools: DIRECTOR_TOOLS,
-            systemInstruction: systemInstruction,
-            temperature: 0.2
-        }
-    }), 3, 2000, signal);
+    const response = await callWithModelFallback(
+        (model) => retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
+            model,
+            contents: `Current Project State: ${JSON.stringify(slimProject)}. Recent History: ${JSON.stringify(history)}. decide the next step.`,
+            config: { 
+                tools: DIRECTOR_TOOLS,
+                systemInstruction: systemInstruction,
+                temperature: 0.2
+            }
+        }), 3, 2000, signal),
+        MODEL_FLASH,
+        signal
+    );
 
     trackResponseUsage(response, usedModel);
 
@@ -2037,32 +2276,17 @@ export const runSpecialistAgent = async (role: AgentRole, instruction: string, c
     let response;
     try {
         const modelToUse = (role === 'scholar' || role === 'designer') ? MODEL_FLASH : usedModel;
-        response = await retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
-            model: modelToUse,
-            contents: `Act as ${role}. Instruction: ${instruction}.${promptSuffix} Context: ${JSON.stringify(context)}.`,
-            config: config
-        }), 0, 0, signal);
+        response = await callWithModelFallback(
+            (model) => retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
+                model,
+                contents: `Act as ${role}. Instruction: ${instruction}.${promptSuffix} Context: ${JSON.stringify(context)}.`,
+                config: config
+            }), 3, 2000, signal),
+            modelToUse,
+            signal
+        );
     } catch (e: any) {
-        const isQuotaErr = e?.status === 429 || e?.message?.includes('429') || e?.status === 503 || e?.error?.code === 503 || e?.message?.includes('503');
-        if (usedModel === MODEL_PRO && isQuotaErr) {
-            console.warn(`⚠️ PRO 3.1 QUOTA EXCEEDED. Falling back to Pro 3 for ${role}.`);
-            try {
-                usedModel = MODEL_PRO_STABLE;
-                response = await retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
-                    model: MODEL_PRO_STABLE,
-                    contents: `Act as ${role}. Instruction: ${instruction}.${promptSuffix} Context: ${JSON.stringify(context)}.`,
-                    config: config
-                }), 0, 0, signal);
-            } catch (e2: any) {
-                console.warn(`⚠️ PRO 3 QUOTA EXCEEDED. Switching to Flash model for ${role}.`);
-                usedModel = MODEL_FLASH;
-                response = await retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
-                    model: MODEL_FLASH,
-                    contents: `Act as ${role}. Instruction: ${instruction}.${promptSuffix} Context: ${JSON.stringify(context)}.`,
-                    config: config
-                }), 3, 2000, signal);
-            }
-        } else { throw e; }
+        throw e;
     }
 
     trackResponseUsage(response, usedModel);

@@ -2,7 +2,7 @@ import { createServer } from 'http';
 import { parse } from 'url';
 import next from 'next';
 import { Server } from 'socket.io';
-import { generateMarketingImage } from './services/ImageGenerationService';
+import { generateImageFromPrompt } from './services/geminiService';
 
 const dev = process.env.NODE_ENV !== 'production';
 const app = next({ dev });
@@ -18,14 +18,16 @@ app.prepare().then(() => {
 
   io.on('connection', (socket) => {
     console.log('Client connected');
-    socket.on('generate-image', async (data: { prompt: string; coverImageBase64: string; id: string }) => {
-        const { prompt, coverImageBase64, id } = data;
-        const imageUrl = await generateMarketingImage(prompt, coverImageBase64, (url) => {
-            socket.emit('image-generated', { id, url });
-        });
-        if (imageUrl) {
-            socket.emit('image-generated', { id, url: imageUrl });
-        } else {
+    socket.on('generate-image', async (data: { prompt: string; id: string }) => {
+        const { prompt, id } = data;
+        try {
+            const imageUrl = await generateImageFromPrompt(prompt);
+            if (imageUrl) {
+                socket.emit('image-generated', { id, url: imageUrl });
+            } else {
+                socket.emit('image-error', { id, error: 'Generation failed' });
+            }
+        } catch (e) {
             socket.emit('image-error', { id, error: 'Generation failed' });
         }
     });

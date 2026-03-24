@@ -177,20 +177,37 @@ export async function POST(req: NextRequest) {
 
     const statusStr = String(error?.status ?? '');
     const msgStr = String(error?.message ?? '');
+    const statusCode = typeof error?.status === 'number' ? error.status : 0;
+    const errorCode = error?.error?.code;
+
     const isOverloaded = statusStr === 'UNAVAILABLE' ||
                          msgStr.includes('UNAVAILABLE') ||
                          msgStr.includes('high demand') ||
                          msgStr.includes('overloaded') ||
-                         msgStr.includes('503');
-    const isRateLimit = error?.status === 429 || msgStr.includes('429') || msgStr.includes('RESOURCE_EXHAUSTED');
+                         msgStr.includes('503') ||
+                         msgStr.includes('502') ||
+                         msgStr.includes('504') ||
+                         msgStr.includes('DEADLINE_EXCEEDED') ||
+                         msgStr.includes('INTERNAL') ||
+                         errorCode === 503 || errorCode === 502 || errorCode === 504 ||
+                         (statusCode >= 500 && statusCode < 600);
+    const isRateLimit = error?.status === 429 || msgStr.includes('429') || msgStr.includes('RESOURCE_EXHAUSTED') || errorCode === 429;
+    const isAborted = msgStr.includes('Aborted by user') || msgStr.includes('aborted');
 
-    const httpStatus = isRateLimit ? 429 : isOverloaded ? 503 : (typeof error?.status === 'number' && error.status >= 500) ? 502 : 500;
+    if (isAborted) {
+      return NextResponse.json({ error: 'Request cancelled.' }, { status: 499 });
+    }
+
+    const httpStatus = isRateLimit ? 429 : isOverloaded ? 503 : (statusCode >= 500) ? 502 : 500;
     const userMessage = isOverloaded
       ? 'The AI model is currently experiencing high demand. Please try again in a moment.'
       : isRateLimit
       ? 'Rate limit reached. Please wait a moment before trying again.'
       : error?.message || 'Internal server error';
 
-    return NextResponse.json({ error: userMessage }, { status: httpStatus });
+    return NextResponse.json(
+      { error: userMessage, retryable: isOverloaded || isRateLimit },
+      { status: httpStatus }
+    );
   }
 }

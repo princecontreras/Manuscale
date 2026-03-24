@@ -62,24 +62,42 @@ async function getIdToken(): Promise<string | null> {
 }
 
 async function callAI(action: string, params: Record<string, any>, signal?: AbortSignal): Promise<any> {
-  const token = await getIdToken();
-  const res = await fetch('/api/ai', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify({ action, params }),
-    signal,
-  });
+  const maxRetries = 3;
+  let lastError: Error | null = null;
 
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-    throw new Error(errorData.error || `AI request failed (${res.status})`);
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    if (signal?.aborted) throw new Error('Request cancelled.');
+
+    const token = await getIdToken();
+    const res = await fetch('/api/ai', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ action, params }),
+      signal,
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      return data.result;
+    }
+
+    const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}`, retryable: false }));
+    const isRetryable = errorData.retryable || res.status === 429 || res.status === 503 || res.status === 502 || res.status === 504;
+
+    if (isRetryable && attempt < maxRetries - 1) {
+      // Exponential backoff: 3s, 6s, 12s
+      const delay = 3000 * Math.pow(2, attempt) + Math.random() * 1000;
+      await new Promise(resolve => setTimeout(resolve, delay));
+      continue;
+    }
+
+    lastError = new Error(errorData.error || `AI request failed (${res.status})`);
   }
 
-  const data = await res.json();
-  return data.result;
+  throw lastError || new Error('AI request failed');
 }
 
 // --- Proxied AI Functions ---
@@ -124,65 +142,80 @@ export const streamChapterContent = async (
   additionalContext?: string,
   signal?: AbortSignal
 ): Promise<string> => {
-  const token = await getIdToken();
-  const res = await fetch('/api/ai/stream', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify({
-      params: {
-        blueprint,
-        profile,
-        chapter,
-        memory,
-        prevContext,
-        nextContext,
-        fullOutline,
-        globalSummary,
-        additionalContext,
+  const maxRetries = 2;
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    if (signal?.aborted) throw new Error('Request cancelled.');
+
+    const token = await getIdToken();
+    const res = await fetch('/api/ai/stream', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-    }),
-    signal,
-  });
+      body: JSON.stringify({
+        params: {
+          blueprint,
+          profile,
+          chapter,
+          memory,
+          prevContext,
+          nextContext,
+          fullOutline,
+          globalSummary,
+          additionalContext,
+        },
+      }),
+      signal,
+    });
 
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-    throw new Error(errorData.error || 'Stream failed');
-  }
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}`, retryable: false }));
+      const isRetryable = errorData.retryable || res.status === 429 || res.status === 503 || res.status === 502;
+      if (isRetryable && attempt < maxRetries) {
+        const delay = 4000 * Math.pow(2, attempt) + Math.random() * 1000;
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      throw new Error(errorData.error || 'Stream failed');
+    }
 
-  const reader = res.body!.getReader();
-  const decoder = new TextDecoder();
-  let fullContent = '';
-  let buffer = '';
+    const reader = res.body!.getReader();
+    const decoder = new TextDecoder();
+    let fullContent = '';
+    let buffer = '';
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
 
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split('\n');
-    buffer = lines.pop() || '';
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
 
-    for (const line of lines) {
-      if (!line.startsWith('data: ')) continue;
-      try {
-        const payload = JSON.parse(line.slice(6));
-        if (payload.type === 'chunk') {
-          onChunk(payload.data);
-        } else if (payload.type === 'done') {
-          fullContent = payload.data;
-        } else if (payload.type === 'error') {
-          throw new Error(payload.error);
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        try {
+          const payload = JSON.parse(line.slice(6));
+          if (payload.type === 'chunk') {
+            onChunk(payload.data);
+          } else if (payload.type === 'done') {
+            fullContent = payload.data;
+          } else if (payload.type === 'error') {
+            throw new Error(payload.error);
+          }
+        } catch (e) {
+          if (e instanceof Error && e.message !== 'Unexpected end of JSON input') throw e;
         }
-      } catch (e) {
-        if (e instanceof Error && e.message !== 'Unexpected end of JSON input') throw e;
       }
     }
-  }
 
-  return fullContent;
+    return fullContent;
+  } // end retry loop
+
+  throw lastError || new Error('Stream failed after retries');
 };
 
 export const agenticChapterGeneration = async (
