@@ -314,12 +314,11 @@ const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, onCreateNew, onOpe
                             <p className="text-xs sm:text-sm text-slate-500">Your private space for high-value publishing.</p>
                         </div>
                         <div className="flex flex-wrap gap-2">
-                            <button 
-                                onClick={() => {}}
-                                className="px-4 py-2 rounded-lg text-sm font-bold bg-slate-900 text-white"
+                            <span 
+                                className="px-4 py-2 rounded-lg text-sm font-bold bg-slate-900 text-white cursor-default"
                             >
                                 Projects
-                            </button>
+                            </span>
                             <ProfileDropdown onViewProfile={onViewProfile} onLogout={() => setShowLogoutConfirm(true)} />
                             <button 
                                 onClick={() => setShowSettings(true)}

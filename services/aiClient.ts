@@ -38,17 +38,7 @@ export const getRelevantContext = async (
     .slice(0, 8);
 };
 
-// Re-export model constants (safe, they're just strings)
-export const MODEL_PRO = 'gemini-2.5-pro';
-export const MODEL_PRO_STABLE = 'gemini-2.5-flash';
-export const MODEL_FLASH = 'gemini-2.5-flash';
-export const MODEL_FLASH_STABLE = 'gemini-2.0-flash-lite';
-export const MODEL_IMAGE = 'gemini-2.5-flash-image';
-export const MODEL_IMAGE_STABLE = 'gemini-2.5-flash';
-export const MODEL_TTS = 'gemini-2.5-flash-preview-tts';
 
-// Stub for tracking (disabled)
-export const trackResponseUsage = (_response: any, _model: string) => {};
 
 // --- Core API call helper ---
 
@@ -392,7 +382,7 @@ export const runSpecialistAgent = async (
   return callAI('runSpecialistAgent', { role, instruction, context }, signal);
 };
 
-// GenerateContentResponse type re-export for compatibility\nexport type GenerateContentResponse = any;
+
 
 // --- Marketing Image Generation (with client-side compression) ---
 

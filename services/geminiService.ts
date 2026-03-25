@@ -271,7 +271,6 @@ export const getRelevantContext = async (beat: string, memory: ProjectMemory, si
     const cacheKey = beat + JSON.stringify(memory.research.slice(0, 5)); // Simple key
     if (contextCache.has(cacheKey)) return contextCache.get(cacheKey)!;
 
-    console.time("getRelevantContext");
     // 1. Flatten all memory items into a searchable index
     const allItems = [
         ...memory.research,
@@ -284,7 +283,6 @@ export const getRelevantContext = async (beat: string, memory: ProjectMemory, si
     ];
 
     if (allItems.length === 0) {
-        console.timeEnd("getRelevantContext");
         return [];
     }
 
@@ -313,11 +311,8 @@ export const getRelevantContext = async (beat: string, memory: ProjectMemory, si
 
     // Fallback: If no matches, grab the first few research items so we aren't empty
     if (relevantItems.length === 0) {
-        console.timeEnd("getRelevantContext");
         return memory.research.slice(0, 5);
     }
-    
-    console.timeEnd("getRelevantContext");
     contextCache.set(cacheKey, relevantItems);
     return relevantItems;
 };

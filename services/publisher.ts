@@ -122,8 +122,7 @@ const extractAndEmbedImages = async (html: string, zip: any): Promise<string> =>
 export const getDOCXUint8Array = async (data: EbookData): Promise<Uint8Array | null> => {
   // @ts-ignore
   if (!window.JSZip) {
-      alert("DOCX generator (JSZip) not loaded.");
-      return null;
+      throw new Error("DOCX generator (JSZip) not loaded. Please refresh the page.");
   }
 
   // @ts-ignore
@@ -227,8 +226,7 @@ export const generateDOCX = async (data: EbookData) => {
 export const getEPUBUint8Array = async (data: EbookData): Promise<Uint8Array | null> => {
   // @ts-ignore
   if (!window.JSZip) {
-      alert("EPUB generator (JSZip) not loaded.");
-      return null;
+      throw new Error("EPUB generator (JSZip) not loaded. Please refresh the page.");
   }
   
   // @ts-ignore
@@ -438,8 +436,7 @@ export const generateEPUB = async (data: EbookData) => {
 export const generateMarketingAssetsZip = async (data: EbookData) => {
   // @ts-ignore
   if (!window.JSZip) {
-      alert("ZIP generator (JSZip) not loaded.");
-      return;
+      throw new Error("ZIP generator (JSZip) not loaded. Please refresh the page.");
   }
 
   // @ts-ignore
@@ -571,8 +568,7 @@ export const generateAudiobookZip = async (
 ): Promise<Blob | null> => {
     // @ts-ignore
     if (!window.JSZip) {
-        alert("Audiobook generator (JSZip) not loaded.");
-        return null;
+        throw new Error("Audiobook generator (JSZip) not loaded. Please refresh the page.");
     }
 
     // @ts-ignore
@@ -584,8 +580,7 @@ export const generateAudiobookZip = async (
     
     const chapters = (data.outline || []).filter(c => c.status === 'completed' && c.content);
     if (chapters.length === 0) {
-        alert("No completed chapters to generate.");
-        return null;
+        throw new Error("No completed chapters to generate audiobook from.");
     }
 
     // --- NEW: CONCURRENCY QUEUE ARCHITECTURE ---
