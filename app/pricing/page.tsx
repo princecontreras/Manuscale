@@ -172,10 +172,7 @@ const PricingPage: React.FC = () => {
               {isSubscribed && subscription.isMonthly ? (
                 'Current Plan'
               ) : (
-                <>
-                  Get Started
-                  <ArrowRight size={16} className="ml-2" />
-                </>
+                <>Subscribe</>
               )}
             </Button>
           </div>
@@ -234,10 +231,7 @@ const PricingPage: React.FC = () => {
               {isSubscribed && subscription.isYearly ? (
                 'Current Plan'
               ) : (
-                <>
-                  Subscribe & Save
-                  <ArrowRight size={16} className="ml-2" />
-                </>
+                <>Subscribe</>
               )}
             </Button>
           </div>
