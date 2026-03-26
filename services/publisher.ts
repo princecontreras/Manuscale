@@ -1,5 +1,5 @@
 
-import { EbookData } from "../types";
+import { EbookData, DesignSettings } from "../types";
 import { generateSpeech } from "./aiClient";
 
 // Helper to convert dataURI to Blob
@@ -86,19 +86,60 @@ const chunkText = (text: string, maxLength: number = 3000): string[] => {
     return chunks;
 };
 
-const CSS_STYLES = `
-<style>
-    .callout-box { background-color: #f0f9ff; border: 1px solid #bae6fd; padding: 15px; border-radius: 8px; margin: 10px 0; }
-    .data-table { width: 100%; border-collapse: collapse; margin: 10px 0; }
-    .data-table th, .data-table td { border: 1px solid #e2e8f0; padding: 8px; text-align: left; }
-    .pull-quote { font-style: italic; border-left: 4px solid #6366f1; padding-left: 15px; margin: 15px 0; color: #475569; }
-    .action-plan { background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px; margin: 10px 0; }
-    .case-study { background-color: #fff7ed; border: 1px solid #fed7aa; padding: 15px; border-radius: 8px; margin: 10px 0; }
-    .self-assessment { background-color: #f0fdf4; border: 1px solid #bbf7d0; padding: 15px; border-radius: 8px; margin: 10px 0; }
-</style>
-`;
+// Unified CSS generation from DesignSettings — shared by EPUB and DOCX
+const getExportCSS = (design?: DesignSettings): string => {
+    const fontFamily = design?.fontFamily || "'Merriweather', serif";
+    const fontSize = design?.fontSize || "11pt";
+    const lineHeight = design?.lineHeight || "1.6";
+    const paragraphSpacing = design?.paragraphSpacing || "1em";
+    const firstLineIndent = design?.firstLineIndent || "0em";
+    const blockIndent = design?.blockIndent || "0em";
+    const justification = design?.justification === 'justify' ? 'justify' : 'left';
+    const isIndent = design?.paragraphStyle === 'indent';
 
-// Helper: Extract images from HTML and embed in ZIP
+    return `
+    body { font-family: ${fontFamily}; line-height: ${lineHeight}; font-size: ${fontSize}; margin: 0; padding: 1em; color: #1e293b; }
+    h1 { text-align: center; page-break-before: always; margin-top: 2em; margin-bottom: 1em; font-size: 2em; font-weight: bold; }
+    h2 { font-size: 1.5em; margin-top: 1.5em; margin-bottom: 0.75em; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.25em; }
+    h3 { font-size: 1.25em; font-weight: 700; margin-top: 1.25em; margin-bottom: 0.5em; }
+    h4 { font-size: 1em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 1em; margin-bottom: 0.5em; color: #64748b; }
+    p { text-align: ${justification}; margin-bottom: ${isIndent ? '0' : paragraphSpacing}; text-indent: ${isIndent ? (firstLineIndent === '0em' ? '1.5em' : firstLineIndent) : firstLineIndent}; margin-left: ${blockIndent}; margin-right: ${blockIndent}; }
+    ${isIndent ? `h1 + p, h2 + p, h3 + p, h4 + p, p:first-of-type { text-indent: 0; }` : ''}
+    img { max-width: 100%; height: auto; }
+    blockquote { margin: 1.5em 2em; font-style: italic; color: #64748b; border-left: 2px solid #cbd5e1; padding-left: 1em; }
+    table { width: 100%; border-collapse: collapse; margin: 2rem 0; font-size: 0.9em; }
+    th { background-color: #f1f5f9; text-align: left; padding: 0.75rem; border-bottom: 2px solid #cbd5e1; font-weight: 700; }
+    td { padding: 0.75rem; border-bottom: 1px solid #e2e8f0; }
+
+    /* Editorial Components */
+    .callout-box { background-color: #f8fafc; border-left: 4px solid #64748b; padding: 1.5rem; margin: 2rem 0; border-radius: 0 8px 8px 0; }
+    .callout-box h4 { margin-top: 0; color: #334155; font-size: 0.9em; text-transform: uppercase; letter-spacing: 0.05em; border: none; padding: 0; }
+    .callout-box p { margin-bottom: 0; font-size: 0.95em; color: #475569; }
+
+    .data-table { width: 100%; border-collapse: collapse; margin: 2rem 0; font-size: 0.9em; }
+    .data-table th { background-color: #f1f5f9; text-align: left; padding: 0.75rem; border-bottom: 2px solid #cbd5e1; font-weight: 700; color: #334155; }
+    .data-table td { padding: 0.75rem; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+
+    .pull-quote { font-size: 1.3em; font-style: italic; text-align: center; margin: 2.5rem 1.5rem; color: #475569; border: none; padding: 0; line-height: 1.4; }
+
+    .action-plan { background-color: #ecfdf5; border: 1px solid #a7f3d0; padding: 1.5rem; border-radius: 8px; margin: 2rem 0; }
+    .action-plan h4 { color: #047857; border-bottom: 1px solid #6ee7b7; padding-bottom: 0.5rem; margin-top: 0; }
+    .action-plan ul { list-style: none; padding-left: 0; }
+    .action-plan li { padding-left: 1.5rem; position: relative; margin-bottom: 0.5rem; }
+
+    .case-study { background-color: #fff7ed; border: 1px solid #fed7aa; padding: 1.5rem; border-radius: 8px; margin: 2rem 0; }
+    .self-assessment { background-color: #f0fdf4; border: 1px solid #bbf7d0; padding: 1.5rem; border-radius: 8px; margin: 2rem 0; }
+
+    /* Front/Back Matter */
+    .bibliography-page ul { list-style: none; padding: 0; margin-left: 0; }
+    .bibliography-page li { margin-bottom: 1em; text-indent: 0; }
+    .bibliography-page a { color: #0000EE; text-decoration: none; }
+    .copyright-page { font-size: 0.8em; text-align: center; margin-top: 50%; }
+    .dedication-page { font-style: italic; text-align: center; margin-top: 30%; }
+    `;
+};
+
+// Helper: Extract images from HTML and embed in ZIP (for DOCX word/media/)
 const extractAndEmbedImages = async (html: string, zip: any): Promise<string> => {
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
@@ -119,6 +160,30 @@ const extractAndEmbedImages = async (html: string, zip: any): Promise<string> =>
     return doc.body.innerHTML;
 };
 
+// Helper: Extract images from HTML and embed in EPUB OEBPS/images/
+const extractAndEmbedImagesForEPUB = (html: string, oebps: any, chapterIndex: number): { html: string, manifestEntries: string[] } => {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const images = doc.querySelectorAll('img');
+    const manifestEntries: string[] = [];
+    
+    for (let i = 0; i < images.length; i++) {
+        const img = images[i];
+        const src = img.getAttribute('src');
+        if (src && src.startsWith('data:image/')) {
+            const mimeType = src.split(';')[0].split(':')[1];
+            const ext = src.split(';')[0].split('/')[1];
+            const filename = `img_ch${chapterIndex}_${i}.${ext}`;
+            const uint8Array = dataURItoUint8Array(src);
+            oebps.file(`images/${filename}`, uint8Array);
+            img.setAttribute('src', `images/${filename}`);
+            manifestEntries.push(`<item id="img_ch${chapterIndex}_${i}" href="images/${filename}" media-type="${mimeType}"/>`);
+        }
+    }
+    
+    return { html: doc.body.innerHTML, manifestEntries };
+};
+
 export const getDOCXUint8Array = async (data: EbookData): Promise<Uint8Array | null> => {
   // @ts-ignore
   if (!window.JSZip) {
@@ -128,16 +193,18 @@ export const getDOCXUint8Array = async (data: EbookData): Promise<Uint8Array | n
   // @ts-ignore
   const zip = new window.JSZip();
 
+  const exportCSS = getExportCSS(data.design);
+
   let content = `
     <html>
     <head>
         <meta charset='utf-8'>
         <title>${escapeXML(data.title)}</title>
-        ${CSS_STYLES}
+        <style>${exportCSS}</style>
     </head>
     <body>
         <div style="text-align: center; margin-top: 50px; margin-bottom: 50px;">
-            <h1 style="font-size: 24pt; font-weight: bold;">${escapeXML(data.title)}</h1>
+            <h1 style="font-size: 24pt; font-weight: bold; page-break-before: avoid;">${escapeXML(data.title)}</h1>
             <p style="font-size: 16pt; font-style: italic;">${escapeXML(data.blueprint?.subtitle)}</p>
             <p style="margin-top: 50px; font-size: 12pt;">by ${escapeXML(data.author || 'Unknown')}</p>
         </div>
@@ -145,11 +212,11 @@ export const getDOCXUint8Array = async (data: EbookData): Promise<Uint8Array | n
   `;
 
   if (data.frontMatter?.copyright) {
-      content += `<div style="text-align: center; font-size: 10pt; margin-top: 200px;"><p>${data.frontMatter.copyright.replace(/\n/g, '<br />')}</p></div><br style="page-break-before:always" />`;
+      content += `<div class="copyright-page"><p>${data.frontMatter.copyright.replace(/\n/g, '<br />')}</p></div><br style="page-break-before:always" />`;
   }
 
   if (data.frontMatter?.dedication) {
-      content += `<div style="text-align: center; font-style: italic; margin-top: 150px;"><p>${escapeXML(data.frontMatter.dedication)}</p></div><br style="page-break-before:always" />`;
+      content += `<div class="dedication-page"><p>${escapeXML(data.frontMatter.dedication)}</p></div><br style="page-break-before:always" />`;
   }
 
   if (data.outline) {
@@ -168,7 +235,7 @@ export const getDOCXUint8Array = async (data: EbookData): Promise<Uint8Array | n
   }
 
   if (data.backMatter?.bibliography) {
-      content += data.backMatter.bibliography;
+      content += `<div class="bibliography-page">${data.backMatter.bibliography}</div>`;
       content += `<br style="page-break-before:always" />`;
   }
 
@@ -183,6 +250,11 @@ export const getDOCXUint8Array = async (data: EbookData): Promise<Uint8Array | n
   <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
   <Default Extension="xml" ContentType="application/xml"/>
   <Default Extension="html" ContentType="text/html"/>
+  <Default Extension="png" ContentType="image/png"/>
+  <Default Extension="jpg" ContentType="image/jpeg"/>
+  <Default Extension="jpeg" ContentType="image/jpeg"/>
+  <Default Extension="gif" ContentType="image/gif"/>
+  <Default Extension="webp" ContentType="image/webp"/>
   <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
 </Types>`);
 
@@ -238,83 +310,7 @@ export const getEPUBUint8Array = async (data: EbookData): Promise<Uint8Array | n
   const oebps = zip.folder("OEBPS");
   const uuid = data.frontMatter?.isbn || `urn:uuid:${data.id}`;
   
-  const css = `
-    body { font-family: serif; line-height: 1.5; margin: 0; padding: 1em; }
-    h1 { text-align: center; page-break-before: always; margin-top: 2em; margin-bottom: 1em; font-size: 2em; font-weight: bold; }
-    p { margin-bottom: 1em; text-indent: 1.5em; text-align: justify; }
-    img { max-width: 100%; height: auto; }
-    .bibliography-page ul { list-style: none; padding: 0; margin-left: 0; }
-    .bibliography-page li { margin-bottom: 1em; text-indent: 0; }
-    .bibliography-page a { color: #0000EE; text-decoration: none; }
-    .copyright-page { font-size: 0.8em; text-align: center; margin-top: 50%; }
-    .dedication-page { font-style: italic; text-align: center; margin-top: 30%; }
-    
-    /* Editorial Components */
-    .callout-box {
-      background-color: #f8fafc;
-      border-left: 4px solid #64748b;
-      padding: 1.5rem;
-      margin: 2rem 0;
-      border-radius: 0 8px 8px 0;
-    }
-    .callout-box h4 {
-      margin-top: 0;
-      color: #334155;
-      font-size: 1em;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-    
-    .data-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin: 2rem 0;
-      font-size: 0.9em;
-    }
-    .data-table th {
-      background-color: #f1f5f9;
-      text-align: left;
-      padding: 0.75rem;
-      border-bottom: 2px solid #cbd5e1;
-      font-weight: 700;
-    }
-    .data-table td {
-      padding: 0.75rem;
-      border-bottom: 1px solid #e2e8f0;
-    }
-    
-    .pull-quote {
-      font-size: 1.4em;
-      font-style: italic;
-      text-align: center;
-      margin: 2.5rem 2rem;
-      color: #475569;
-      border: none;
-    }
-    
-    .action-plan {
-      background-color: #ecfdf5;
-      border: 1px solid #a7f3d0;
-      padding: 1.5rem;
-      border-radius: 8px;
-      margin: 2rem 0;
-    }
-    .action-plan h4 {
-      color: #047857;
-      border-bottom: 1px solid #6ee7b7;
-      padding-bottom: 0.5rem;
-      margin-top: 0;
-    }
-    .action-plan ul {
-      list-style: none;
-      padding-left: 0;
-    }
-    .action-plan li {
-      padding-left: 1.5rem;
-      position: relative;
-      margin-bottom: 0.5rem;
-    }
-  `;
+  const css = getExportCSS(data.design);
   oebps.file("styles.css", css);
 
   let spineRefs = "";
@@ -358,7 +354,10 @@ export const getEPUBUint8Array = async (data: EbookData): Promise<Uint8Array | n
       data.outline.forEach((chapter, index) => {
           if (chapter.content) {
               const filename = `chapter_${index + 1}.xhtml`;
-              const sanitizedContent = fixXHTML(chapter.content);
+              // Extract base64 images into separate files
+              const { html: processedHtml, manifestEntries } = extractAndEmbedImagesForEPUB(chapter.content, oebps, index);
+              manifestEntries.forEach(entry => { manifestItems += entry; });
+              const sanitizedContent = fixXHTML(processedHtml);
               const safeChapterTitle = escapeXML(chapter.title);
               const chapterContent = `<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html><html xmlns="http://www.w3.org/1999/xhtml"><head><title>${safeChapterTitle}</title><link rel="stylesheet" type="text/css" href="styles.css"/></head><body>${sanitizedContent}</body></html>`;
               oebps.file(filename, chapterContent);
