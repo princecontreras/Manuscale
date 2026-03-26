@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
         },
       ],
       mode: 'subscription',
-      success_url: `${domain}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${domain}/subscription-confirmation?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${domain}/pricing`,
       metadata: {
         firebaseUid,
