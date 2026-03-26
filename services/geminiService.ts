@@ -93,12 +93,23 @@ const stripMarkdownWrapper = (text: string): string => {
     return clean.trim();
 };
 
-// Helper: Safety Net to convert accidental Markdown to HTML
+// Helper: Safety Net to convert accidental Markdown to HTML and strip leftover asterisks
 const convertMarkdownToHtml = (text: string): string => {
     let clean = text;
+    // Convert markdown bold/italic to HTML
+    clean = clean.replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>');
     clean = clean.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
     clean = clean.replace(/(?<!\*|\\)\*(?![*\s])(.+?)(?<!\s|\\)\*(?!\*)/g, '<em>$1</em>');
+    clean = clean.replace(/__(.*?)__/g, '<strong>$1</strong>');
     clean = clean.replace(/_(.*?)_/g, '<em>$1</em>');
+    // Convert markdown headings to HTML (## Title -> <h2>Title</h2>)
+    clean = clean.replace(/^#{3}\s+(.+)$/gm, '<h3>$1</h3>');
+    clean = clean.replace(/^#{2}\s+(.+)$/gm, '<h2>$1</h2>');
+    clean = clean.replace(/^#{1}\s+(.+)$/gm, '<h1>$1</h1>');
+    // Strip any remaining standalone asterisks used as bullet markers
+    clean = clean.replace(/^\s*\*\s+/gm, '• ');
+    // Remove any orphaned asterisks that weren't part of matched pairs
+    clean = clean.replace(/(?<![<\/a-zA-Z])\*(?![a-zA-Z>])/g, '');
     return clean;
 };
 
@@ -594,7 +605,7 @@ export const generateProjectOutline = async (blueprint: ProjectBlueprint, memory
         Total Target Chapters: ${blueprint.structure.phases.reduce((acc, p) => acc + p.chapterCount, 0)}.
         Ensure the chapter flow respects the intent of each Phase.`;
     } else {
-        structureInstruction = `Target Chapter Count: ${blueprint.profile.chapterCount}.`;
+        structureInstruction = `MANDATORY Chapter Count: EXACTLY ${blueprint.profile.chapterCount} chapters. Do NOT generate more or fewer than ${blueprint.profile.chapterCount} chapters.`;
     }
 
     const isNarrative = blueprint.mode === 'Narrative';
@@ -629,6 +640,7 @@ export const generateProjectOutline = async (blueprint: ProjectBlueprint, memory
     Return valid JSON containing an array of 'chapters'.
     
     CRITICAL OUTLINE RULES:
+    0. You MUST generate EXACTLY the number of chapters specified above. This is a hard constraint — not a suggestion.
     1. Keep chapter titles concise (max 5-7 words). Do not include summaries or descriptions in the title field.
     2. Each chapter beat MUST cover unique ground — no two chapters should overlap in their core content.
     3. Each beat should specify what NEW information this chapter introduces (not covered elsewhere).
@@ -719,7 +731,16 @@ export const generateProjectOutline = async (blueprint: ProjectBlueprint, memory
     trackResponseUsage(outlineResult.value, MODEL_FLASH);
 
     const rawData = safeJsonParse(outlineResult.value.text || "{}", {});
-    const rawChapters: any[] = rawData.chapters || [];
+    let rawChapters: any[] = rawData.chapters || [];
+
+    // Enforce the requested chapter count — truncate if AI generated too many
+    const targetCount = blueprint.structure?.phases
+        ? blueprint.structure.phases.reduce((acc, p) => acc + p.chapterCount, 0)
+        : blueprint.profile.chapterCount;
+    if (targetCount > 0 && rawChapters.length > targetCount) {
+        console.warn(`AI generated ${rawChapters.length} chapters but ${targetCount} were requested. Truncating.`);
+        rawChapters = rawChapters.slice(0, targetCount);
+    }
 
     // Assign modes round-robin so every chapter has a mode even without LLM assignment
     const modeIds = generatedModes.map(m => m.id);
@@ -1058,11 +1079,19 @@ export const streamChapterContent = async (
     2. Do NOT include the book title. 
     3. Do NOT write "Chapter [N]" headers.
     4. Start the narrative text immediately.
-    5. **IMPORTANT:** Do NOT use Markdown styling. You MUST use standard HTML tags <strong> and <em>.
+    5. IMPORTANT: Do NOT use Markdown styling (no *, **, _, __, #). You MUST use standard HTML tags: <strong> for bold, <em> for italics, <h2> for section headings, <h3> for sub-sections.
+    6. NEVER output asterisk (*) characters for emphasis or bullet points. Use <strong>, <em>, and <ul>/<li> tags instead.
+    
+    CHAPTER STRUCTURE REQUIREMENTS:
+    - Break the chapter into clearly defined SECTIONS using <h2> and <h3> headings.
+    - Each major topic or idea MUST start with an <h2> or <h3> heading.
+    - Do NOT write the entire chapter as a continuous wall of text.
+    - Use short, focused paragraphs (3-5 sentences each).
+    - Separate distinct topics with appropriate headings so readers can navigate easily.
     
     ${contentBlocksInstruction}
     
-    Write the full chapter in HTML format.`;
+    Write the full chapter in properly structured HTML format with section headings.`;
 
     console.log("Generating chapter content. Prompt length:", prompt.length);
     
