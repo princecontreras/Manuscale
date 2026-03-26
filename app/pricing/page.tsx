@@ -9,32 +9,6 @@ import { Button } from '../../components/Button';
 import { Logo } from '../../components/Logo';
 import { ArrowRight, Check, X } from 'lucide-react';
 
-declare global {
-  interface Window {
-    Stripe?: any;
-  }
-}
-
-const loadStripe = async (publishableKey: string) => {
-  if (!window.Stripe) {
-    return new Promise((resolve, reject) => {
-      const script = document.createElement('script');
-      script.src = 'https://js.stripe.com/v3/';
-      script.async = true;
-      script.onload = () => {
-        if (window.Stripe) {
-          resolve(window.Stripe.create({ apiVersion: '2024-04-10' }));
-        } else {
-          reject(new Error('Stripe failed to load'));
-        }
-      };
-      script.onerror = () => reject(new Error('Failed to load Stripe'));
-      document.head.appendChild(script);
-    });
-  }
-  return window.Stripe;
-};
-
 const PricingPage: React.FC = () => {
   const { user: firebaseUser } = useAuth();
   const { user: userProfile, isLoading } = useUser();
@@ -70,14 +44,12 @@ const PricingPage: React.FC = () => {
         throw new Error('Failed to create checkout session');
       }
 
-      const { sessionId, error: apiError } = await response.json();
+      const { url, error: apiError } = await response.json();
       if (apiError) throw new Error(apiError);
+      if (!url) throw new Error('No checkout URL returned from server');
 
-      const stripe = await loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
-      if (!stripe) throw new Error('Stripe failed to load');
-
-      const result = await stripe.redirectToCheckout({ sessionId });
-      if (result?.error) throw new Error(result.error.message);
+      // Redirect directly to the checkout URL
+      window.location.href = url;
     } catch (err: any) {
       console.error('Checkout error:', err);
       setError(err?.message || 'Failed to start checkout. Please try again.');
