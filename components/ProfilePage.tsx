@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from './Button';
 import { useToast } from './ToastContext';
+import { useSubscription } from '../hooks/useSubscription';
 import { User, Shield, CreditCard, Settings, Activity, ArrowLeft, Check, Loader2, Eye, EyeOff, BookOpen, Pencil, Trash2, Download, Image as ImageIcon, Bot } from 'lucide-react';
 import { User as FirebaseUser } from 'firebase/auth';
 import { updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
@@ -61,6 +62,76 @@ const formatRelativeTime = (timestamp: number): string => {
   const days = Math.floor(hours / 24);
   if (days < 7) return `${days}d ago`;
   return new Date(timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+};
+
+// Billing Section Component
+const BillingSection: React.FC = () => {
+  const { isSubscribed, subscriptionStatus, currentPeriodEnd, openBillingPortal, isMonthly, isYearly } = useSubscription();
+
+  const formatDate = (date?: Date) => {
+    if (!date) return 'N/A';
+    return new Date(date).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  };
+
+  if (isSubscribed) {
+    return (
+      <section className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+        <div className="flex items-center gap-3 mb-4">
+          <CreditCard className="text-emerald-500" />
+          <h2 className="text-xl font-bold text-slate-900">Billing & Subscription</h2>
+        </div>
+        <div className="space-y-4">
+          <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-200">
+            <div className="flex items-center gap-2 mb-3">
+              <Check size={18} className="text-emerald-600" />
+              <span className="font-semibold text-emerald-900">Active Subscription</span>
+            </div>
+            <div className="space-y-2 text-sm text-slate-600">
+              <p>
+                <strong>Plan:</strong> Manuscale Pro {isMonthly ? '(Monthly)' : isYearly ? '(Yearly)' : ''}
+              </p>
+              <p>
+                <strong>Status:</strong>{' '}
+                <span className="text-emerald-600 font-semibold capitalize">{subscriptionStatus}</span>
+              </p>
+              <p>
+                <strong>Next Billing Date:</strong> {formatDate(currentPeriodEnd)}
+              </p>
+            </div>
+          </div>
+          <Button
+            onClick={openBillingPortal}
+            variant="ghost"
+            className="w-full border border-slate-200 hover:bg-slate-50"
+          >
+            Manage Subscription
+          </Button>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="bg-gradient-to-br from-indigo-50 to-blue-50 p-6 rounded-2xl border border-indigo-200 shadow-sm">
+      <div className="flex items-center gap-3 mb-4">
+        <CreditCard className="text-indigo-600" />
+        <h2 className="text-xl font-bold text-slate-900">Upgrade to Pro</h2>
+      </div>
+      <p className="text-slate-600 mb-4">
+        Unlock all features with Manuscale Pro and get unlimited access to AI-powered writing, exports, and more.
+      </p>
+      <a
+        href="/pricing"
+        className="inline-block px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors"
+      >
+        View Pricing Plans
+      </a>
+    </section>
+  );
 };
 
 export const ProfilePage: React.FC<ProfilePageProps> = ({ user, onBack }) => {
@@ -271,15 +342,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ user, onBack }) => {
         </section>
 
         {/* Billing */}
-        <section className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm opacity-75">
-          <div className="flex items-center gap-3 mb-4">
-            <CreditCard className="text-slate-400" />
-            <h2 className="text-xl font-bold text-slate-900">Billing</h2>
-          </div>
-          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-slate-600 text-sm">
-            Billing is currently unavailable. We will notify you when subscription plans are live.
-          </div>
-        </section>
+        <BillingSection />
 
         {/* Preferences */}
         <section className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">

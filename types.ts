@@ -198,6 +198,23 @@ export interface StoryDNA {
     endingIntent: string;
 }
 
+export interface UserSubscription {
+  stripeCustomerId?: string;
+  subscriptionId?: string;
+  subscriptionStatus?: 'active' | 'canceled' | 'past_due' | 'unpaid' | 'trialing';
+  currentPeriodEnd?: Date;
+  plan?: 'monthly' | 'yearly' | string; // price ID
+  updatedAt?: Date;
+}
+
+export interface UserProfile extends UserSubscription {
+  uid: string;
+  email: string;
+  displayName?: string;
+  photoURL?: string;
+  createdAt?: Date;
+}
+
 export interface ProjectMemory {
   research: MemoryBankItem[]; // Facts, Citations
   keyFigures: MemoryBankItem[]; // People, Companies, Interviewees
