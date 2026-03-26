@@ -93,6 +93,48 @@ const stripMarkdownWrapper = (text: string): string => {
     return clean.trim();
 };
 
+// Safe HTML content stripper — only removes code block fencing, NEVER extracts JSON.
+// Use this for chapter content (HTML) instead of stripMarkdownWrapper.
+const stripHtmlWrapper = (text: string): string => {
+    let clean = text.trim();
+    // Only strip markdown code-block fencing if the AI wrapped HTML in ```html ... ```
+    clean = clean.replace(/^```(?:html)?\s*/i, '').replace(/\s*```$/, '');
+    // Remove AI meta-commentary like "From [Book Title]" or "Excerpt"
+    clean = clean.replace(/^(?:<p>)?\s*From\s+["'].*?["']\s*(?:<\/p>)?\s*/i, '');
+    clean = clean.replace(/^(?:<p>)?\s*Excerpt from\s+.*?\s*(?:<\/p>)?\s*/i, '');
+    clean = clean.replace(/^(?:<p>)?\s*By\s+.*?\s*(?:<\/p>)?\s*/i, '');
+    return clean.trim();
+};
+
+// Validate that chapter content is real HTML prose, not garbage (JSON, API docs, etc.)
+const validateChapterContent = (html: string): string => {
+    // If content is mostly JSON (starts with { and ends with }, or is parseable JSON), it's garbage
+    const trimmed = html.trim();
+    try {
+        if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+            JSON.parse(trimmed);
+            // If it parses as valid JSON, the AI returned garbage instead of chapter content
+            console.error('Chapter content is raw JSON instead of HTML. Rejecting.');
+            throw new Error('The AI generated invalid content for this chapter. Please try generating this chapter again.');
+        }
+    } catch (e: any) {
+        if (e.message?.includes('invalid content')) throw e;
+        // Not valid JSON, that's fine — means it's probably HTML
+    }
+
+    // Check that content has meaningful HTML tags (not just a raw string)
+    const tagCount = (trimmed.match(/<\/?[a-z][a-z0-9]*[^>]*>/gi) || []).length;
+    const textLength = trimmed.replace(/<[^>]*>/g, '').trim().length;
+
+    // If content is very short (< 100 chars of actual text) and has no HTML tags, it's likely garbage
+    if (textLength < 100 && tagCount === 0) {
+        console.error('Chapter content too short or missing HTML structure:', trimmed.substring(0, 200));
+        throw new Error('The AI generated insufficient content for this chapter. Please try generating this chapter again.');
+    }
+
+    return html;
+};
+
 // Helper: Safety Net to convert accidental Markdown to HTML and strip leftover asterisks
 const convertMarkdownToHtml = (text: string): string => {
     let clean = text;
@@ -1178,7 +1220,7 @@ export const streamChapterContent = async (
         }
     }
     trackResponseUsage({ usageMetadata: { promptTokenCount: 0, candidatesTokenCount: 0 } }, usedModel);
-    const result_html = validateAndRepairHtml(convertMarkdownToHtml(stripMarkdownWrapper(fullText)));
+    const result_html = validateChapterContent(validateAndRepairHtml(convertMarkdownToHtml(stripHtmlWrapper(fullText))));
     // Allow fullText to be garbage collected
     fullText = "";
     return result_html;
