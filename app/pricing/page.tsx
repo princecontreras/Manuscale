@@ -10,10 +10,18 @@ import { Logo } from '../../components/Logo';
 import { ArrowRight, Check, X } from 'lucide-react';
 
 const PricingPage: React.FC = () => {
-  const { user: firebaseUser } = useAuth();
+  const { user: firebaseUser, loading: authLoading } = useAuth();
   const { user: userProfile, isLoading } = useUser();
   const subscription = useSubscription();
   const [error, setError] = useState<string | null>(null);
+
+  // Redirect unauthenticated users to sign-up
+  React.useEffect(() => {
+    if (!authLoading && !firebaseUser) {
+      // User is not authenticated, redirect to sign-up
+      window.location.href = '/signup';
+    }
+  }, [firebaseUser, authLoading]);
 
   // Memoize payment links to ensure they're read from env at runtime
   const paymentLinks = useMemo(() => ({
@@ -22,11 +30,6 @@ const PricingPage: React.FC = () => {
   }), []);
 
   const handleCheckout = (plan: 'monthly' | 'yearly') => {
-    if (!firebaseUser) {
-      window.location.href = '/login';
-      return;
-    }
-
     const paymentLink = paymentLinks[plan];
     
     if (paymentLink) {
@@ -40,7 +43,7 @@ const PricingPage: React.FC = () => {
     }
   };
 
-  if (isLoading) {
+  if (isLoading || authLoading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
@@ -73,19 +76,10 @@ const PricingPage: React.FC = () => {
             <Button 
               variant="ghost"
               size="sm"
-              onClick={() => window.location.href = '/login'}
+              onClick={() => window.location.href = '/'}
             >
-              Log In
+              Back to Home
             </Button>
-            {!isSubscribed && (
-              <Button 
-                variant="primary"
-                size="md"
-                onClick={() => window.location.href = '/signup'}
-              >
-                Get Started
-              </Button>
-            )}
           </nav>
         </div>
       </header>
