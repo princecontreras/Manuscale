@@ -88,6 +88,7 @@ const App: React.FC = () => {
   const [pendingCoverImage, setPendingCoverImage] = useState<string | null>(null);
   const [authIsLogin, setAuthIsLogin] = useState(true);
   const [hasCheckedSubscription, setHasCheckedSubscription] = useState(false);
+  const [isJustLoggedIn, setIsJustLoggedIn] = useState(false);
 
   // Use a ref to keep track of the latest ebookData without forcing re-creation of callbacks
   const ebookDataRef = useRef<EbookData | null>(null);
@@ -152,23 +153,26 @@ const App: React.FC = () => {
     initAnalytics(); // Initialize Google Analytics
   }, []);
 
-  // Check subscription after user logs in
-  // If user is logged in but not subscribed, redirect to pricing page
+  // Check subscription ONLY when user just logged in
+  // Don't check on page load if they're already authenticated via auth persistence
   useEffect(() => {
-    if (!user || isUserProfileLoading || hasCheckedSubscription) return;
+    if (!isJustLoggedIn || !user || isUserProfileLoading || hasCheckedSubscription) return;
 
-    // User is logged in and profile data has loaded
+    // User just logged in and profile data has loaded
     const isSubscribed = userProfile?.subscriptionStatus === 'active';
 
     if (!isSubscribed) {
       // User is not subscribed, redirect to pricing page
       setHasCheckedSubscription(true);
+      setIsJustLoggedIn(false);
       window.location.href = '/pricing';
     } else {
       // User is subscribed, allow them to access the dashboard
       setHasCheckedSubscription(true);
+      setIsJustLoggedIn(false);
+      setViewState(ViewState.DASHBOARD);
     }
-  }, [user, userProfile, isUserProfileLoading, hasCheckedSubscription]);
+  }, [isJustLoggedIn, user, userProfile, isUserProfileLoading, hasCheckedSubscription]);
 
   const handleEnterApp = async (topic?: string) => {
       proceedToApp(topic);
@@ -344,7 +348,10 @@ const App: React.FC = () => {
       case ViewState.AUTH:
         return (
           <AuthPage 
-            onLogin={() => setViewState(ViewState.DASHBOARD)} 
+            onLogin={() => {
+              setIsJustLoggedIn(true);
+              setViewState(ViewState.DASHBOARD);
+            }} 
             onBack={() => setViewState(ViewState.LANDING)} 
             defaultIsLogin={authIsLogin}
           />
