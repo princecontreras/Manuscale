@@ -32,8 +32,8 @@ export async function POST(req: NextRequest) {
         if (firebaseUid) {
           const priceId = subscription.items.data[0]?.price.id || 'unknown';
           const plan = priceId.includes('monthly') ? 'monthly' : priceId.includes('yearly') ? 'yearly' : priceId;
-          const currentPeriodEnd = subscription.current_period_end 
-            ? new Date(subscription.current_period_end * 1000)
+          const currentPeriodEnd = (subscription as any).current_period_end 
+            ? new Date((subscription as any).current_period_end * 1000)
             : new Date();
           
           await updateDoc(doc(db, 'users', firebaseUid), {
