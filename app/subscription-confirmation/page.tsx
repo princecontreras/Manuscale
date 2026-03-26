@@ -92,7 +92,7 @@ export default function SubscriptionConfirmationPage() {
           {/* CTA Buttons */}
           <div className="space-y-3 pt-4">
             <Button
-              onClick={() => router.push('/dashboard')}
+              onClick={() => router.push('/')}
               variant="primary"
               size="lg"
               className="w-full gap-2"
