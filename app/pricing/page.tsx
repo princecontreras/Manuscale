@@ -1,8 +1,13 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import Link from 'next/link';
+import { useAuth } from '@/components/AuthProvider';
 import { useUser } from '../../hooks/useUser';
+import { useSubscription } from '../../hooks/useSubscription';
 import { Button } from '../../components/Button';
+import { Logo } from '../../components/Logo';
+import { ArrowRight, Check, X } from 'lucide-react';
 
 declare global {
   interface Window {
@@ -11,7 +16,6 @@ declare global {
 }
 
 const loadStripe = async (publishableKey: string) => {
-  // Dynamically load Stripe.js from CDN if not already loaded
   if (!window.Stripe) {
     return new Promise((resolve, reject) => {
       const script = document.createElement('script');
@@ -32,7 +36,9 @@ const loadStripe = async (publishableKey: string) => {
 };
 
 const PricingPage: React.FC = () => {
-  const { user: firebaseUser, isLoading } = useUser();
+  const { user: firebaseUser } = useAuth();
+  const { user: userProfile, isLoading } = useUser();
+  const subscription = useSubscription();
   const [isCheckingOut, setIsCheckingOut] = useState<'monthly' | 'yearly' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -51,7 +57,6 @@ const PricingPage: React.FC = () => {
         throw new Error('Authentication required');
       }
 
-      // Create checkout session via your API
       const response = await fetch('/api/billing/create-session', {
         method: 'POST',
         headers: {
@@ -66,14 +71,9 @@ const PricingPage: React.FC = () => {
       }
 
       const { sessionId, error: apiError } = await response.json();
-
       if (apiError) throw new Error(apiError);
 
-      // Dynamically load Stripe and redirect to checkout
-      const stripe = await loadStripe(
-        process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
-      );
-
+      const stripe = await loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
       if (!stripe) throw new Error('Stripe failed to load');
 
       const result = await stripe.redirectToCheckout({ sessionId });
@@ -88,45 +88,127 @@ const PricingPage: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-950 to-slate-900 flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-slate-700 border-t-indigo-500 rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-400">Loading...</p>
+          <div className="w-12 h-12 border-4 border-slate-200 border-t-primary-600 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-600">Loading pricing...</p>
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-950 to-slate-900 py-12 px-4">
-      <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-white mb-4">Simple, Transparent Pricing</h1>
-          <p className="text-xl text-slate-400">Unlock all features with Manuscale Pro</p>
-        </div>
+  const isSubscribed = subscription.isSubscribed;
+  const yearlyDiscount = Math.round(((19 * 12 - 169) / (19 * 12)) * 100);
 
+  return (
+    <div className="bg-white text-slate-900 font-sans min-h-screen overflow-x-hidden">
+      {/* STICKY HEADER */}
+      <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between">
+          <Link href="/">
+            <Logo className="scale-75 sm:scale-90" />
+          </Link>
+          <nav className="hidden md:flex items-center gap-8">
+            <Link href="/#features" className="text-slate-600 hover:text-slate-900 font-medium transition-colors">
+              Features
+            </Link>
+            <Link href="/pricing" className="text-primary-600 font-bold">
+              Pricing
+            </Link>
+            <div className="h-4 w-px bg-slate-200"></div>
+            <Button 
+              variant="ghost"
+              size="sm"
+              onClick={() => window.location.href = '/login'}
+            >
+              Log In
+            </Button>
+            {!isSubscribed && (
+              <Button 
+                variant="primary"
+                size="md"
+                onClick={() => window.location.href = '/signup'}
+              >
+                Get Started
+              </Button>
+            )}
+          </nav>
+        </div>
+      </header>
+
+      {/* HERO SECTION */}
+      <section className="pt-32 sm:pt-40 pb-16 px-4 sm:px-6">
+        <div className="max-w-4xl mx-auto text-center">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-50 border border-slate-200 text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-8">
+            <span>Simple Pricing</span>
+          </div>
+          
+          <h1 className="font-heading text-4xl sm:text-5xl md:text-6xl text-slate-900 leading-[1.1] tracking-tight mb-6">
+            Scale your writing,<br/>
+            <span className="text-primary-600">not your costs.</span>
+          </h1>
+          
+          <p className="text-lg sm:text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed mb-2">
+            One simple plan. All the tools you need to write, publish, and grow.
+          </p>
+          
+          {isSubscribed && (
+            <p className="text-sm text-green-600 font-semibold mb-8">
+              ✓ You currently have an active subscription
+            </p>
+          )}
+        </div>
+      </section>
+
+      {/* PRICING CARDS */}
+      <section className="pb-16 px-4 sm:px-6">
         {error && (
-          <div className="max-w-2xl mx-auto mb-8 bg-red-500/10 border border-red-500/50 rounded-lg p-4 text-red-400">
+          <div className="max-w-2xl mx-auto mb-8 bg-red-50 border border-red-200 rounded-xl p-4 text-red-700 text-sm">
             {error}
           </div>
         )}
 
-        <div className="grid md:grid-cols-2 gap-8 max-w-2xl mx-auto">
+        <div className="max-w-2xl mx-auto grid md:grid-cols-2 gap-8">
           {/* Monthly Plan */}
-          <div className="bg-slate-800 border border-slate-700 rounded-lg p-8 hover:border-indigo-500 transition-colors">
-            <h3 className="text-2xl font-bold text-white mb-2">Monthly</h3>
-            <div className="mb-6">
-              <span className="text-4xl font-bold text-white">$9.99</span>
-              <span className="text-slate-400 ml-2">/month</span>
+          <div className="border-2 border-slate-200 rounded-2xl p-8 hover:border-primary-300 transition-colors duration-300 hover:shadow-lg">
+            <h3 className="font-heading text-xl font-bold text-slate-900 mb-2">Monthly</h3>
+            <p className="text-slate-600 text-sm mb-6">Flexible month-to-month billing</p>
+            
+            <div className="mb-8">
+              <div className="flex items-baseline gap-2">
+                <span className="font-heading text-5xl font-bold text-slate-900">$19</span>
+                <span className="text-slate-600">/month</span>
+              </div>
+              <p className="text-sm text-slate-500 mt-2">AUD • Billed monthly</p>
             </div>
-            <ul className="space-y-3 mb-8 text-slate-300">
-              <li>✓ All features included</li>
-              <li>✓ Unlimited projects</li>
-              <li>✓ AI-powered writing</li>
-              <li>✓ Export to EPUB & DOCX</li>
-              <li>✓ Priority support</li>
-              <li>✓ Cancel anytime</li>
+
+            <ul className="space-y-4 mb-8">
+              <li className="flex items-start gap-3">
+                <Check size={20} className="text-primary-600 flex-shrink-0 mt-0.5" />
+                <span className="text-slate-700">Unlimited book projects</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <Check size={20} className="text-primary-600 flex-shrink-0 mt-0.5" />
+                <span className="text-slate-700">AI-powered writing & research</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <Check size={20} className="text-primary-600 flex-shrink-0 mt-0.5" />
+                <span className="text-slate-700">Export to EPUB, PDF & DOCX</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <Check size={20} className="text-primary-600 flex-shrink-0 mt-0.5" />
+                <span className="text-slate-700">Publishing tools & templates</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <Check size={20} className="text-primary-600 flex-shrink-0 mt-0.5" />
+                <span className="text-slate-700">Priority email support</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <Check size={20} className="text-primary-600 flex-shrink-0 mt-0.5" />
+                <span className="text-slate-700">Cancel anytime</span>
+              </li>
             </ul>
+
             <Button
               onClick={() =>
                 handleCheckout(
@@ -135,33 +217,67 @@ const PricingPage: React.FC = () => {
                 )
               }
               disabled={isCheckingOut !== null}
+              variant="neutral"
               className="w-full"
             >
-              {isCheckingOut === 'monthly' ? 'Processing...' : 'Get Started'}
+              {isCheckingOut === 'monthly' ? (
+                'Processing...'
+              ) : isSubscribed && subscription.isMonthly ? (
+                'Current Plan'
+              ) : (
+                <>
+                  Get Started
+                  <ArrowRight size={16} className="ml-2" />
+                </>
+              )}
             </Button>
           </div>
 
-          {/* Yearly Plan (Recommended) */}
-          <div className="bg-gradient-to-br from-indigo-600 to-indigo-700 border border-indigo-500 rounded-lg p-8 relative transform md:scale-105 md:z-10">
-            <div className="absolute top-4 right-4 bg-amber-400 text-black px-3 py-1 rounded-full text-sm font-bold">
-              Save 17%
+          {/* Yearly Plan (Featured) */}
+          <div className="border-2 border-primary-600 rounded-2xl p-8 bg-gradient-to-br from-primary-50 to-white shadow-xl transform md:scale-[1.02] relative">
+            <div className="absolute -top-4 -right-4 bg-primary-600 text-white px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap">
+              Save {yearlyDiscount}%
             </div>
-            <h3 className="text-2xl font-bold text-white mb-2">Yearly</h3>
-            <div className="mb-6">
-              <span className="text-4xl font-bold text-white">$99.99</span>
-              <span className="text-indigo-200 ml-2">/year</span>
-              <div className="text-indigo-200 text-sm mt-2">
-                Only $8.33/month when billed annually
+
+            <h3 className="font-heading text-xl font-bold text-slate-900 mb-2">Yearly (Recommended)</h3>
+            <p className="text-slate-600 text-sm mb-6">Best value for serious writers</p>
+            
+            <div className="mb-8">
+              <div className="flex items-baseline gap-2">
+                <span className="font-heading text-5xl font-bold text-primary-600">$169</span>
+                <span className="text-slate-600">/year</span>
               </div>
+              <p className="text-sm text-slate-500 mt-2">AUD • Billed annually</p>
+              <p className="text-sm font-semibold text-primary-600 mt-1">Only $14.08/month</p>
             </div>
-            <ul className="space-y-3 mb-8 text-indigo-50">
-              <li>✓ All features included</li>
-              <li>✓ Unlimited projects</li>
-              <li>✓ AI-powered writing</li>
-              <li>✓ Export to EPUB & DOCX</li>
-              <li>✓ Priority support</li>
-              <li>✓ Cancel anytime</li>
+
+            <ul className="space-y-4 mb-8">
+              <li className="flex items-start gap-3">
+                <Check size={20} className="text-primary-600 flex-shrink-0 mt-0.5" />
+                <span className="text-slate-700">Unlimited book projects</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <Check size={20} className="text-primary-600 flex-shrink-0 mt-0.5" />
+                <span className="text-slate-700">AI-powered writing & research</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <Check size={20} className="text-primary-600 flex-shrink-0 mt-0.5" />
+                <span className="text-slate-700">Export to EPUB, PDF & DOCX</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <Check size={20} className="text-primary-600 flex-shrink-0 mt-0.5" />
+                <span className="text-slate-700">Publishing tools & templates</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <Check size={20} className="text-primary-600 flex-shrink-0 mt-0.5" />
+                <span className="text-slate-700">Priority email support</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <Check size={20} className="text-primary-600 flex-shrink-0 mt-0.5" />
+                <span className="text-slate-700">Cancel anytime</span>
+              </li>
             </ul>
+
             <Button
               onClick={() =>
                 handleCheckout(
@@ -170,38 +286,79 @@ const PricingPage: React.FC = () => {
                 )
               }
               disabled={isCheckingOut !== null}
-              className="w-full bg-white hover:bg-slate-100 text-indigo-600"
+              variant="primary"
+              className="w-full"
             >
-              {isCheckingOut === 'yearly' ? 'Processing...' : 'Subscribe & Save'}
+              {isCheckingOut === 'yearly' ? (
+                'Processing...'
+              ) : isSubscribed && subscription.isYearly ? (
+                'Current Plan'
+              ) : (
+                <>
+                  Subscribe & Save
+                  <ArrowRight size={16} className="ml-2" />
+                </>
+              )}
             </Button>
           </div>
         </div>
+      </section>
 
-        {/* FAQ Section */}
-        <div className="mt-16 max-w-2xl mx-auto">
-          <h2 className="text-2xl font-bold text-white mb-8 text-center">Questions?</h2>
-          <div className="space-y-6">
-            <div className="bg-slate-800 p-6 rounded-lg">
-              <h4 className="text-white font-bold mb-2">Can I switch plans?</h4>
-              <p className="text-slate-400">
-                Yes, you can upgrade or downgrade anytime. Changes take effect on your next billing date.
+      {/* FAQ SECTION */}
+      <section className="py-16 px-4 sm:px-6 border-t border-slate-100">
+        <div className="max-w-3xl mx-auto">
+          <h2 className="font-heading text-3xl font-bold text-center text-slate-900 mb-12">
+            Questions?
+          </h2>
+
+          <div className="grid md:grid-cols-2 gap-8">
+            <div className="space-y-4">
+              <h4 className="font-heading font-bold text-slate-900">Can I change plans?</h4>
+              <p className="text-slate-600 text-sm">
+                Absolutely. Upgrade or downgrade anytime. Changes take effect on your next billing date.
               </p>
             </div>
-            <div className="bg-slate-800 p-6 rounded-lg">
-              <h4 className="text-white font-bold mb-2">What if I'm not satisfied?</h4>
-              <p className="text-slate-400">
-                Cancel anytime with one click. Your access continues until the end of the current billing period.
+
+            <div className="space-y-4">
+              <h4 className="font-heading font-bold text-slate-900">What if I want to cancel?</h4>
+              <p className="text-slate-600 text-sm">
+                Cancel with one click. Your access continues until the end of your current billing period.
               </p>
             </div>
-            <div className="bg-slate-800 p-6 rounded-lg">
-              <h4 className="text-white font-bold mb-2">What payment methods do you accept?</h4>
-              <p className="text-slate-400">
-                We accept all major credit and debit cards through Stripe's secure payment processing.
+
+            <div className="space-y-4">
+              <h4 className="font-heading font-bold text-slate-900">What payment methods do you accept?</h4>
+              <p className="text-slate-600 text-sm">
+                All major credit and debit cards through Stripe's secure payment processing.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <h4 className="font-heading font-bold text-slate-900">Do you offer a free trial?</h4>
+              <p className="text-slate-600 text-sm">
+                Contact our support team to discuss trial options for your needs.
               </p>
             </div>
           </div>
         </div>
-      </div>
+      </section>
+
+      {/* MANAGE SUBSCRIPTION CTA */}
+      {isSubscribed && (
+        <section className="py-12 px-4 sm:px-6 bg-slate-50 border-t border-slate-100">
+          <div className="max-w-3xl mx-auto text-center">
+            <h3 className="font-heading text-lg font-bold text-slate-900 mb-4">
+              Manage your subscription
+            </h3>
+            <Button
+              onClick={() => subscription.openBillingPortal()}
+              variant="action"
+            >
+              Open Billing Portal
+            </Button>
+          </div>
+        </section>
+      )}
     </div>
   );
 };
