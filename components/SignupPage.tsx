@@ -58,8 +58,9 @@ export const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onGoToLogin, o
         setLoading(true);
         try {
             await signInWithPopup(auth, googleProvider);
-            showToast("Successfully signed up! Welcome to Manuscale.", "success");
-            onSignup();
+            showToast("Account created! Redirecting to pricing...", "success");
+            // Redirect to pricing page instead of dashboard
+            window.location.href = '/pricing';
         } catch (error: any) {
             console.error("Google signup failed:", error);
             const errorMessage = getFirebaseErrorMessage(error);
@@ -79,9 +80,9 @@ export const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onGoToLogin, o
         try {
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             await sendEmailVerification(userCredential.user);
-            await auth.signOut();
-            showToast("Account created! Check your email to verify your account before signing in.", "success");
-            onGoToLogin();
+            // Don't sign out - keep user logged in and redirect to pricing
+            showToast("Account created! Redirecting to pricing...", "success");
+            window.location.href = '/pricing';
         } catch (error: any) {
             console.error("Email signup failed:", error);
             const errorMessage = getFirebaseErrorMessage(error);
