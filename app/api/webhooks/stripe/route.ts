@@ -1,7 +1,7 @@
 import Stripe from 'stripe';
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/services/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, query, collection, where, getDocs } from 'firebase/firestore';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
@@ -21,9 +21,21 @@ export async function POST(req: NextRequest) {
     }
 
     const eventData = event.data.object as any;
-    const firebaseUid = eventData.metadata?.firebaseUid;
+    let firebaseUid = eventData.metadata?.firebaseUid;
 
     console.log(`Processing Stripe event: ${event.type}`);
+
+    // If no firebaseUid in metadata, try to find user by customer email
+    if (!firebaseUid && eventData.customer_email) {
+      const usersRef = collection(db, 'users');
+      const q = query(usersRef, where('email', '==', eventData.customer_email));
+      const querySnapshot = await getDocs(q);
+      
+      if (!querySnapshot.empty) {
+        firebaseUid = querySnapshot.docs[0].id;
+        console.log(`Found Firebase user by email: ${firebaseUid}`);
+      }
+    }
 
     switch (event.type) {
       case 'customer.subscription.created':
@@ -45,6 +57,8 @@ export async function POST(req: NextRequest) {
             updatedAt: new Date(),
           });
           console.log(`✓ Subscription updated for user ${firebaseUid}`);
+        } else {
+          console.warn('Could not find Firebase user for Stripe subscription');
         }
         break;
       }
