@@ -216,6 +216,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onGoToAuth
                         >
                             Features
                         </Button>
+                        <Link href="/pricing" className="text-slate-600 hover:text-slate-900 font-medium transition-colors">
+                            Pricing
+                        </Link>
                         <div className="h-4 w-px bg-slate-200"></div>
                         <Button 
                             variant="ghost"
@@ -248,6 +251,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onGoToAuth
                         <button onClick={() => { onGoToFeatures(); setMobileMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 rounded-xl transition-colors">
                             Features
                         </button>
+                        <Link href="/pricing" className="w-full text-left px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 rounded-xl transition-colors block" onClick={() => setMobileMenuOpen(false)}>
+                            Pricing
+                        </Link>
                         <button onClick={() => { onGoToAuth(true); setMobileMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 rounded-xl transition-colors">
                             Log In
                         </button>
