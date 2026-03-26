@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/components/AuthProvider';
 import { useUser } from '../../hooks/useUser';
@@ -14,6 +14,7 @@ const PricingPage: React.FC = () => {
   const { user: userProfile, isLoading } = useUser();
   const subscription = useSubscription();
   const [error, setError] = useState<string | null>(null);
+  const [isCheckingOut, setIsCheckingOut] = useState<boolean>(false);
 
   // Redirect unauthenticated users to sign-up
   React.useEffect(() => {
@@ -23,23 +24,44 @@ const PricingPage: React.FC = () => {
     }
   }, [firebaseUser, authLoading]);
 
-  // Memoize payment links to ensure they're read from env at runtime
-  const paymentLinks = useMemo(() => ({
-    monthly: process.env.NEXT_PUBLIC_STRIPE_MONTHLY_LINK,
-    yearly: process.env.NEXT_PUBLIC_STRIPE_YEARLY_LINK,
-  }), []);
+  const handleCheckout = async (plan: 'monthly' | 'yearly') => {
+    try {
+      setError(null);
+      setIsCheckingOut(true);
 
-  const handleCheckout = (plan: 'monthly' | 'yearly') => {
-    const paymentLink = paymentLinks[plan];
-    
-    if (paymentLink) {
-      window.location.href = paymentLink;
-    } else {
-      console.error('Payment link missing:', { 
-        monthly: paymentLinks.monthly, 
-        yearly: paymentLinks.yearly 
+      // Get Firebase ID token
+      const token = await firebaseUser?.getIdToken();
+      if (!token) {
+        setError('Authentication failed. Please try signing out and back in.');
+        setIsCheckingOut(false);
+        return;
+      }
+
+      // Call API to create checkout session
+      const response = await fetch('/api/billing/create-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ plan }),
       });
-      setError('Payment link not configured. Please refresh the page or contact support.');
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to create checkout session');
+      }
+
+      const { url } = await response.json();
+      if (url) {
+        window.location.href = url;
+      } else {
+        throw new Error('No checkout URL received');
+      }
+    } catch (err: any) {
+      console.error('Checkout error:', err);
+      setError(err.message || 'Failed to start checkout. Please try again.');
+      setIsCheckingOut(false);
     }
   };
 
@@ -159,11 +181,16 @@ const PricingPage: React.FC = () => {
 
             <Button
               onClick={() => handleCheckout('monthly')}
-              disabled={isSubscribed && subscription.isMonthly}
+              disabled={isCheckingOut || (isSubscribed && subscription.isMonthly)}
               variant="neutral"
               className="w-full"
             >
-              {isSubscribed && subscription.isMonthly ? (
+              {isCheckingOut ? (
+                <span className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                  Redirecting...
+                </span>
+              ) : isSubscribed && subscription.isMonthly ? (
                 'Current Plan'
               ) : (
                 <>Subscribe</>
@@ -218,11 +245,16 @@ const PricingPage: React.FC = () => {
 
             <Button
               onClick={() => handleCheckout('yearly')}
-              disabled={isSubscribed && subscription.isYearly}
+              disabled={isCheckingOut || (isSubscribed && subscription.isYearly)}
               variant="primary"
               className="w-full"
             >
-              {isSubscribed && subscription.isYearly ? (
+              {isCheckingOut ? (
+                <span className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                  Redirecting...
+                </span>
+              ) : isSubscribed && subscription.isYearly ? (
                 'Current Plan'
               ) : (
                 <>Subscribe</>
