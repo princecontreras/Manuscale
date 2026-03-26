@@ -1,7 +1,7 @@
 import Stripe from 'stripe';
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/services/firebase';
-import { verifyIdToken } from '@/services/firebaseAdmin';
+import { getAdminApp } from '@/services/firebaseAdmin';
+import * as admin from 'firebase-admin';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const domain = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
@@ -13,18 +13,19 @@ export async function POST(req: NextRequest) {
 
     // Verify authentication via Firebase ID token
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return NextResponse.json(
-        { error: 'Missing authorization header' },
+        { error: 'Missing or invalid authorization header' },
         { status: 401 }
       );
     }
 
-    const token = authHeader.replace('Bearer ', '');
+    const token = authHeader.slice(7); // Remove "Bearer " prefix
     let decodedToken;
     try {
-      decodedToken = await verifyIdToken(token);
-    } catch (error) {
+      const app = getAdminApp();
+      decodedToken = await admin.auth(app).verifyIdToken(token);
+    } catch (error: any) {
       console.error('Token verification failed:', error);
       return NextResponse.json(
         { error: 'Invalid or expired token' },
