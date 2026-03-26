@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/components/AuthProvider';
 import { useUser } from '../../hooks/useUser';
@@ -15,21 +15,28 @@ const PricingPage: React.FC = () => {
   const subscription = useSubscription();
   const [error, setError] = useState<string | null>(null);
 
+  // Memoize payment links to ensure they're read from env at runtime
+  const paymentLinks = useMemo(() => ({
+    monthly: process.env.NEXT_PUBLIC_STRIPE_MONTHLY_LINK,
+    yearly: process.env.NEXT_PUBLIC_STRIPE_YEARLY_LINK,
+  }), []);
+
   const handleCheckout = (plan: 'monthly' | 'yearly') => {
     if (!firebaseUser) {
       window.location.href = '/login';
       return;
     }
 
-    // Redirect to Stripe payment link
-    const paymentLink = plan === 'monthly' 
-      ? process.env.NEXT_PUBLIC_STRIPE_MONTHLY_LINK
-      : process.env.NEXT_PUBLIC_STRIPE_YEARLY_LINK;
+    const paymentLink = paymentLinks[plan];
     
     if (paymentLink) {
       window.location.href = paymentLink;
     } else {
-      setError('Payment link not configured. Please contact support.');
+      console.error('Payment link missing:', { 
+        monthly: paymentLinks.monthly, 
+        yearly: paymentLinks.yearly 
+      });
+      setError('Payment link not configured. Please refresh the page or contact support.');
     }
   };
 
