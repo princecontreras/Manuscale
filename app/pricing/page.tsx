@@ -13,48 +13,23 @@ const PricingPage: React.FC = () => {
   const { user: firebaseUser } = useAuth();
   const { user: userProfile, isLoading } = useUser();
   const subscription = useSubscription();
-  const [isCheckingOut, setIsCheckingOut] = useState<'monthly' | 'yearly' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const handleCheckout = async (priceId: string, plan: 'monthly' | 'yearly') => {
+  const handleCheckout = (plan: 'monthly' | 'yearly') => {
     if (!firebaseUser) {
       window.location.href = '/login';
       return;
     }
 
-    try {
-      setError(null);
-      setIsCheckingOut(plan);
-
-      const token = await (firebaseUser as any).getIdToken?.();
-      if (!token) {
-        throw new Error('Authentication required');
-      }
-
-      const response = await fetch('/api/billing/create-session', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ priceId }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to create checkout session');
-      }
-
-      const { url, error: apiError } = await response.json();
-      if (apiError) throw new Error(apiError);
-      if (!url) throw new Error('No checkout URL returned from server');
-
-      // Redirect directly to the checkout URL
-      window.location.href = url;
-    } catch (err: any) {
-      console.error('Checkout error:', err);
-      setError(err?.message || 'Failed to start checkout. Please try again.');
-    } finally {
-      setIsCheckingOut(null);
+    // Redirect to Stripe payment link
+    const paymentLink = plan === 'monthly' 
+      ? process.env.NEXT_PUBLIC_STRIPE_MONTHLY_LINK
+      : process.env.NEXT_PUBLIC_STRIPE_YEARLY_LINK;
+    
+    if (paymentLink) {
+      window.location.href = paymentLink;
+    } else {
+      setError('Payment link not configured. Please contact support.');
     }
   };
 
@@ -182,19 +157,12 @@ const PricingPage: React.FC = () => {
             </ul>
 
             <Button
-              onClick={() =>
-                handleCheckout(
-                  process.env.NEXT_PUBLIC_STRIPE_MONTHLY_PRICE_ID!,
-                  'monthly'
-                )
-              }
-              disabled={isCheckingOut !== null}
+              onClick={() => handleCheckout('monthly')}
+              disabled={isSubscribed && subscription.isMonthly}
               variant="neutral"
               className="w-full"
             >
-              {isCheckingOut === 'monthly' ? (
-                'Processing...'
-              ) : isSubscribed && subscription.isMonthly ? (
+              {isSubscribed && subscription.isMonthly ? (
                 'Current Plan'
               ) : (
                 <>
@@ -251,19 +219,12 @@ const PricingPage: React.FC = () => {
             </ul>
 
             <Button
-              onClick={() =>
-                handleCheckout(
-                  process.env.NEXT_PUBLIC_STRIPE_YEARLY_PRICE_ID!,
-                  'yearly'
-                )
-              }
-              disabled={isCheckingOut !== null}
+              onClick={() => handleCheckout('yearly')}
+              disabled={isSubscribed && subscription.isYearly}
               variant="primary"
               className="w-full"
             >
-              {isCheckingOut === 'yearly' ? (
-                'Processing...'
-              ) : isSubscribed && subscription.isYearly ? (
+              {isSubscribed && subscription.isYearly ? (
                 'Current Plan'
               ) : (
                 <>
