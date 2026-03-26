@@ -19,6 +19,7 @@ import { initAnalytics, trackEvent } from '../services/analytics';
 import { Bot, Layout, Image as ImageIcon, ArrowLeft, Loader2 } from 'lucide-react';
 import { ToastProvider } from '../components/ToastContext';
 import { useAuth } from '../components/AuthProvider';
+import { useUser } from '../hooks/useUser';
 
 enum ViewState {
   LANDING = 'LANDING',
@@ -70,6 +71,8 @@ const SESSION_PROJECT_KEY = 'manuscale_session_project_id';
 
 const App: React.FC = () => {
   const { user } = useAuth();
+  const { user: userProfile, isLoading: isUserProfileLoading } = useUser();
+  
   // Default to LANDING page (always safe for SSR)
   const [viewState, setViewState] = useState<ViewState>(ViewState.LANDING);
   const [ebookData, setEbookData] = useState<EbookData | null>(null);
@@ -84,6 +87,7 @@ const App: React.FC = () => {
   // Bridge state for creating a project from Image Studio
   const [pendingCoverImage, setPendingCoverImage] = useState<string | null>(null);
   const [authIsLogin, setAuthIsLogin] = useState(true);
+  const [hasCheckedSubscription, setHasCheckedSubscription] = useState(false);
 
   // Use a ref to keep track of the latest ebookData without forcing re-creation of callbacks
   const ebookDataRef = useRef<EbookData | null>(null);
@@ -147,6 +151,24 @@ const App: React.FC = () => {
     syncProjectIndex();
     initAnalytics(); // Initialize Google Analytics
   }, []);
+
+  // Check subscription after user logs in
+  // If user is logged in but not subscribed, redirect to pricing page
+  useEffect(() => {
+    if (!user || isUserProfileLoading || hasCheckedSubscription) return;
+
+    // User is logged in and profile data has loaded
+    const isSubscribed = userProfile?.subscriptionStatus === 'active';
+
+    if (!isSubscribed) {
+      // User is not subscribed, redirect to pricing page
+      setHasCheckedSubscription(true);
+      window.location.href = '/pricing';
+    } else {
+      // User is subscribed, allow them to access the dashboard
+      setHasCheckedSubscription(true);
+    }
+  }, [user, userProfile, isUserProfileLoading, hasCheckedSubscription]);
 
   const handleEnterApp = async (topic?: string) => {
       proceedToApp(topic);
