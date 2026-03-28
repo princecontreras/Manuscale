@@ -14,7 +14,7 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "Manuscale - The Publishing Engine",
+  title: "Typoscale - The Publishing Engine",
   description: "Professional AI-powered publishing studio. Transform ideas into marketable digital products.",
 };
 

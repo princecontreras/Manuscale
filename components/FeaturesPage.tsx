@@ -49,12 +49,12 @@ export const FeaturesPage: React.FC<FeaturesPageProps> = ({ onBack }) => {
                                 Two Workflows to <span className="italic text-primary-600">Authorship</span>
                             </h1>
                             <p className="text-slate-600 text-base sm:text-[18px] max-w-3xl mx-auto leading-relaxed">
-                                Whether you want granular control over every sentence or a fully autonomous hands-off experience, Manuscale provides the infrastructure for professional book publishing.
+                                Whether you want granular control over every sentence or a fully autonomous hands-off experience, Typoscale provides the infrastructure for professional book publishing.
                             </p>
                         </motion.div>
                     </div>
 
-                    {/* 1. MANUSCALE STUDIO */}
+                    {/* 1. TYPOSCALE STUDIO */}
                     <section className="mb-20">
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center mb-16">
                             <motion.div
@@ -131,7 +131,7 @@ export const FeaturesPage: React.FC<FeaturesPageProps> = ({ onBack }) => {
                                     </div>
                                     <h4 className="font-bold mb-3">The Knowledge Engine</h4>
                                     <p className="text-slate-500 text-[16px] leading-relaxed mb-4">
-                                        <span className="text-slate-900 font-semibold">Grounded Workshop:</span> Turn your proprietary data, raw notes, or existing content into a professional book. Manuscale ingests your unique context to ensure your expertise is the foundation of every chapter.
+                                        <span className="text-slate-900 font-semibold">Grounded Workshop:</span> Turn your proprietary data, raw notes, or existing content into a professional book. Typoscale ingests your unique context to ensure your expertise is the foundation of every chapter.
                                     </p>
                                 </div>
                                 <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200">
@@ -274,7 +274,7 @@ export const FeaturesPage: React.FC<FeaturesPageProps> = ({ onBack }) => {
             </main>
 
             <footer className="py-12 bg-slate-50 border-t border-slate-100 text-center text-slate-500 text-xs">
-                <p>&copy; {new Date().getFullYear()} Manuscale. The Private Autonomous Publishing Studio.</p>
+                <p>&copy; {new Date().getFullYear()} Typoscale. The Private Autonomous Publishing Studio.</p>
             </footer>
         </div>
     );

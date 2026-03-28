@@ -140,7 +140,7 @@ const FormatLab: React.FC<FormatLabProps> = ({ onBack, onImportComplete }) => {
                                     </div>
                                     <h3 className="text-2xl font-bold text-slate-900 mb-3">Drag & Drop eBook</h3>
                                     <p className="text-slate-500 mb-8 max-w-sm mx-auto">
-                                        Upload an <strong>EPUB</strong> file to convert it into a Manuscale Project. From there, you can edit or export it.
+                                        Upload an <strong>EPUB</strong> file to convert it into a Typoscale Project. From there, you can edit or export it.
                                     </p>
                                     <button 
                                         onClick={() => fileInputRef.current?.click()}

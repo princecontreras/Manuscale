@@ -18,7 +18,7 @@ export default function PrivacyPolicy() {
             <section>
               <h2 className="text-xl font-bold text-slate-900 mb-4">1. Information We Collect</h2>
               <p className="text-slate-600 leading-relaxed mb-4">
-                We collect information that you provide directly to us when using Manuscale:
+                We collect information that you provide directly to us when using Typoscale:
               </p>
               <ul className="list-disc pl-6 space-y-2 text-slate-600">
                 <li><strong>Account Information:</strong> Name, email address, and authentication data (via Google or Email).</li>
@@ -33,7 +33,7 @@ export default function PrivacyPolicy() {
                 We use the collected information for the following purposes:
               </p>
               <ul className="list-disc pl-6 space-y-2 text-slate-600">
-                <li>To provide, maintain, and improve the Manuscale studio;</li>
+                <li>To provide, maintain, and improve the Typoscale studio;</li>
                 <li>To process AI requests and generate manuscript content;</li>
                 <li>To communicate with you about your account and updates;</li>
                 <li>To ensure the security and integrity of our platform.</li>
@@ -50,7 +50,7 @@ export default function PrivacyPolicy() {
             <section>
               <h2 className="text-xl font-bold text-slate-900 mb-4">4. Third-Party AI Services</h2>
               <p className="text-slate-600 leading-relaxed">
-                Manuscale utilizes Google's Gemini AI services to power its research and drafting capabilities. When you use these features, relevant parts of your prompts and content are shared with Google to generate responses. We do not sell your personal data to third parties.
+                Typoscale utilizes Google's Gemini AI services to power its research and drafting capabilities. When you use these features, relevant parts of your prompts and content are shared with Google to generate responses. We do not sell your personal data to third parties.
               </p>
             </section>
 
@@ -92,7 +92,7 @@ export default function PrivacyPolicy() {
             <section>
               <h2 className="text-xl font-bold text-slate-900 mb-4">10. Contact Us</h2>
               <p className="text-slate-600 leading-relaxed">
-                If you have any questions about this Privacy Policy, you can contact us at support@manuscale.com.
+                If you have any questions about this Privacy Policy, you can contact us at support@typoscale.com.
               </p>
             </section>
           </div>

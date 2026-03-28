@@ -65,7 +65,7 @@ export default function SubscriptionConfirmationPage() {
           <div className="bg-gradient-to-br from-emerald-50 to-blue-50 rounded-2xl p-6 border border-emerald-100">
             <div className="space-y-3">
               <p className="text-slate-700 text-sm leading-relaxed">
-                Welcome to <span className="font-bold text-emerald-600">Manuscale Pro</span>! 
+                Welcome to <span className="font-bold text-emerald-600">Typoscale Pro</span>! 
                 You now have access to all premium features including:
               </p>
               <ul className="space-y-2 text-sm text-slate-600">

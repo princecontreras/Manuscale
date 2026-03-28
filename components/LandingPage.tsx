@@ -264,7 +264,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onGoToAuth
                 )}
             </header>
 
-            {/* 1. HERO SECTION: WHAT IS MANUSCALE */}
+            {/* 1. HERO SECTION: WHAT IS TYPOSCALE */}
             <section className="relative pt-32 sm:pt-48 pb-16 sm:pb-32 px-4 sm:px-6 overflow-hidden flex flex-col items-center text-center">
                 {/* Subtle Background Decor */}
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full pointer-events-none -z-10">
@@ -284,7 +284,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onGoToAuth
                         </h1>
                         
                         <p className="text-base sm:text-lg md:text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed mb-8 sm:mb-12 px-2">
-                            Manuscale is an autonomous publishing studio that turns your knowledge into professional books. We don't just help you write; we handle the research, structure, and drafting for you.
+                            Typoscale is an autonomous publishing studio that turns your knowledge into professional books. We don't just help you write; we handle the research, structure, and drafting for you.
                         </p>
 
                         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -347,13 +347,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onGoToAuth
                 </div>
             </section>
 
-            {/* 3. THE SOLUTION: HOW MANUSCALE SOLVES IT */}
+            {/* 3. THE SOLUTION: HOW TYPOSCALE SOLVES IT */}
             <section className="py-16 sm:py-32 bg-slate-50 px-4 sm:px-8">
                 <div className="max-w-7xl mx-auto">
                     <div className="text-center max-w-3xl mx-auto mb-20">
                         <h2 className="text-2xl sm:text-3xl md:text-[48px] font-heading font-medium text-slate-900 mb-6 tracking-tight">The autonomous publishing studio.</h2>
                         <p className="text-base md:text-[18px] text-slate-500 leading-relaxed">
-                            Manuscale replaces the manual struggle with an autonomous editorial team. We don't just give you a tool; we give you a finished product.
+                            Typoscale replaces the manual struggle with an autonomous editorial team. We don't just give you a tool; we give you a finished product.
                         </p>
                     </div>
 
@@ -406,7 +406,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onGoToAuth
                     >
                         <h2 className="text-xl sm:text-2xl md:text-[48px] font-heading font-bold mb-6 tracking-tight">Ready to become an author?</h2>
                         <p className="text-base md:text-[18px] text-slate-400 mb-12 leading-relaxed">
-                            Join thousands of experts using Manuscale to turn their knowledge into professional books.
+                            Join thousands of experts using Typoscale to turn their knowledge into professional books.
                         </p>
                         
                         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
@@ -444,7 +444,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onGoToAuth
                             <Link href="/privacy" className="hover:text-slate-900 transition-colors">Privacy</Link>
                         </div>
                         <div className="text-[12px] text-slate-400">
-                            &copy; {new Date().getFullYear()} Manuscale. All rights reserved.
+                            &copy; {new Date().getFullYear()} Typoscale. All rights reserved.
                         </div>
                     </div>
                 </div>

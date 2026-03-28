@@ -624,8 +624,8 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, initialTopic, 
               await saveProject(initialProjectData);
               // Persist project ID so page reloads can recover progress
               if (typeof window !== 'undefined') {
-                  sessionStorage.setItem('manuscale_session_project_id', newId);
-                  sessionStorage.setItem('manuscale_session_view', 'WIZARD');
+                  sessionStorage.setItem('typoscale_session_project_id', newId);
+                  sessionStorage.setItem('typoscale_session_view', 'WIZARD');
               }
           }
 

@@ -136,7 +136,7 @@ const ApiSettingsModal: React.FC<{ onClose: () => void, onExit: () => void }> = 
             const dataUrl = canvas.toDataURL('image/png');
             const link = document.createElement('a');
             link.href = dataUrl;
-            link.download = 'Manuscale_Brand_Logo.png';
+            link.download = 'Typoscale_Brand_Logo.png';
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -164,7 +164,7 @@ const ApiSettingsModal: React.FC<{ onClose: () => void, onExit: () => void }> = 
                         <div className="mb-4 scale-150"><Logo /></div>
                         <Button variant="neutral" size="sm" onClick={handleDownloadLogo} className="gap-2"><Download size={14}/> Download Logo</Button>
                     </div>
-                    <p className="text-xs text-slate-400 text-center">Manuscale</p>
+                    <p className="text-xs text-slate-400 text-center">Typoscale</p>
                     <div className="flex justify-end mt-6">
                         <Button variant="ghost" size="sm" onClick={onClose}>Close</Button>
                     </div>
@@ -262,7 +262,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, onCreateNew, onOpe
                     setProjects(synced);
                     showToast("Project imported successfully!", 'success');
                 } else {
-                    showToast("Invalid project file. Please ensure it's a valid Manuscale project file.", 'error');
+                    showToast("Invalid project file. Please ensure it's a valid Typoscale project file.", 'error');
                 }
             } catch (err) {
                 const errorMessage = err instanceof Error ? err.message : "Failed to import project. File may be corrupted or invalid.";

@@ -66,8 +66,8 @@ const EditorSkeleton = () => (
 );
 
 // Session persistence keys
-const SESSION_VIEW_KEY = 'manuscale_session_view';
-const SESSION_PROJECT_KEY = 'manuscale_session_project_id';
+const SESSION_VIEW_KEY = 'typoscale_session_view';
+const SESSION_PROJECT_KEY = 'typoscale_session_project_id';
 
 const App: React.FC = () => {
   const { user } = useAuth();

@@ -92,7 +92,7 @@ const BillingSection: React.FC = () => {
             </div>
             <div className="space-y-2 text-sm text-slate-600">
               <p>
-                <strong>Plan:</strong> Manuscale Pro {isMonthly ? '(Monthly)' : isYearly ? '(Yearly)' : ''}
+                <strong>Plan:</strong> Typoscale Pro {isMonthly ? '(Monthly)' : isYearly ? '(Yearly)' : ''}
               </p>
               <p>
                 <strong>Status:</strong>{' '}
@@ -122,7 +122,7 @@ const BillingSection: React.FC = () => {
         <h2 className="text-xl font-bold text-slate-900">Upgrade to Pro</h2>
       </div>
       <p className="text-slate-600 mb-4">
-        Unlock all features with Manuscale Pro and get unlimited access to AI-powered writing, exports, and more.
+        Unlock all features with Typoscale Pro and get unlimited access to AI-powered writing, exports, and more.
       </p>
       <a
         href="/pricing"

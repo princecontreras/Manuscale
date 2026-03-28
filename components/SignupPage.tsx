@@ -168,7 +168,7 @@ export const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onGoToLogin, o
 
                 {/* Right Side: Benefits */}
                 <div className="bg-neutral-900 p-12 text-white flex flex-col justify-center md:w-1/2">
-                    <h2 className="text-3xl font-bold mb-12">Why join Manuscale?</h2>
+                    <h2 className="text-3xl font-bold mb-12">Why join Typoscale?</h2>
                     <div className="space-y-8">
                         <div className="flex gap-4">
                             <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center text-primary-400 shrink-0"><Zap size={20}/></div>

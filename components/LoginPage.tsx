@@ -97,7 +97,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onGoToSignup, onB
                     <Logo />
                 </div>
                 <h1 className="text-xl font-bold text-neutral-900 text-center mb-2">Welcome back</h1>
-                <p className="text-neutral-500 text-sm text-center mb-8">Sign in to continue to Manuscale.</p>
+                <p className="text-neutral-500 text-sm text-center mb-8">Sign in to continue to Typoscale.</p>
                 
                 <div className="space-y-4">
                     <Button 

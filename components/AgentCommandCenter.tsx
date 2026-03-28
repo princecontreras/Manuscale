@@ -44,7 +44,7 @@ const AgentOnboarding: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     const SLIDES = [
         {
             title: "Autonomous Publishing Swarm Active",
-            body: "Manuscale Autonomous Publishing Engine is not a chatbot. It is a team of specialized AI agents working in a recursive loop to build your book from scratch.",
+            body: "Typoscale Autonomous Publishing Engine is not a chatbot. It is a team of specialized AI agents working in a recursive loop to build your book from scratch.",
             icon: Bot,
             color: "text-blue-400",
             bg: "bg-blue-500/10",
