@@ -14,8 +14,13 @@ function initAdmin(): admin.app.App {
   const serviceAccountJson = process.env.FIREBASE_ADMIN_SERVICE_ACCOUNT;
   if (serviceAccountJson && serviceAccountJson !== '{}') {
     try {
-      // Replace literal \n with actual newlines (needed for environment variables)
-      const processedJson = serviceAccountJson.replace(/\\n/g, '\n');
+      // Replace all common escape sequences in environment variables
+      let processedJson = serviceAccountJson
+        .replace(/\\n/g, '\n')      // newlines
+        .replace(/\\r/g, '\r')      // carriage returns
+        .replace(/\\t/g, '\t')      // tabs
+        .replace(/\\"/g, '"')       // escaped quotes
+        .replace(/\\\\/g, '\\');    // escaped backslashes
       const serviceAccount = JSON.parse(processedJson) as admin.ServiceAccount;
       console.log('✓ Firebase Admin initialized with service account');
       return admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
