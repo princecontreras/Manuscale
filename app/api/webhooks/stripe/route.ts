@@ -1,7 +1,7 @@
 import Stripe from 'stripe';
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/services/firebase';
-import { doc, setDoc, query, collection, where, getDocs } from 'firebase/firestore';
+import { getAdminApp } from '@/services/firebaseAdmin';
+import * as admin from 'firebase-admin';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
@@ -31,14 +31,22 @@ async function resolveFirebaseUid(eventData: any): Promise<string | null> {
     }
   }
 
-  // 3. Fall back to email lookup in Firestore
+  // 3. Fall back to email lookup in Firestore using Admin SDK
   const email = eventData.customer_email || eventData.customer_details?.email;
   if (email) {
-    const usersRef = collection(db, 'users');
-    const q = query(usersRef, where('email', '==', email));
-    const querySnapshot = await getDocs(q);
-    if (!querySnapshot.empty) {
-      return querySnapshot.docs[0].id;
+    try {
+      const app = getAdminApp();
+      const adminDb = admin.firestore(app);
+      const querySnapshot = await adminDb
+        .collection('users')
+        .where('email', '==', email)
+        .limit(1)
+        .get();
+      if (!querySnapshot.empty) {
+        return querySnapshot.docs[0].id;
+      }
+    } catch (e) {
+      console.warn('Error looking up user by email in Firestore:', e);
     }
   }
 
@@ -79,7 +87,9 @@ export async function POST(req: NextRequest) {
             ? new Date((subscription as any).current_period_end * 1000)
             : new Date();
 
-          await setDoc(doc(db, 'users', firebaseUid), {
+          const app = getAdminApp();
+          const adminDb = admin.firestore(app);
+          await adminDb.collection('users').doc(firebaseUid).set({
             stripeCustomerId: session.customer,
             subscriptionId: subscription.id,
             subscriptionStatus: subscription.status,
@@ -106,7 +116,9 @@ export async function POST(req: NextRequest) {
             ? new Date((subscription as any).current_period_end * 1000)
             : new Date();
 
-          await setDoc(doc(db, 'users', firebaseUid), {
+          const app = getAdminApp();
+          const adminDb = admin.firestore(app);
+          await adminDb.collection('users').doc(firebaseUid).set({
             stripeCustomerId: subscription.customer,
             subscriptionId: subscription.id,
             subscriptionStatus: subscription.status,
@@ -123,7 +135,9 @@ export async function POST(req: NextRequest) {
 
       case 'customer.subscription.deleted': {
         if (firebaseUid) {
-          await setDoc(doc(db, 'users', firebaseUid), {
+          const app = getAdminApp();
+          const adminDb = admin.firestore(app);
+          await adminDb.collection('users').doc(firebaseUid).set({
             subscriptionStatus: 'canceled',
             subscriptionId: null,
             updatedAt: new Date(),
@@ -140,7 +154,9 @@ export async function POST(req: NextRequest) {
       case 'invoice.payment_failed':
         console.log('✗ Payment failed');
         if (firebaseUid) {
-          await setDoc(doc(db, 'users', firebaseUid), {
+          const app = getAdminApp();
+          const adminDb = admin.firestore(app);
+          await adminDb.collection('users').doc(firebaseUid).set({
             subscriptionStatus: 'past_due',
             updatedAt: new Date(),
           }, { merge: true });

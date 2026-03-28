@@ -1,8 +1,6 @@
 import Stripe from 'stripe';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminApp } from '@/services/firebaseAdmin';
-import { db } from '@/services/firebase';
-import { doc, getDoc } from 'firebase/firestore';
 import * as admin from 'firebase-admin';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
@@ -39,11 +37,12 @@ export async function POST(req: NextRequest) {
     const userEmail = decodedToken.email || '';
 
     // Check for existing active subscription to prevent duplicates
-    const userDocRef = doc(db, 'users', firebaseUid);
-    const userDocSnap = await getDoc(userDocRef);
-    if (userDocSnap.exists()) {
+    const app = getAdminApp();
+    const adminDb = admin.firestore(app);
+    const userDocSnap = await adminDb.collection('users').doc(firebaseUid).get();
+    if (userDocSnap.exists) {
       const userData = userDocSnap.data();
-      if (userData.subscriptionStatus === 'active') {
+      if (userData && userData.subscriptionStatus === 'active') {
         return NextResponse.json(
           { error: 'You already have an active subscription. Manage it from your profile.' },
           { status: 409 }
