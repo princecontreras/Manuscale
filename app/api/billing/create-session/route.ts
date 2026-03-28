@@ -1,6 +1,8 @@
 import Stripe from 'stripe';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminApp } from '@/services/firebaseAdmin';
+import { db } from '@/services/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 import * as admin from 'firebase-admin';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
@@ -36,6 +38,19 @@ export async function POST(req: NextRequest) {
     const firebaseUid = decodedToken.uid;
     const userEmail = decodedToken.email || '';
 
+    // Check for existing active subscription to prevent duplicates
+    const userDocRef = doc(db, 'users', firebaseUid);
+    const userDocSnap = await getDoc(userDocRef);
+    if (userDocSnap.exists()) {
+      const userData = userDocSnap.data();
+      if (userData.subscriptionStatus === 'active') {
+        return NextResponse.json(
+          { error: 'You already have an active subscription. Manage it from your profile.' },
+          { status: 409 }
+        );
+      }
+    }
+
     // Validate plan
     if (!plan || (plan !== 'monthly' && plan !== 'yearly')) {
       return NextResponse.json(
@@ -58,10 +73,14 @@ export async function POST(req: NextRequest) {
 
     const priceId = plan === 'monthly' ? monthlyPriceId : yearlyPriceId;
 
+    // Check if customer already exists in Stripe to reuse customer record
+    const existingCustomers = await stripe.customers.list({ email: userEmail, limit: 1 });
+    const customerId = existingCustomers.data.length > 0 ? existingCustomers.data[0].id : undefined;
+
     // Create Stripe checkout session
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
-      customer_email: userEmail,
+      ...(customerId ? { customer: customerId } : { customer_email: userEmail }),
       line_items: [
         {
           price: priceId,

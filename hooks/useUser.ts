@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/services/firebase';
 import { UserProfile, UserSubscription } from '@/types';
 
@@ -42,13 +42,19 @@ export const useUser = () => {
             updatedAt: userData.updatedAt?.toDate?.() || userData.updatedAt,
           });
         } else {
-          // User not in Firestore yet, create profile from Firebase auth
-          setUserProfile({
+          // User doc doesn't exist yet — create it in Firestore
+          const newProfile = {
             uid: firebaseUser.uid,
             email: firebaseUser.email || '',
-            displayName: firebaseUser.displayName || undefined,
-            photoURL: firebaseUser.photoURL || undefined,
+            displayName: firebaseUser.displayName || null,
+            photoURL: firebaseUser.photoURL || null,
             createdAt: new Date(),
+          };
+          await setDoc(userDocRef, newProfile);
+          setUserProfile({
+            ...newProfile,
+            displayName: newProfile.displayName || undefined,
+            photoURL: newProfile.photoURL || undefined,
           });
         }
       } catch (err) {

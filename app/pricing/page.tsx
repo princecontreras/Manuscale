@@ -24,10 +24,24 @@ const PricingPage: React.FC = () => {
     }
   }, [firebaseUser, authLoading]);
 
+  // Redirect already-subscribed users to dashboard
+  React.useEffect(() => {
+    if (!isLoading && !authLoading && firebaseUser && subscription.isSubscribed) {
+      window.location.href = '/';
+    }
+  }, [isLoading, authLoading, firebaseUser, subscription.isSubscribed]);
+
   const handleCheckout = async (plan: 'monthly' | 'yearly') => {
     try {
       setError(null);
       setIsCheckingOut(true);
+
+      // Prevent duplicate subscription
+      if (subscription.isSubscribed) {
+        setError('You already have an active subscription. Manage it from your profile.');
+        setIsCheckingOut(false);
+        return;
+      }
 
       // Get Firebase ID token
       const token = await firebaseUser?.getIdToken();

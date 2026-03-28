@@ -1,10 +1,49 @@
 import Stripe from 'stripe';
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/services/firebase';
-import { doc, updateDoc, query, collection, where, getDocs } from 'firebase/firestore';
+import { doc, setDoc, query, collection, where, getDocs } from 'firebase/firestore';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
+
+/**
+ * Resolve the Firebase UID from a Stripe event object.
+ * Tries metadata first, then looks up user by email in Firestore.
+ */
+async function resolveFirebaseUid(eventData: any): Promise<string | null> {
+  // 1. Check metadata on the event object directly (checkout session has it)
+  if (eventData.metadata?.firebaseUid) {
+    return eventData.metadata.firebaseUid;
+  }
+
+  // 2. For subscription events, try to get metadata from the customer's latest checkout session
+  if (eventData.customer) {
+    try {
+      const sessions = await stripe.checkout.sessions.list({
+        customer: typeof eventData.customer === 'string' ? eventData.customer : eventData.customer.id,
+        limit: 1,
+      });
+      if (sessions.data.length > 0 && sessions.data[0].metadata?.firebaseUid) {
+        return sessions.data[0].metadata.firebaseUid;
+      }
+    } catch (e) {
+      console.warn('Could not retrieve checkout sessions for customer:', e);
+    }
+  }
+
+  // 3. Fall back to email lookup in Firestore
+  const email = eventData.customer_email || eventData.customer_details?.email;
+  if (email) {
+    const usersRef = collection(db, 'users');
+    const q = query(usersRef, where('email', '==', email));
+    const querySnapshot = await getDocs(q);
+    if (!querySnapshot.empty) {
+      return querySnapshot.docs[0].id;
+    }
+  }
+
+  return null;
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,41 +60,60 @@ export async function POST(req: NextRequest) {
     }
 
     const eventData = event.data.object as any;
-    let firebaseUid = eventData.metadata?.firebaseUid;
+    const firebaseUid = await resolveFirebaseUid(eventData);
 
-    console.log(`Processing Stripe event: ${event.type}`);
-
-    // If no firebaseUid in metadata, try to find user by customer email
-    if (!firebaseUid && eventData.customer_email) {
-      const usersRef = collection(db, 'users');
-      const q = query(usersRef, where('email', '==', eventData.customer_email));
-      const querySnapshot = await getDocs(q);
-      
-      if (!querySnapshot.empty) {
-        firebaseUid = querySnapshot.docs[0].id;
-        console.log(`Found Firebase user by email: ${firebaseUid}`);
-      }
-    }
+    console.log(`Processing Stripe event: ${event.type} | Firebase UID: ${firebaseUid || 'not found'}`);
 
     switch (event.type) {
+      // Handle checkout completion — this is the most reliable event for linking user + subscription
+      case 'checkout.session.completed': {
+        const session = event.data.object as Stripe.Checkout.Session;
+        if (firebaseUid && session.subscription) {
+          // Retrieve the full subscription to get status and plan details
+          const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
+          const priceId = subscription.items.data[0]?.price.id || '';
+          const plan = priceId === process.env.NEXT_PUBLIC_STRIPE_MONTHLY_PRICE_ID ? 'monthly'
+            : priceId === process.env.NEXT_PUBLIC_STRIPE_YEARLY_PRICE_ID ? 'yearly'
+            : priceId;
+          const currentPeriodEnd = (subscription as any).current_period_end
+            ? new Date((subscription as any).current_period_end * 1000)
+            : new Date();
+
+          await setDoc(doc(db, 'users', firebaseUid), {
+            stripeCustomerId: session.customer,
+            subscriptionId: subscription.id,
+            subscriptionStatus: subscription.status,
+            currentPeriodEnd,
+            plan,
+            updatedAt: new Date(),
+          }, { merge: true });
+          console.log(`✓ Checkout completed — subscription linked for user ${firebaseUid}`);
+        } else {
+          console.warn('checkout.session.completed: Could not resolve Firebase user or subscription');
+        }
+        break;
+      }
+
       case 'customer.subscription.created':
       case 'customer.subscription.updated': {
         const subscription = event.data.object as Stripe.Subscription;
         if (firebaseUid) {
-          const priceId = subscription.items.data[0]?.price.id || 'unknown';
-          const plan = priceId.includes('monthly') ? 'monthly' : priceId.includes('yearly') ? 'yearly' : priceId;
-          const currentPeriodEnd = (subscription as any).current_period_end 
+          const priceId = subscription.items.data[0]?.price.id || '';
+          const plan = priceId === process.env.NEXT_PUBLIC_STRIPE_MONTHLY_PRICE_ID ? 'monthly'
+            : priceId === process.env.NEXT_PUBLIC_STRIPE_YEARLY_PRICE_ID ? 'yearly'
+            : priceId;
+          const currentPeriodEnd = (subscription as any).current_period_end
             ? new Date((subscription as any).current_period_end * 1000)
             : new Date();
-          
-          await updateDoc(doc(db, 'users', firebaseUid), {
+
+          await setDoc(doc(db, 'users', firebaseUid), {
             stripeCustomerId: subscription.customer,
             subscriptionId: subscription.id,
             subscriptionStatus: subscription.status,
-            currentPeriodEnd: currentPeriodEnd,
-            plan: plan,
+            currentPeriodEnd,
+            plan,
             updatedAt: new Date(),
-          });
+          }, { merge: true });
           console.log(`✓ Subscription updated for user ${firebaseUid}`);
         } else {
           console.warn('Could not find Firebase user for Stripe subscription');
@@ -64,13 +122,12 @@ export async function POST(req: NextRequest) {
       }
 
       case 'customer.subscription.deleted': {
-        const subscription = event.data.object as Stripe.Subscription;
         if (firebaseUid) {
-          await updateDoc(doc(db, 'users', firebaseUid), {
+          await setDoc(doc(db, 'users', firebaseUid), {
             subscriptionStatus: 'canceled',
             subscriptionId: null,
             updatedAt: new Date(),
-          });
+          }, { merge: true });
           console.log(`✓ Subscription canceled for user ${firebaseUid}`);
         }
         break;
@@ -82,12 +139,11 @@ export async function POST(req: NextRequest) {
 
       case 'invoice.payment_failed':
         console.log('✗ Payment failed');
-        const failedInvoice = event.data.object as Stripe.Invoice;
         if (firebaseUid) {
-          await updateDoc(doc(db, 'users', firebaseUid), {
+          await setDoc(doc(db, 'users', firebaseUid), {
             subscriptionStatus: 'past_due',
             updatedAt: new Date(),
-          });
+          }, { merge: true });
         }
         break;
     }
