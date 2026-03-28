@@ -58,7 +58,7 @@ export default function SubscriptionConfirmationPage() {
           You're all set.
         </h1>
         <p className="text-slate-500 text-sm leading-relaxed mb-10">
-          Welcome to <span className="font-bold text-primary-600">Typoscale Pro</span> ({planLabel}).
+          Welcome to <span className="font-bold text-primary-600">Typoscale</span> ({planLabel}).
           Your subscription is active and all features are unlocked.
         </p>
 

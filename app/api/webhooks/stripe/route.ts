@@ -70,36 +70,56 @@ export async function POST(req: NextRequest) {
     const eventData = event.data.object as any;
     const firebaseUid = await resolveFirebaseUid(eventData);
 
-    console.log(`Processing Stripe event: ${event.type} | Firebase UID: ${firebaseUid || 'not found'}`);
+    console.log(`\n[STRIPE WEBHOOK] Processing event: ${event.type}`);
+    console.log(`[STRIPE WEBHOOK] Firebase UID resolved: ${firebaseUid || 'NOT FOUND'}`);
+    console.log(`[STRIPE WEBHOOK] Event ID: ${event.id}`);
 
     switch (event.type) {
       // Handle checkout completion — this is the most reliable event for linking user + subscription
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
+        console.log(`[checkout.session.completed] Session ID: ${session.id}, Customer: ${session.customer}`);
+        
         if (firebaseUid && session.subscription) {
-          // Retrieve the full subscription to get status and plan details
-          const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
-          const priceId = subscription.items.data[0]?.price.id || '';
-          const plan = priceId === process.env.NEXT_PUBLIC_STRIPE_MONTHLY_PRICE_ID ? 'monthly'
-            : priceId === process.env.NEXT_PUBLIC_STRIPE_YEARLY_PRICE_ID ? 'yearly'
-            : priceId;
-          const currentPeriodEnd = (subscription as any).current_period_end
-            ? new Date((subscription as any).current_period_end * 1000)
-            : new Date();
+          try {
+            // Retrieve the full subscription to get status and plan details
+            const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
+            const priceId = subscription.items.data[0]?.price.id || '';
+            const plan = priceId === process.env.NEXT_PUBLIC_STRIPE_MONTHLY_PRICE_ID ? 'monthly'
+              : priceId === process.env.NEXT_PUBLIC_STRIPE_YEARLY_PRICE_ID ? 'yearly'
+              : priceId;
+            const currentPeriodEnd = (subscription as any).current_period_end
+              ? new Date((subscription as any).current_period_end * 1000)
+              : new Date();
 
-          const app = getAdminApp();
-          const adminDb = admin.firestore(app);
-          await adminDb.collection('users').doc(firebaseUid).set({
-            stripeCustomerId: session.customer,
-            subscriptionId: subscription.id,
-            subscriptionStatus: subscription.status,
-            currentPeriodEnd,
-            plan,
-            updatedAt: new Date(),
-          }, { merge: true });
-          console.log(`✓ Checkout completed — subscription linked for user ${firebaseUid}`);
+            const app = getAdminApp();
+            const adminDb = admin.firestore(app);
+            
+            console.log(`[checkout.session.completed] Writing to Firestore for user ${firebaseUid}:`, {
+              plan,
+              subscriptionStatus: subscription.status,
+              currentPeriodEnd: currentPeriodEnd.toISOString(),
+            });
+            
+            await adminDb.collection('users').doc(firebaseUid).set({
+              stripeCustomerId: session.customer,
+              subscriptionId: subscription.id,
+              subscriptionStatus: subscription.status,
+              currentPeriodEnd,
+              plan,
+              updatedAt: new Date(),
+            }, { merge: true });
+            console.log(`✓ [checkout.session.completed] SUCCESS — subscription linked for user ${firebaseUid}`);
+          } catch (err: any) {
+            console.error(`✗ [checkout.session.completed] FAILED to write to Firestore:`, {
+              error: String(err),
+              message: err?.message,
+              code: err?.code,
+              firebaseUid,
+            });
+          }
         } else {
-          console.warn('checkout.session.completed: Could not resolve Firebase user or subscription');
+          console.warn(`✗ [checkout.session.completed] Could not resolve Firebase user or subscription - UID: ${firebaseUid}, hasSubscription: ${!!session.subscription}`);
         }
         break;
       }
@@ -107,66 +127,107 @@ export async function POST(req: NextRequest) {
       case 'customer.subscription.created':
       case 'customer.subscription.updated': {
         const subscription = event.data.object as Stripe.Subscription;
+        console.log(`[${event.type}] Subscription ID: ${subscription.id}, Customer: ${subscription.customer}, Status: ${subscription.status}`);
+        
         if (firebaseUid) {
-          const priceId = subscription.items.data[0]?.price.id || '';
-          const plan = priceId === process.env.NEXT_PUBLIC_STRIPE_MONTHLY_PRICE_ID ? 'monthly'
-            : priceId === process.env.NEXT_PUBLIC_STRIPE_YEARLY_PRICE_ID ? 'yearly'
-            : priceId;
-          const currentPeriodEnd = (subscription as any).current_period_end
-            ? new Date((subscription as any).current_period_end * 1000)
-            : new Date();
+          try {
+            const priceId = subscription.items.data[0]?.price.id || '';
+            const plan = priceId === process.env.NEXT_PUBLIC_STRIPE_MONTHLY_PRICE_ID ? 'monthly'
+              : priceId === process.env.NEXT_PUBLIC_STRIPE_YEARLY_PRICE_ID ? 'yearly'
+              : priceId;
+            const currentPeriodEnd = (subscription as any).current_period_end
+              ? new Date((subscription as any).current_period_end * 1000)
+              : new Date();
 
-          const app = getAdminApp();
-          const adminDb = admin.firestore(app);
-          await adminDb.collection('users').doc(firebaseUid).set({
-            stripeCustomerId: subscription.customer,
-            subscriptionId: subscription.id,
-            subscriptionStatus: subscription.status,
-            currentPeriodEnd,
-            plan,
-            updatedAt: new Date(),
-          }, { merge: true });
-          console.log(`✓ Subscription updated for user ${firebaseUid}`);
+            const app = getAdminApp();
+            const adminDb = admin.firestore(app);
+            
+            console.log(`[${event.type}] Writing to Firestore for user ${firebaseUid}:`, {
+              plan,
+              status: subscription.status,
+              currentPeriodEnd: currentPeriodEnd.toISOString(),
+            });
+            
+            await adminDb.collection('users').doc(firebaseUid).set({
+              stripeCustomerId: subscription.customer,
+              subscriptionId: subscription.id,
+              subscriptionStatus: subscription.status,
+              currentPeriodEnd,
+              plan,
+              updatedAt: new Date(),
+            }, { merge: true });
+            console.log(`✓ [${event.type}] SUCCESS — subscription updated for user ${firebaseUid}`);
+          } catch (err: any) {
+            console.error(`✗ [${event.type}] FAILED to write to Firestore:`, {
+              error: String(err),
+              message: err?.message,
+              code: err?.code,
+              firebaseUid,
+            });
+          }
         } else {
-          console.warn('Could not find Firebase user for Stripe subscription');
+          console.warn(`✗ [${event.type}] Could not find Firebase user for Stripe subscription`);
         }
         break;
       }
 
       case 'customer.subscription.deleted': {
+        console.log(`[customer.subscription.deleted] Subscription ID: ${(event.data.object as any).id}`);
         if (firebaseUid) {
-          const app = getAdminApp();
-          const adminDb = admin.firestore(app);
-          await adminDb.collection('users').doc(firebaseUid).set({
-            subscriptionStatus: 'canceled',
-            subscriptionId: null,
-            updatedAt: new Date(),
-          }, { merge: true });
-          console.log(`✓ Subscription canceled for user ${firebaseUid}`);
+          try {
+            const app = getAdminApp();
+            const adminDb = admin.firestore(app);
+            await adminDb.collection('users').doc(firebaseUid).set({
+              subscriptionStatus: 'canceled',
+              subscriptionId: null,
+              updatedAt: new Date(),
+            }, { merge: true });
+            console.log(`✓ [customer.subscription.deleted] SUCCESS — subscription canceled for user ${firebaseUid}`);
+          } catch (err: any) {
+            console.error(`✗ [customer.subscription.deleted] FAILED:`, {
+              error: String(err),
+              message: err?.message,
+              firebaseUid,
+            });
+          }
         }
         break;
       }
 
       case 'invoice.payment_succeeded':
-        console.log('✓ Payment received');
+        console.log(`[invoice.payment_succeeded] Invoice ID: ${(event.data.object as any).id}`);
         break;
 
       case 'invoice.payment_failed':
-        console.log('✗ Payment failed');
+        console.log(`[invoice.payment_failed] Invoice ID: ${(event.data.object as any).id}`);
         if (firebaseUid) {
-          const app = getAdminApp();
-          const adminDb = admin.firestore(app);
-          await adminDb.collection('users').doc(firebaseUid).set({
-            subscriptionStatus: 'past_due',
-            updatedAt: new Date(),
-          }, { merge: true });
+          try {
+            const app = getAdminApp();
+            const adminDb = admin.firestore(app);
+            await adminDb.collection('users').doc(firebaseUid).set({
+              subscriptionStatus: 'past_due',
+              updatedAt: new Date(),
+            }, { merge: true });
+            console.log(`✓ [invoice.payment_failed] Marked user ${firebaseUid} as past_due`);
+          } catch (err: any) {
+            console.error(`✗ [invoice.payment_failed] FAILED:`, {
+              error: String(err),
+              message: err?.message,
+              firebaseUid,
+            });
+          }
         }
         break;
     }
 
     return NextResponse.json({ received: true });
   } catch (error: any) {
-    console.error('Webhook error:', error);
+    console.error('\n[STRIPE WEBHOOK] ✗ CRITICAL ERROR:', {
+      error: String(error),
+      message: error?.message,
+      stack: error?.stack,
+      timestamp: new Date().toISOString(),
+    });
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 }
