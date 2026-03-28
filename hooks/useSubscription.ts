@@ -1,6 +1,5 @@
 'use client';
 
-import { useCallback } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { useUser } from '@/hooks/useUser';
 
@@ -8,22 +7,12 @@ export const useSubscription = () => {
   const { user: firebaseUser } = useAuth();
   const { user: userProfile } = useUser();
 
-  const hasSubscription = useCallback(
-    () => userProfile?.subscriptionStatus === 'active',
-    [userProfile?.subscriptionStatus]
-  );
+  // Direct checks instead of callbacks for proper reactivity
+  const isSubscribed = userProfile?.subscriptionStatus === 'active';
+  const isMonthly = userProfile?.plan?.includes('monthly');
+  const isYearly = userProfile?.plan?.includes('yearly');
 
-  const isMonthly = useCallback(
-    () => userProfile?.plan?.includes('monthly'),
-    [userProfile?.plan]
-  );
-
-  const isYearly = useCallback(
-    () => userProfile?.plan?.includes('yearly'),
-    [userProfile?.plan]
-  );
-
-  const openBillingPortal = useCallback(async () => {
+  const openBillingPortal = async () => {
     if (!firebaseUser) return;
 
     try {
@@ -48,12 +37,12 @@ export const useSubscription = () => {
     } catch (error) {
       console.error('Portal error:', error);
     }
-  }, [firebaseUser]);
+  };
 
   return {
-    isSubscribed: hasSubscription(),
-    isMonthly: isMonthly(),
-    isYearly: isYearly(),
+    isSubscribed,
+    isMonthly,
+    isYearly,
     openBillingPortal,
     subscriptionStatus: userProfile?.subscriptionStatus,
     currentPeriodEnd: userProfile?.currentPeriodEnd,

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/services/firebase';
 import { UserProfile, UserSubscription } from '@/types';
 
@@ -19,15 +19,18 @@ export const useUser = () => {
       return;
     }
 
-    const fetchUserProfile = async () => {
-      try {
-        setIsLoading(true);
-        // Try to fetch user profile from Firestore (includes subscription data)
-        const userDocRef = doc(db, 'users', firebaseUser.uid);
-        const userDocSnap = await getDoc(userDocRef);
-
-        if (userDocSnap.exists()) {
-          const userData = userDocSnap.data();
+    const userDocRef = doc(db, 'users', firebaseUser.uid);
+    
+    // Use onSnapshot for real-time updates - will update when webhook modifies subscription
+    const unsubscribe = onSnapshot(
+      userDocRef,
+      (doc) => {
+        if (doc.exists()) {
+          const userData = doc.data();
+          console.log('[useUser] User profile updated:', {
+            subscriptionStatus: userData.subscriptionStatus,
+            plan: userData.plan,
+          });
           setUserProfile({
             uid: firebaseUser.uid,
             email: firebaseUser.email || '',
@@ -50,16 +53,19 @@ export const useUser = () => {
             photoURL: firebaseUser.photoURL || null,
             createdAt: new Date(),
           };
-          await setDoc(userDocRef, newProfile);
+          setDoc(userDocRef, newProfile);
           setUserProfile({
             ...newProfile,
             displayName: newProfile.displayName || undefined,
             photoURL: newProfile.photoURL || undefined,
           });
         }
-      } catch (err) {
-        console.error('Error fetching user profile:', err);
+        setIsLoading(false);
+      },
+      (err) => {
+        console.error('[useUser] Error listening to user profile:', err);
         setError(err instanceof Error ? err.message : 'Failed to load user profile');
+        setIsLoading(false);
         // Still set basic Firebase user data on error
         setUserProfile({
           uid: firebaseUser.uid,
@@ -67,13 +73,10 @@ export const useUser = () => {
           displayName: firebaseUser.displayName || undefined,
           photoURL: firebaseUser.photoURL || undefined,
         });
-      } finally {
-        setIsLoading(false);
       }
-    };
+    );
 
-    fetchUserProfile();
-  }, [firebaseUser, authLoading]);
+    return () => unsubscribe();
 
   return {
     user: (userProfile as UserProfile | null) || (firebaseUser ? { uid: firebaseUser.uid, email: firebaseUser.email || '' } : null),
