@@ -12,9 +12,17 @@ function initAdmin(): admin.app.App {
   // Otherwise, fall back to projectId-only mode (sufficient for ID token verification
   // via the public JWKS endpoint — no private key required).
   const serviceAccountJson = process.env.FIREBASE_ADMIN_SERVICE_ACCOUNT;
-  if (serviceAccountJson) {
-    const serviceAccount = JSON.parse(serviceAccountJson) as admin.ServiceAccount;
-    return admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
+  if (serviceAccountJson && serviceAccountJson !== '{}') {
+    try {
+      // Replace literal \n with actual newlines (needed for environment variables)
+      const processedJson = serviceAccountJson.replace(/\\n/g, '\n');
+      const serviceAccount = JSON.parse(processedJson) as admin.ServiceAccount;
+      console.log('✓ Firebase Admin initialized with service account');
+      return admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
+    } catch (error) {
+      console.error('Failed to parse Firebase service account JSON:', error);
+      throw new Error(`Firebase Admin: Failed to parse FIREBASE_ADMIN_SERVICE_ACCOUNT. ${String(error)}`);
+    }
   }
 
   if (!projectId) {
@@ -22,6 +30,7 @@ function initAdmin(): admin.app.App {
   }
 
   // Minimal init — only token verification works without a service account key.
+  console.warn('⚠ Firebase Admin initialized without service account (projectId-only mode). Firestore operations will fail.');
   return admin.initializeApp({ projectId });
 }
 
