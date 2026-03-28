@@ -77,6 +77,7 @@ export const useUser = () => {
     );
 
     return () => unsubscribe();
+  }, [firebaseUser, authLoading]);
 
   return {
     user: (userProfile as UserProfile | null) || (firebaseUser ? { uid: firebaseUser.uid, email: firebaseUser.email || '' } : null),
