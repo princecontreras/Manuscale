@@ -58,8 +58,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onGoToSignup, onB
         try {
             const userCredential = await signInWithPopup(auth, googleProvider);
             // Google sign-in automatically verifies email
-            showToast("Successfully signed in!", "success");
-            onLogin();
+            showToast("Successfully signed in! Redirecting to pricing...", "success");
+            // Redirect to pricing instead of calling onLogin()
+            window.location.href = '/pricing';
         } catch (error: any) {
             console.error("Google login failed:", error);
             const errorMessage = getFirebaseErrorMessage(error);
@@ -79,8 +80,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onGoToSignup, onB
                 await auth.signOut();
                 return;
             }
-            showToast("Successfully signed in!", "success");
-            onLogin();
+            showToast("Successfully signed in! Redirecting to pricing...", "success");
+            // Redirect to pricing instead of calling onLogin()
+            window.location.href = '/pricing';
         } catch (error: any) {
             console.error("Email login failed:", error);
             const errorMessage = getFirebaseErrorMessage(error);

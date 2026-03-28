@@ -1,11 +1,12 @@
 "use client";
 import React, { useState } from 'react';
-import { signInWithPopup, createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
+import { signInWithPopup, createUserWithEmailAndPassword, sendEmailVerification, signOut } from 'firebase/auth';
 import { auth, googleProvider } from '../services/firebase';
 import { ArrowRight, Chrome, Zap, Shield, BrainCircuit } from 'lucide-react';
 import { Button } from './Button';
 import { Logo } from './Logo';
 import { useToast } from './ToastContext';
+import { EmailVerificationModal } from './EmailVerificationModal';
 
 const getFirebaseErrorMessage = (error: any): string => {
     const errorCode = error?.code || error?.message || 'unknown';
@@ -52,15 +53,19 @@ export const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onGoToLogin, o
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showVerificationModal, setShowVerificationModal] = useState(false);
+    const [verificationEmail, setVerificationEmail] = useState('');
     const { showToast } = useToast();
 
     const handleGoogleSignup = async () => {
         setLoading(true);
         try {
-            await signInWithPopup(auth, googleProvider);
-            showToast("Account created! Redirecting to pricing...", "success");
-            // Redirect to pricing page instead of dashboard
-            window.location.href = '/pricing';
+            const userCredential = await signInWithPopup(auth, googleProvider);
+            // Google sign-in automatically verifies email, so sign them out and ask to log in
+            showToast("Account created! Please sign in to continue.", "success");
+            await signOut(auth);
+            setVerificationEmail(userCredential.user.email || '');
+            setShowVerificationModal(true);
         } catch (error: any) {
             console.error("Google signup failed:", error);
             const errorMessage = getFirebaseErrorMessage(error);
@@ -80,9 +85,11 @@ export const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onGoToLogin, o
         try {
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             await sendEmailVerification(userCredential.user);
-            // Don't sign out - keep user logged in and redirect to pricing
-            showToast("Account created! Redirecting to pricing...", "success");
-            window.location.href = '/pricing';
+            // Sign them out so they can't access the app until verified
+            await signOut(auth);
+            showToast("Account created! Check your email for the verification link.", "success");
+            setVerificationEmail(email);
+            setShowVerificationModal(true);
         } catch (error: any) {
             console.error("Email signup failed:", error);
             const errorMessage = getFirebaseErrorMessage(error);
@@ -194,6 +201,18 @@ export const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onGoToLogin, o
                     </div>
                 </div>
             </div>
+
+            {/* Email Verification Modal */}
+            {showVerificationModal && (
+                <EmailVerificationModal
+                    email={verificationEmail}
+                    onClose={() => setShowVerificationModal(false)}
+                    onGoToLogin={() => {
+                        setShowVerificationModal(false);
+                        onGoToLogin();
+                    }}
+                />
+            )}
         </div>
     );
 };
