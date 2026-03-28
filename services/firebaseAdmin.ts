@@ -14,21 +14,29 @@ function initAdmin(): admin.app.App {
   const serviceAccountJson = process.env.FIREBASE_ADMIN_SERVICE_ACCOUNT;
   if (serviceAccountJson && serviceAccountJson !== '{}') {
     try {
-      // In Vercel/production, the JSON string should already have proper escape sequences.
-      // Only replace literal newlines/control characters with their escape sequence equivalents.
+      // In Vercel/production, env vars store escape sequences as literal characters.
+      // Replace literal \n, \r, \t with actual newline/return/tab characters.
+      // This is needed because the PEM formatted private key has newlines represented as \n
       let processedJson = serviceAccountJson
-        // Replace actual newline characters with \n escape sequence
-        .replace(/\n/g, '\\n')
-        .replace(/\r/g, '\\r')
-        .replace(/\t/g, '\\t');
+        .replace(/\\n/g, '\n')    // Replace literal \n with actual newline
+        .replace(/\\r/g, '\r')    // Replace literal \r with actual carriage return
+        .replace(/\\t/g, '\t');   // Replace literal \t with actual tab
       
+      console.log('[Firebase] Parsing service account JSON...');
       const serviceAccount = JSON.parse(processedJson) as admin.ServiceAccount;
       console.log('✓ Firebase Admin initialized with service account');
       return admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
     } catch (error) {
-      console.error('Failed to parse Firebase service account JSON:', error);
+      console.error('❌ Failed to parse Firebase service account JSON:', error);
       console.error('Service account JSON length:', serviceAccountJson?.length);
       console.error('First 150 chars:', serviceAccountJson?.substring(0, 150));
+      
+      // Provide more detailed error info
+      if (error instanceof Error) {
+        console.error('Error name:', error.name);
+        console.error('Error message:', error.message);
+      }
+      
       throw new Error(`Firebase Admin: Failed to parse FIREBASE_ADMIN_SERVICE_ACCOUNT. ${String(error)}`);
     }
   }
@@ -49,21 +57,40 @@ export const getAdminApp = (): admin.app.App => initAdmin();
  * Throws if the token is missing or invalid.
  */
 export async function verifyIdToken(authHeader: string | null): Promise<admin.auth.DecodedIdToken> {
+  console.log('[verifyIdToken] Starting token verification');
+  
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    console.error('[verifyIdToken] ✗ Missing or malformed Authorization header:', { hasHeader: !!authHeader, headerLength: authHeader?.length });
     throw Object.assign(new Error('Missing or malformed Authorization header'), { status: 401 });
   }
 
   const idToken = authHeader.slice(7);
+  console.log('[verifyIdToken] Token extracted, length:', idToken.length);
+  
   const app = getAdminApp();
 
   try {
-    return await admin.auth(app).verifyIdToken(idToken);
-  } catch (error) {
-    console.error('Token verification error:', {
-      error: String(error),
-      message: (error as any)?.message,
-      code: (error as any)?.code,
+    console.log('[verifyIdToken] Verifying with Firebase Admin SDK...');
+    const decodedToken = await admin.auth(app).verifyIdToken(idToken);
+    console.log('[verifyIdToken] ✓ Token verified successfully for user:', decodedToken.uid);
+    return decodedToken;
+  } catch (error: any) {
+    console.error('[verifyIdToken] ✗ Token verification failed:', {
+      errorType: error?.constructor?.name,
+      code: error?.code,
+      message: error?.message,
+      errorString: String(error),
     });
-    throw Object.assign(new Error('Invalid or expired Firebase token'), { status: 401 });
+    
+    // Provide more specific error messages based on error code
+    if (error?.code === 'auth/id-token-expired') {
+      throw Object.assign(new Error('Token has expired. Please sign out and back in.'), { status: 401 });
+    } else if (error?.code === 'auth/id-token-revoked') {
+      throw Object.assign(new Error('Token has been revoked. Please sign in again.'), { status: 401 });
+    } else if (error?.code === 'auth/invalid-id-token') {
+      throw Object.assign(new Error('Invalid token format. Please sign in again.'), { status: 401 });
+    }
+    
+    throw Object.assign(new Error('Token verification failed. Please try signing out and back in.'), { status: 401 });
   }
 }

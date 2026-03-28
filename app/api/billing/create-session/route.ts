@@ -1,6 +1,6 @@
 import Stripe from 'stripe';
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminApp } from '@/services/firebaseAdmin';
+import { getAdminApp, verifyIdToken } from '@/services/firebaseAdmin';
 import * as admin from 'firebase-admin';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
@@ -14,6 +14,7 @@ export async function POST(req: NextRequest) {
     // Verify authentication via Firebase ID token
     const authHeader = req.headers.get('Authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('[create-session] ✗ Missing or invalid authorization header');
       return NextResponse.json(
         { error: 'Missing or invalid authorization header' },
         { status: 401 }
@@ -28,13 +29,22 @@ export async function POST(req: NextRequest) {
       decodedToken = await admin.auth(app).verifyIdToken(token);
       console.log('[create-session] ✓ Token verified for user:', decodedToken.uid);
     } catch (error: any) {
-      console.error('[create-session] Token verification failed:', {
-        error: String(error),
-        message: error?.message,
+      console.error('[create-session] ✗ Token verification failed:', {
         code: error?.code,
+        message: error?.message,
+        error: String(error),
       });
+      
+      // Provide specific error messages
+      if (error?.code === 'auth/id-token-expired') {
+        return NextResponse.json(
+          { error: 'Your session has expired. Please sign out and back in.' },
+          { status: 401 }
+        );
+      }
+      
       return NextResponse.json(
-        { error: 'Invalid or expired token' },
+        { error: error?.message || 'Token verification failed' },
         { status: 401 }
       );
     }

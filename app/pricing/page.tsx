@@ -43,13 +43,21 @@ const PricingPage: React.FC = () => {
         return;
       }
 
-      // Get Firebase ID token
-      const token = await firebaseUser?.getIdToken();
+      if (!firebaseUser) {
+        setError('Please sign in to continue.');
+        setIsCheckingOut(false);
+        return;
+      }
+
+      // Get fresh Firebase ID token (forceRefresh ensures it's not stale)
+      console.log('[Pricing] Getting fresh ID token for checkout...');
+      const token = await firebaseUser.getIdToken(true); // true = force refresh
       if (!token) {
         setError('Authentication failed. Please try signing out and back in.');
         setIsCheckingOut(false);
         return;
       }
+      console.log('[Pricing] ✓ Token obtained, length:', token.length);
 
       // Call API to create checkout session
       const response = await fetch('/api/billing/create-session', {
@@ -63,11 +71,14 @@ const PricingPage: React.FC = () => {
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || 'Failed to create checkout session');
+        const errorMsg = data.error || 'Failed to create checkout session';
+        console.error('[Pricing] ✗ Checkout API error:', errorMsg);
+        throw new Error(errorMsg);
       }
 
       const { url } = await response.json();
       if (url) {
+        console.log('[Pricing] ✓ Redirecting to Stripe checkout');
         window.location.href = url;
       } else {
         throw new Error('No checkout URL received');
