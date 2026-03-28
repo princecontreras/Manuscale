@@ -45,15 +45,26 @@ export async function POST(req: NextRequest) {
     // Check for existing active subscription to prevent duplicates
     const app = getAdminApp();
     const adminDb = admin.firestore(app);
-    const userDocSnap = await adminDb.collection('users').doc(firebaseUid).get();
-    if (userDocSnap.exists) {
-      const userData = userDocSnap.data();
-      if (userData && userData.subscriptionStatus === 'active') {
-        return NextResponse.json(
-          { error: 'You already have an active subscription. Manage it from your profile.' },
-          { status: 409 }
-        );
+    
+    try {
+      const userDocSnap = await adminDb.collection('users').doc(firebaseUid).get();
+      if (userDocSnap.exists) {
+        const userData = userDocSnap.data();
+        if (userData && userData.subscriptionStatus === 'active') {
+          return NextResponse.json(
+            { error: 'You already have an active subscription. Manage it from your profile.' },
+            { status: 409 }
+          );
+        }
       }
+      // If user doc doesn't exist, that's fine - it will be created on first subscription
+    } catch (error: any) {
+      // NOT_FOUND errors are expected for new users
+      console.warn('[create-session] User document query failed (expected for new users):', {
+        error: error?.message,
+        code: error?.code,
+      });
+      // Continue checkout anyway
     }
 
     // Validate plan
