@@ -23,10 +23,16 @@ export async function POST(req: NextRequest) {
     const token = authHeader.slice(7); // Remove "Bearer " prefix
     let decodedToken;
     try {
+      console.log('[create-session] Verifying token...');
       const app = getAdminApp();
       decodedToken = await admin.auth(app).verifyIdToken(token);
+      console.log('[create-session] ✓ Token verified for user:', decodedToken.uid);
     } catch (error: any) {
-      console.error('Token verification failed:', error);
+      console.error('[create-session] Token verification failed:', {
+        error: String(error),
+        message: error?.message,
+        code: error?.code,
+      });
       return NextResponse.json(
         { error: 'Invalid or expired token' },
         { status: 401 }

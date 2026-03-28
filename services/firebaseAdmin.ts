@@ -14,18 +14,21 @@ function initAdmin(): admin.app.App {
   const serviceAccountJson = process.env.FIREBASE_ADMIN_SERVICE_ACCOUNT;
   if (serviceAccountJson && serviceAccountJson !== '{}') {
     try {
-      // Replace all common escape sequences in environment variables
+      // In Vercel/production, the JSON string should already have proper escape sequences.
+      // Only replace literal newlines/control characters with their escape sequence equivalents.
       let processedJson = serviceAccountJson
-        .replace(/\\n/g, '\n')      // newlines
-        .replace(/\\r/g, '\r')      // carriage returns
-        .replace(/\\t/g, '\t')      // tabs
-        .replace(/\\"/g, '"')       // escaped quotes
-        .replace(/\\\\/g, '\\');    // escaped backslashes
+        // Replace actual newline characters with \n escape sequence
+        .replace(/\n/g, '\\n')
+        .replace(/\r/g, '\\r')
+        .replace(/\t/g, '\\t');
+      
       const serviceAccount = JSON.parse(processedJson) as admin.ServiceAccount;
       console.log('✓ Firebase Admin initialized with service account');
       return admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
     } catch (error) {
       console.error('Failed to parse Firebase service account JSON:', error);
+      console.error('Service account JSON length:', serviceAccountJson?.length);
+      console.error('First 150 chars:', serviceAccountJson?.substring(0, 150));
       throw new Error(`Firebase Admin: Failed to parse FIREBASE_ADMIN_SERVICE_ACCOUNT. ${String(error)}`);
     }
   }
@@ -55,7 +58,12 @@ export async function verifyIdToken(authHeader: string | null): Promise<admin.au
 
   try {
     return await admin.auth(app).verifyIdToken(idToken);
-  } catch {
+  } catch (error) {
+    console.error('Token verification error:', {
+      error: String(error),
+      message: (error as any)?.message,
+      code: (error as any)?.code,
+    });
     throw Object.assign(new Error('Invalid or expired Firebase token'), { status: 401 });
   }
 }
