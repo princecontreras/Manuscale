@@ -14,9 +14,14 @@ function initAdmin(): admin.app.App {
   const serviceAccountJson = process.env.FIREBASE_ADMIN_SERVICE_ACCOUNT;
   if (serviceAccountJson && serviceAccountJson !== '{}') {
     try {
+      console.log('[Firebase] Service account JSON detected, length:', serviceAccountJson.length);
+      
+      // Log first and last 100 chars to debug
+      console.log('[Firebase] First 100 chars:', serviceAccountJson.substring(0, 100));
+      console.log('[Firebase] Last 100 chars:', serviceAccountJson.substring(serviceAccountJson.length - 100));
+      
       // In Vercel/production, env vars store escape sequences as literal characters.
       // Replace literal \n, \r, \t with actual newline/return/tab characters.
-      // This is needed because the PEM formatted private key has newlines represented as \n
       let processedJson = serviceAccountJson
         .replace(/\\n/g, '\n')    // Replace literal \n with actual newline
         .replace(/\\r/g, '\r')    // Replace literal \r with actual carriage return
@@ -24,6 +29,16 @@ function initAdmin(): admin.app.App {
       
       console.log('[Firebase] Parsing service account JSON...');
       const serviceAccount = JSON.parse(processedJson) as admin.ServiceAccount;
+      
+      // Verify the private key was properly formatted
+      const privateKey = (serviceAccount as any).private_key || (serviceAccount as any).privateKey;
+      if (privateKey) {
+        const keyLines = privateKey.split('\n');
+        console.log('[Firebase] Private key lines:', keyLines.length);
+        console.log('[Firebase] First line:', keyLines[0]);
+        console.log('[Firebase] Last line:', keyLines[keyLines.length - 1]);
+      }
+      
       console.log('✓ Firebase Admin initialized with service account');
       return admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
     } catch (error) {
@@ -35,6 +50,7 @@ function initAdmin(): admin.app.App {
       if (error instanceof Error) {
         console.error('Error name:', error.name);
         console.error('Error message:', error.message);
+        console.error('Full error:', JSON.stringify(error, null, 2));
       }
       
       throw new Error(`Firebase Admin: Failed to parse FIREBASE_ADMIN_SERVICE_ACCOUNT. ${String(error)}`);
