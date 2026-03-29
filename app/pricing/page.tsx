@@ -16,18 +16,9 @@ const PricingPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isCheckingOut, setIsCheckingOut] = useState<boolean>(false);
 
-  // Redirect unauthenticated users to sign-up
-  React.useEffect(() => {
-    if (!authLoading && !firebaseUser) {
-      // User is not authenticated, redirect to sign-up
-      window.location.href = '/signup';
-    }
-  }, [firebaseUser, authLoading]);
-
   // Redirect already-subscribed users to dashboard
   React.useEffect(() => {
     if (!isLoading && !authLoading && firebaseUser && subscription.isSubscribed) {
-      // Direct redirect to home with dashboard flag to avoid LANDING page flashing
       window.location.href = '/?direct=dashboard';
     }
   }, [isLoading, authLoading, firebaseUser, subscription.isSubscribed]);
@@ -93,10 +84,9 @@ const PricingPage: React.FC = () => {
 
   // Keep showing spinner while:
   // - Auth or profile is still loading
-  // - No user (will redirect to /signup)
   // - Already subscribed (will redirect to /?direct=dashboard)
   // This prevents pricing content from flashing before redirects fire
-  if (isLoading || authLoading || !firebaseUser || subscription.isSubscribed) {
+  if (authLoading || (firebaseUser && (isLoading || subscription.isSubscribed))) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
