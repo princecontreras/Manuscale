@@ -178,7 +178,7 @@ export const FeaturesPage: React.FC<FeaturesPageProps> = ({ onGoToAuth, onBack }
                                 For those who just want to hit run and get a book out. Command the multi-agent system and watch it generate content autonomously right in front of your eyes.
                             </p>
                             
-                            <Button variant="outline" size="lg" onClick={() => onGoToAuth(false)} className="rounded-full border-blue-600 text-blue-400 hover:bg-blue-900 hover:text-white px-8 py-4">
+                            <Button variant="ghost" size="lg" onClick={() => onGoToAuth(false)} className="rounded-full text-blue-400 hover:bg-blue-900/20 hover:text-blue-300 px-8 py-4 border border-blue-600">
                                 Experience the Engine
                             </Button>
                         </motion.div>

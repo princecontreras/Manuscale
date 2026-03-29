@@ -436,7 +436,15 @@ const App: React.FC = () => {
         );
 
       case ViewState.FEATURES:
-        return <FeaturesPage onBack={() => setViewState(ViewState.LANDING)} />;
+        return (
+          <FeaturesPage 
+            onBack={() => setViewState(ViewState.LANDING)}
+            onGoToAuth={(isLogin = true) => {
+              setAuthIsLogin(isLogin);
+              setViewState(ViewState.AUTH);
+            }}
+          />
+        );
 
       case ViewState.AUTH:
         return (
