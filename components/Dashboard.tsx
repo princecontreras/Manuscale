@@ -175,15 +175,6 @@ const ApiSettingsModal: React.FC<{ onClose: () => void, onExit: () => void }> = 
 };
 
 const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, onCreateNew, onOpenRemixEngine, onOpenResearchStudio, onOpenAgent, onExit, onViewProfile }) => {
-    console.log('[Dashboard] Mounted with props:', {
-        hasOnOpenProject: !!onOpenProject,
-        hasOnCreateNew: !!onCreateNew,
-        hasOnOpenRemixEngine: !!onOpenRemixEngine,
-        hasOnOpenResearchStudio: !!onOpenResearchStudio,
-        hasOnOpenAgent: !!onOpenAgent,
-        hasOnExit: !!onExit,
-        hasOnViewProfile: !!onViewProfile
-    });
     const { user } = useAuth();
     const { showToast } = useToast();
     const [projects, setProjects] = useState<ProjectMetadata[]>([]);

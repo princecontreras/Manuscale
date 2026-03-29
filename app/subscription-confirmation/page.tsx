@@ -146,7 +146,7 @@ export default function SubscriptionConfirmationPage() {
               Refresh and Try Again
             </Button>
             <Button
-              onClick={() => router.push('/')}
+              onClick={() => router.push('/?direct=dashboard')}
               variant="ghost"
               size="lg"
               className="w-full border border-slate-200"
@@ -186,7 +186,7 @@ export default function SubscriptionConfirmationPage() {
 
         {/* CTA */}
         <Button
-          onClick={() => router.push('/')}
+          onClick={() => router.push('/?direct=dashboard')}
           variant="primary"
           size="lg"
           className="w-full gap-2"
