@@ -103,6 +103,7 @@ const App: React.FC = () => {
   }, [viewState]);
 
   // On mount: restore session state from sessionStorage (survives page reloads)
+  // CRITICAL: Only restore DASHBOARD/EDITOR if user is authenticated - prevent showing dashboard to logged-out users
   useEffect(() => {
     if (typeof window === 'undefined') return; // Skip on server
     
@@ -110,7 +111,15 @@ const App: React.FC = () => {
       const savedView = sessionStorage.getItem(SESSION_VIEW_KEY) as ViewState | null;
       const savedProjectId = sessionStorage.getItem(SESSION_PROJECT_KEY);
 
-      if (savedView === ViewState.EDITOR && savedProjectId) {
+      // CRITICAL: Only restore protected views (EDITOR/DASHBOARD) if user is authenticated
+      if (!user && (savedView === ViewState.EDITOR || savedView === ViewState.DASHBOARD)) {
+        console.log('[Session] User not authenticated but saved view is protected view, staying on LANDING');
+        sessionStorage.removeItem(SESSION_VIEW_KEY);
+        sessionStorage.removeItem(SESSION_PROJECT_KEY);
+        return;
+      }
+
+      if (savedView === ViewState.EDITOR && savedProjectId && user) {
         setIsProjectLoading(true);
         try {
           const data = await loadProject(savedProjectId);
@@ -126,7 +135,7 @@ const App: React.FC = () => {
         } finally {
           setIsProjectLoading(false);
         }
-      } else if (savedView === ViewState.WIZARD && savedProjectId) {
+      } else if (savedView === ViewState.WIZARD && savedProjectId && user) {
         // If we were in the wizard mid-drafting, recover by opening the project in the editor
         setIsProjectLoading(true);
         try {
@@ -145,7 +154,7 @@ const App: React.FC = () => {
       }
     };
     restoreSession();
-  }, []);
+  }, [user]);
 
   // Sync projects on load & Init Analytics
   useEffect(() => {
@@ -322,14 +331,17 @@ const App: React.FC = () => {
     setEbookData(null);
     setReturnToWizard(false);
     setPendingCoverImage(null);
+    // Keep DASHBOARD in sessionStorage since user is still logged in and in dashboard
     sessionStorage.removeItem(SESSION_PROJECT_KEY);
   };
 
   const handleExit = () => {
+      // Clear all session state when exiting to landing page
+      sessionStorage.removeItem(SESSION_VIEW_KEY);
+      sessionStorage.removeItem(SESSION_PROJECT_KEY);
       setViewState(ViewState.LANDING);
       setEbookData(null);
       setPendingCoverImage(null);
-      sessionStorage.removeItem(SESSION_PROJECT_KEY);
       trackEvent('exit_studio');
       logActivity('exit_studio', ebookDataRef.current?.title || 'Exited editor');
   };
