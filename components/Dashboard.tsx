@@ -175,6 +175,15 @@ const ApiSettingsModal: React.FC<{ onClose: () => void, onExit: () => void }> = 
 };
 
 const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, onCreateNew, onOpenRemixEngine, onOpenResearchStudio, onOpenAgent, onExit, onViewProfile }) => {
+    console.log('[Dashboard] Mounted with props:', {
+        hasOnOpenProject: !!onOpenProject,
+        hasOnCreateNew: !!onCreateNew,
+        hasOnOpenRemixEngine: !!onOpenRemixEngine,
+        hasOnOpenResearchStudio: !!onOpenResearchStudio,
+        hasOnOpenAgent: !!onOpenAgent,
+        hasOnExit: !!onExit,
+        hasOnViewProfile: !!onViewProfile
+    });
     const { user } = useAuth();
     const { showToast } = useToast();
     const [projects, setProjects] = useState<ProjectMetadata[]>([]);
@@ -406,7 +415,10 @@ const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, onCreateNew, onOpe
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
                 <div className="flex flex-col gap-6">
                     <button
-                        onClick={() => setShowStudioOptions(!showStudioOptions)}
+                        onClick={() => {
+                            console.log('[Dashboard] Clicked Manuscript Workshop button');
+                            setShowStudioOptions(!showStudioOptions);
+                        }}
                         className={`group relative overflow-hidden bg-white p-8 rounded-3xl border shadow-xl text-left transition-all h-full ${showStudioOptions ? 'border-slate-900 ring-2 ring-slate-900/5' : 'border-slate-200 hover:border-slate-900 hover:shadow-2xl'}`}
                     >
                         <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
@@ -457,7 +469,10 @@ const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, onCreateNew, onOpe
                             {showKnowledgeOptions && (
                                 <div className="grid grid-cols-2 gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
                                     <button 
-                                        onClick={onOpenResearchStudio}
+                                        onClick={() => {
+                                            console.log('[Dashboard] Clicked Research Studio button', { hasCallback: !!onOpenResearchStudio });
+                                            onOpenResearchStudio();
+                                        }}
                                         className="flex flex-col gap-2 p-4 bg-white border border-slate-200 rounded-2xl hover:border-slate-900 hover:bg-slate-50 transition-all text-left group"
                                     >
                                         <div className="w-8 h-8 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
@@ -469,7 +484,10 @@ const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, onCreateNew, onOpe
                                         </div>
                                     </button>
                                     <button 
-                                        onClick={onOpenRemixEngine}
+                                        onClick={() => {
+                                            console.log('[Dashboard] Clicked Remix Engine button', { hasCallback: !!onOpenRemixEngine });
+                                            onOpenRemixEngine();
+                                        }}
                                         className="flex flex-col gap-2 p-4 bg-white border border-slate-200 rounded-2xl hover:border-slate-900 hover:bg-slate-50 transition-all text-left group"
                                     >
                                         <div className="w-8 h-8 bg-amber-50 text-amber-600 rounded-lg flex items-center justify-center group-hover:bg-amber-600 group-hover:text-white transition-colors">
@@ -487,7 +505,10 @@ const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, onCreateNew, onOpe
                 </div>
 
                 <button
-                    onClick={onOpenAgent}
+                    onClick={() => {
+                        console.log('[Dashboard] Clicked Agent button', { hasCallback: !!onOpenAgent });
+                        onOpenAgent();
+                    }}
                     className="group relative overflow-hidden bg-primary-600 p-8 rounded-3xl border border-primary-700 shadow-xl text-left hover:border-white/50 hover:shadow-primary-900/20 transition-all h-full"
                 >
                     <div className="absolute top-0 right-0 p-8 opacity-5 text-white group-hover:opacity-10 transition-opacity">
