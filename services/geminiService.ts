@@ -372,6 +372,17 @@ export const getRelevantContext = async (beat: string, memory: ProjectMemory, si
 
 // --- Core Functions ---
 
+// Extract explicit chapter count from user's topic string (e.g. "2 chapter book about AI" → 2)
+const parseChapterCountFromTopic = (topic: string): number | null => {
+    const pattern = /\b(\d{1,3})\s*[-–]?\s*chapters?\b/i;
+    const match = topic.match(pattern);
+    if (match) {
+        const count = parseInt(match[1], 10);
+        if (count >= 1 && count <= 200) return count;
+    }
+    return null;
+};
+
 export const analyzeTopicAndConfigure = async (
     topic: string, 
     type: string, 
@@ -380,6 +391,9 @@ export const analyzeTopicAndConfigure = async (
     onProgress?: (msg: string) => void
 ): Promise<ProjectBlueprint> => {
     const ai = getAI();
+
+    // Extract explicit chapter count from user input (e.g. "2 chapter book about AI")
+    const userRequestedChapters = parseChapterCountFromTopic(topic);
 
     // STEP 1: CLASSIFICATION (keyword heuristic — no LLM roundtrip needed)
     if (onProgress) onProgress("Detecting narrative mode...");
@@ -427,6 +441,14 @@ export const analyzeTopicAndConfigure = async (
         }
     };
 
+    // Build chapter constraint string if user specified a chapter count
+    const chapterConstraint = userRequestedChapters
+        ? `\n        HARD CONSTRAINT — CHAPTER COUNT: The user has explicitly requested EXACTLY ${userRequestedChapters} chapters. You MUST honor this.
+        - Set "chapterCount" to exactly ${userRequestedChapters} in the profile.
+        - The sum of all phase chapterCounts MUST equal exactly ${userRequestedChapters}.
+        - Do NOT override or reinterpret this number. ${userRequestedChapters} chapters means ${userRequestedChapters} chapters.`
+        : '';
+
     if (mode === 'Narrative') {
         specificPrompt = `Perform a deep NARRATIVE ANALYSIS and BIOGRAPHICAL PROFILE on the topic: "${topic}".
         Analyze the key events, milestones, emotional resonance, and the overarching legacy or mystery involved.
@@ -438,6 +460,7 @@ export const analyzeTopicAndConfigure = async (
         TASK 2: NARRATIVE ARCHITECTURE
         Design a custom 'Book Structure Archetype' (Macro-Structure) that fits this specific story. 
         Break the book into 3-5 distinct Phases (Parts) that guide the reader through a chronological or thematic journey.
+        ${chapterConstraint}
         
         Required Specifics:
         - controllingIdea: The core theme, lesson, or biographical thesis.
@@ -507,6 +530,7 @@ export const analyzeTopicAndConfigure = async (
         TASK 2: INSTRUCTIONAL ARCHITECTURE
         Design a custom 'Book Structure Archetype' (Macro-Structure).
         Break the book into 3-5 distinct Phases.
+        ${chapterConstraint}
         
         Required Specifics:
         - centralThesis: The main argument.
@@ -607,6 +631,34 @@ export const analyzeTopicAndConfigure = async (
             // Ensure legacy fields exist to prevent UI crashes if accessed
             if (!data.structuralSignature) data.structuralSignature = [];
             if (!data.chapterModes) data.chapterModes = [];
+            
+            // Enforce user-requested chapter count if the AI ignored it
+            if (userRequestedChapters) {
+                data.profile.chapterCount = userRequestedChapters;
+                if (data.structure?.phases) {
+                    const currentTotal = data.structure.phases.reduce((acc, p) => acc + p.chapterCount, 0);
+                    if (currentTotal !== userRequestedChapters) {
+                        // Redistribute chapters across phases proportionally
+                        const ratio = userRequestedChapters / currentTotal;
+                        let distributed = 0;
+                        data.structure.phases.forEach((p, i) => {
+                            if (i === data.structure!.phases.length - 1) {
+                                p.chapterCount = userRequestedChapters - distributed;
+                            } else {
+                                p.chapterCount = Math.max(1, Math.round(p.chapterCount * ratio));
+                                distributed += p.chapterCount;
+                            }
+                        });
+                        // If too many phases for the requested count, trim phases
+                        if (data.structure.phases.length > userRequestedChapters) {
+                            data.structure.phases = data.structure.phases.slice(0, userRequestedChapters);
+                            data.structure.phases[data.structure.phases.length - 1].chapterCount = 
+                                userRequestedChapters - data.structure.phases.slice(0, -1).reduce((acc, p) => acc + p.chapterCount, 0);
+                        }
+                        console.log(`[Blueprint] Redistributed phases to match user-requested ${userRequestedChapters} chapters`);
+                    }
+                }
+            }
             
             return { ...data, mode: mode as 'Instructional' | 'Narrative' };
         } catch (e) {
@@ -775,13 +827,26 @@ export const generateProjectOutline = async (blueprint: ProjectBlueprint, memory
     const rawData = safeJsonParse(outlineResult.value.text || "{}", {});
     let rawChapters: any[] = rawData.chapters || [];
 
-    // Enforce the requested chapter count — truncate if AI generated too many
+    // Enforce the requested chapter count strictly
     const targetCount = blueprint.structure?.phases
         ? blueprint.structure.phases.reduce((acc, p) => acc + p.chapterCount, 0)
         : blueprint.profile.chapterCount;
     if (targetCount > 0 && rawChapters.length > targetCount) {
-        console.warn(`AI generated ${rawChapters.length} chapters but ${targetCount} were requested. Truncating.`);
+        console.warn(`[Outline] AI generated ${rawChapters.length} chapters but ${targetCount} were requested. Truncating.`);
         rawChapters = rawChapters.slice(0, targetCount);
+    } else if (targetCount > 0 && rawChapters.length < targetCount) {
+        // AI generated too few — pad with placeholder chapters so the count matches
+        console.warn(`[Outline] AI generated ${rawChapters.length} chapters but ${targetCount} were requested. Padding.`);
+        while (rawChapters.length < targetCount) {
+            const num = rawChapters.length + 1;
+            rawChapters.push({
+                id: crypto.randomUUID(),
+                chapterNumber: num,
+                title: `Chapter ${num}`,
+                beat: `Continue developing the book's themes. This chapter expands on the content established so far.`,
+                targetWordCount: 2000
+            });
+        }
     }
 
     // Assign modes round-robin so every chapter has a mode even without LLM assignment
