@@ -11,50 +11,93 @@ const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
  * Tries metadata first, then looks up user by email in Firestore.
  */
 async function resolveFirebaseUid(eventData: any): Promise<string | null> {
+  console.log('[resolveFirebaseUid] Starting resolution...');
+  
   // 1. Check metadata on the event object directly (checkout session has it)
   if (eventData.metadata?.firebaseUid) {
+    console.log('[resolveFirebaseUid] ✓ Found firebaseUid in eventData.metadata');
     return eventData.metadata.firebaseUid;
   }
 
   // 2. For subscription events, try to get metadata from the customer's latest checkout session
   if (eventData.customer) {
     try {
+      console.log('[resolveFirebaseUid] Checking Stripe checkout sessions for customer:', eventData.customer);
+      const customerId = typeof eventData.customer === 'string' ? eventData.customer : eventData.customer.id;
       const sessions = await stripe.checkout.sessions.list({
-        customer: typeof eventData.customer === 'string' ? eventData.customer : eventData.customer.id,
-        limit: 1,
+        customer: customerId,
+        limit: 5,
       });
-      if (sessions.data.length > 0 && sessions.data[0].metadata?.firebaseUid) {
-        return sessions.data[0].metadata.firebaseUid;
+      console.log(`[resolveFirebaseUid] Found ${sessions.data.length} checkout sessions`);
+      
+      for (const session of sessions.data) {
+        if (session.metadata?.firebaseUid) {
+          console.log('[resolveFirebaseUid] ✓ Found firebaseUid in checkout session metadata');
+          return session.metadata.firebaseUid;
+        }
       }
     } catch (e) {
-      console.warn('Could not retrieve checkout sessions for customer:', e);
+      console.warn('[resolveFirebaseUid] Could not retrieve checkout sessions for customer:', e);
     }
   }
 
   // 3. Fall back to email lookup in Firestore using Admin SDK
   const email = eventData.customer_email || eventData.customer_details?.email;
+  console.log('[resolveFirebaseUid] Attempting email lookup for:', email);
+  
   if (email) {
     try {
       const app = getAdminApp();
       const adminDb = admin.firestore(app);
+      console.log('[resolveFirebaseUid] Querying Firestore for user with email:', email);
+      
       const querySnapshot = await adminDb
         .collection('users')
         .where('email', '==', email)
         .limit(1)
         .get();
+      
       if (!querySnapshot.empty) {
-        return querySnapshot.docs[0].id;
+        const uid = querySnapshot.docs[0].id;
+        console.log('[resolveFirebaseUid] ✓ Found user in Firestore with UID:', uid);
+        return uid;
+      } else {
+        console.warn('[resolveFirebaseUid] No user found in Firestore with email:', email);
       }
-    } catch (e) {
-      console.warn('Error looking up user by email in Firestore:', e);
+    } catch (e: any) {
+      console.error('[resolveFirebaseUid] Error looking up user by email in Firestore:', {
+        error: String(e),
+        message: e?.message,
+        code: e?.code,
+      });
     }
+  } else {
+    console.warn('[resolveFirebaseUid] No email found in event data');
   }
 
+  console.warn('[resolveFirebaseUid] ✗ Could not resolve Firebase UID');
   return null;
 }
 
 export async function POST(req: NextRequest) {
   try {
+    // Health check: Ensure Firebase Admin is properly initialized
+    console.log('[STRIPE WEBHOOK] Starting health check...');
+    const app = getAdminApp();
+    if (!app) {
+      console.error('[STRIPE WEBHOOK] ❌ CRITICAL: Firebase Admin app not initialized');
+      return NextResponse.json({ error: 'Firebase not available' }, { status: 500 });
+    }
+    console.log('[STRIPE WEBHOOK] ✓ Firebase Admin app initialized');
+    
+    // Verify Firestore is accessible
+    const adminDb = admin.firestore(app);
+    if (!adminDb) {
+      console.error('[STRIPE WEBHOOK] ❌ CRITICAL: Firestore instance not available');
+      return NextResponse.json({ error: 'Firestore not available' }, { status: 500 });
+    }
+    console.log('[STRIPE WEBHOOK] ✓ Firestore instance available');
+    
     const body = await req.text();
     const signature = req.headers.get('Stripe-Signature')!;
 
@@ -81,9 +124,10 @@ export async function POST(req: NextRequest) {
         console.log(`[checkout.session.completed] Session ID: ${session.id}, Customer: ${session.customer}`);
         
         if (firebaseUid && session.subscription) {
+          let subscription: Stripe.Subscription | null = null;
           try {
             // Retrieve the full subscription to get status and plan details
-            const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
+            subscription = await stripe.subscriptions.retrieve(session.subscription as string);
             const priceId = subscription.items.data[0]?.price.id || '';
             const plan = priceId === process.env.NEXT_PUBLIC_STRIPE_MONTHLY_PRICE_ID ? 'monthly'
               : priceId === process.env.NEXT_PUBLIC_STRIPE_YEARLY_PRICE_ID ? 'yearly'
@@ -93,29 +137,42 @@ export async function POST(req: NextRequest) {
               : new Date();
 
             const app = getAdminApp();
-            const adminDb = admin.firestore(app);
-            
-            console.log(`[checkout.session.completed] Writing to Firestore for user ${firebaseUid}:`, {
-              plan,
-              subscriptionStatus: subscription.status,
-              currentPeriodEnd: currentPeriodEnd.toISOString(),
+            console.log(`[checkout.session.completed] Got Admin app:`, {
+              appName: app?.name,
+              initialized: !!app,
             });
             
-            await adminDb.collection('users').doc(firebaseUid).set({
+            const adminDb = admin.firestore(app);
+            console.log(`[checkout.session.completed] Got Firestore instance:`, {
+              hasDb: !!adminDb,
+              type: typeof adminDb,
+            });
+            
+            const userData = {
               stripeCustomerId: session.customer,
               subscriptionId: subscription.id,
               subscriptionStatus: subscription.status,
               currentPeriodEnd,
               plan,
               updatedAt: new Date(),
-            }, { merge: true });
+            };
+            
+            console.log(`[checkout.session.completed] About to write to Firestore for user ${firebaseUid}:`, userData);
+            
+            const docRef = adminDb.collection('users').doc(firebaseUid);
+            console.log(`[checkout.session.completed] Document reference path:`, docRef.path);
+            
+            await docRef.set(userData, { merge: true });
             console.log(`✓ [checkout.session.completed] SUCCESS — subscription linked for user ${firebaseUid}`);
           } catch (err: any) {
             console.error(`✗ [checkout.session.completed] FAILED to write to Firestore:`, {
               error: String(err),
               message: err?.message,
               code: err?.code,
+              stack: err?.stack,
               firebaseUid,
+              sessionCustomer: session.customer,
+              subscriptionId: subscription?.id || 'NOT RETRIEVED',
             });
           }
         } else {
@@ -142,27 +199,29 @@ export async function POST(req: NextRequest) {
             const app = getAdminApp();
             const adminDb = admin.firestore(app);
             
-            console.log(`[${event.type}] Writing to Firestore for user ${firebaseUid}:`, {
-              plan,
-              status: subscription.status,
-              currentPeriodEnd: currentPeriodEnd.toISOString(),
-            });
-            
-            await adminDb.collection('users').doc(firebaseUid).set({
+            const userData = {
               stripeCustomerId: subscription.customer,
               subscriptionId: subscription.id,
               subscriptionStatus: subscription.status,
               currentPeriodEnd,
               plan,
               updatedAt: new Date(),
-            }, { merge: true });
+            };
+            
+            console.log(`[${event.type}] About to write to Firestore for user ${firebaseUid}:`, userData);
+            
+            const docRef = adminDb.collection('users').doc(firebaseUid);
+            await docRef.set(userData, { merge: true });
             console.log(`✓ [${event.type}] SUCCESS — subscription updated for user ${firebaseUid}`);
           } catch (err: any) {
             console.error(`✗ [${event.type}] FAILED to write to Firestore:`, {
               error: String(err),
               message: err?.message,
               code: err?.code,
+              stack: err?.stack,
               firebaseUid,
+              subscriptionId: subscription.id,
+              customer: subscription.customer,
             });
           }
         } else {
@@ -177,6 +236,9 @@ export async function POST(req: NextRequest) {
           try {
             const app = getAdminApp();
             const adminDb = admin.firestore(app);
+            
+            console.log(`[customer.subscription.deleted] Canceling subscription for user ${firebaseUid}`);
+            
             await adminDb.collection('users').doc(firebaseUid).set({
               subscriptionStatus: 'canceled',
               subscriptionId: null,
@@ -187,6 +249,7 @@ export async function POST(req: NextRequest) {
             console.error(`✗ [customer.subscription.deleted] FAILED:`, {
               error: String(err),
               message: err?.message,
+              stack: err?.stack,
               firebaseUid,
             });
           }
@@ -204,6 +267,9 @@ export async function POST(req: NextRequest) {
           try {
             const app = getAdminApp();
             const adminDb = admin.firestore(app);
+            
+            console.log(`[invoice.payment_failed] Marking user ${firebaseUid} as past_due`);
+            
             await adminDb.collection('users').doc(firebaseUid).set({
               subscriptionStatus: 'past_due',
               updatedAt: new Date(),
@@ -213,6 +279,7 @@ export async function POST(req: NextRequest) {
             console.error(`✗ [invoice.payment_failed] FAILED:`, {
               error: String(err),
               message: err?.message,
+              stack: err?.stack,
               firebaseUid,
             });
           }
