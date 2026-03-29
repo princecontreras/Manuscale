@@ -224,18 +224,20 @@ const App: React.FC = () => {
       console.log('[Routing] Blocked: still loading user profile');
       return;
     }
-    if (hasCheckedSubscription) {
+    
+    // IMPORTANT: Only check hasCheckedSubscription if we're in a login flow!
+    // If isJustLoggedIn is false, don't lock the effect - we're not in a login yet
+    if (hasCheckedSubscription && isJustLoggedIn) {
       console.log('[Routing] Blocked: already checked subscription');
       return;
     }
-    
-    // Mark that we've made a routing decision (prevents this effect from running again)
-    setHasCheckedSubscription(true);
     
     console.log('[Routing] Running with:', { isJustLoggedIn, hasSubscription: !!userProfile?.subscriptionStatus });
     
     // Route based on subscription status - SINGLE URL CHANGE, NO FLASHING
     if (isJustLoggedIn) {
+      // Mark that we've handled this login
+      setHasCheckedSubscription(true);
       setIsJustLoggedIn(false);
       
       // CRITICAL SECURITY CHECK: Is this a NEW account with NO subscription data?
@@ -258,7 +260,7 @@ const App: React.FC = () => {
         window.location.href = '/pricing?from=login';
       }
     } else {
-      // Returning authenticated user
+      // Returning authenticated user (not a fresh login)
       const isSubscribed = userProfile?.subscriptionStatus === 'active';
       if (isSubscribed && viewState === ViewState.LANDING) {
         console.log('[Routing] Returning - subscribed user viewing LANDING → DASHBOARD');
