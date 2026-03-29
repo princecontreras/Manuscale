@@ -72,10 +72,14 @@ const SESSION_VIEW_KEY = 'typoscale_session_view';
 const SESSION_PROJECT_KEY = 'typoscale_session_project_id';
 
 const App: React.FC = () => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { user: userProfile, isLoading: isUserProfileLoading } = useUser();
   
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  
+  // isAppReady: prevents ANY page from rendering until we know where the user should go
+  // This eliminates ALL flashing/cascading between pages
+  const [isAppReady, setIsAppReady] = useState(false);
   
   // Default to LANDING page (always safe for SSR)
   const [viewState, setViewState] = useState<ViewState>(ViewState.LANDING);
@@ -91,7 +95,6 @@ const App: React.FC = () => {
   // Bridge state for creating a project from Image Studio
   const [pendingCoverImage, setPendingCoverImage] = useState<string | null>(null);
   const [authIsLogin, setAuthIsLogin] = useState(true);
-  const [hasCheckedSubscription, setHasCheckedSubscription] = useState(false);
   const [isJustLoggedIn, setIsJustLoggedIn] = useState(false);
 
   // Use a ref to keep track of the latest ebookData without forcing re-creation of callbacks
@@ -103,62 +106,109 @@ const App: React.FC = () => {
 
   // Persist viewState to sessionStorage so page reloads preserve navigation
   useEffect(() => {
-    sessionStorage.setItem(SESSION_VIEW_KEY, viewState);
-  }, [viewState]);
+    if (isAppReady) {
+      sessionStorage.setItem(SESSION_VIEW_KEY, viewState);
+    }
+  }, [viewState, isAppReady]);
 
-  // On mount: restore session state from sessionStorage (survives page reloads)
-  // CRITICAL: Only restore DASHBOARD/EDITOR if user is authenticated - prevent showing dashboard to logged-out users
+  // ═══════════════════════════════════════════════════════════
+  // SINGLE UNIFIED ROUTING DECISION
+  // This is the ONLY effect that decides which page to show.
+  // It waits for ALL data (auth + profile) before rendering anything.
+  // This eliminates ALL flashing/cascading between pages.
+  // ═══════════════════════════════════════════════════════════
   useEffect(() => {
-    if (typeof window === 'undefined') return; // Skip on server
+    // Skip during logout - let handleExit manage state directly
+    if (isLoggingOut) return;
     
-    const restoreSession = async () => {
+    // GATE 1: Wait for Firebase auth to resolve
+    if (authLoading) return;
+    
+    // CASE A: No authenticated user → show LANDING (or AUTH if that's where they were)
+    if (!user) {
+      // Clean up any protected session state
       const savedView = sessionStorage.getItem(SESSION_VIEW_KEY) as ViewState | null;
-      const savedProjectId = sessionStorage.getItem(SESSION_PROJECT_KEY);
-
-      // CRITICAL: Only restore protected views (EDITOR/DASHBOARD) if user is authenticated
-      if (!user && (savedView === ViewState.EDITOR || savedView === ViewState.DASHBOARD)) {
-        console.log('[Session] User not authenticated but saved view is protected view, staying on LANDING');
+      if (savedView === ViewState.DASHBOARD || savedView === ViewState.EDITOR || savedView === ViewState.WIZARD) {
         sessionStorage.removeItem(SESSION_VIEW_KEY);
         sessionStorage.removeItem(SESSION_PROJECT_KEY);
+      }
+      // Only set LANDING if we're not already on a public page (AUTH, FEATURES)
+      if (viewState !== ViewState.AUTH && viewState !== ViewState.FEATURES) {
+        setViewState(ViewState.LANDING);
+      }
+      setIsAppReady(true);
+      return;
+    }
+    
+    // GATE 2: User is authenticated - wait for profile to load before deciding
+    if (isUserProfileLoading) return;
+
+    // ─── User is authenticated AND profile is loaded ───
+    
+    // CASE B: Just completed login - check subscription before showing anything
+    if (isJustLoggedIn) {
+      setIsJustLoggedIn(false);
+      
+      if (!userProfile?.subscriptionStatus || userProfile.subscriptionStatus !== 'active') {
+        // New account or expired subscription → pricing page
+        console.log('[Routing] Login: no active subscription → /pricing');
+        window.location.href = '/pricing?from=login';
+        return; // Don't set isAppReady - we're navigating away
+      }
+      
+      // Subscribed user → dashboard
+      console.log('[Routing] Login: active subscription → DASHBOARD');
+      setViewState(ViewState.DASHBOARD);
+      setIsAppReady(true);
+      return;
+    }
+    
+    // CASE C: Returning user (page reload / re-mount) - restore session
+    const savedView = sessionStorage.getItem(SESSION_VIEW_KEY) as ViewState | null;
+    const savedProjectId = sessionStorage.getItem(SESSION_PROJECT_KEY);
+    const isSubscribed = userProfile?.subscriptionStatus === 'active';
+    
+    // Check for direct=dashboard URL param (from pricing page after subscription)
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('direct') === 'dashboard' && isSubscribed) {
+        console.log('[Routing] Direct dashboard redirect from pricing');
+        setViewState(ViewState.DASHBOARD);
+        window.history.replaceState({}, document.title, window.location.pathname);
+        setIsAppReady(true);
         return;
       }
-
-      if (savedView === ViewState.EDITOR && savedProjectId && user) {
-        setIsProjectLoading(true);
-        try {
-          const data = await loadProject(savedProjectId);
-          if (data) {
-            setEbookData(data);
-            setViewState(ViewState.EDITOR);
-          } else {
-            // Project not found, fall back to dashboard
-            setViewState(ViewState.DASHBOARD);
-          }
-        } catch {
+    }
+    
+    // Restore EDITOR with project
+    if ((savedView === ViewState.EDITOR || savedView === ViewState.WIZARD) && savedProjectId && isSubscribed) {
+      setIsProjectLoading(true);
+      loadProject(savedProjectId).then(data => {
+        if (data) {
+          setEbookData(data);
+          setViewState(ViewState.EDITOR);
+        } else {
           setViewState(ViewState.DASHBOARD);
-        } finally {
-          setIsProjectLoading(false);
         }
-      } else if (savedView === ViewState.WIZARD && savedProjectId && user) {
-        // If we were in the wizard mid-drafting, recover by opening the project in the editor
-        setIsProjectLoading(true);
-        try {
-          const data = await loadProject(savedProjectId);
-          if (data) {
-            setEbookData(data);
-            setViewState(ViewState.EDITOR);
-          } else {
-            setViewState(ViewState.DASHBOARD);
-          }
-        } catch {
-          setViewState(ViewState.DASHBOARD);
-        } finally {
-          setIsProjectLoading(false);
-        }
-      }
-    };
-    restoreSession();
-  }, [user]);
+      }).catch(() => {
+        setViewState(ViewState.DASHBOARD);
+      }).finally(() => {
+        setIsProjectLoading(false);
+        setIsAppReady(true);
+      });
+      return; // Don't set isAppReady yet - loading project
+    }
+    
+    // Restore DASHBOARD for subscribed user
+    if (isSubscribed && (savedView === ViewState.DASHBOARD || viewState === ViewState.LANDING)) {
+      setViewState(ViewState.DASHBOARD);
+      setIsAppReady(true);
+      return;
+    }
+    
+    // Default: show whatever current view state is
+    setIsAppReady(true);
+  }, [user, authLoading, userProfile, isUserProfileLoading, isJustLoggedIn, isLoggingOut]);
 
   // Sync projects on load & Init Analytics
   useEffect(() => {
@@ -175,10 +225,6 @@ const App: React.FC = () => {
   }, [user, isLoggingOut]);
 
   // CRITICAL SECURITY: Detect user changes and clear IndexedDB to prevent data leakage
-  // When User A logs out and User B logs in on the same browser:
-  // 1. Firebase auth state changes from User A to User B
-  // 2. IndexedDB still contains User A's projects
-  // 3. This effect detects the user change and clears IndexedDB
   useEffect(() => {
     if (!user) return; // Not logged in
     
@@ -208,82 +254,6 @@ const App: React.FC = () => {
     // Always update the stored user ID for future comparisons
     sessionStorage.setItem('_current_user_session_id', currentUserId);
   }, [user?.uid]);
-
-  // SINGLE UNIFIED ROUTING DECISION - Runs ONCE when subscription data loads
-  // After routing decision is made, this effect stops interfering
-  useEffect(() => {
-    // Don't run if we're logging out
-    if (isLoggingOut) return;
-    
-    // Debug: Log why effect might not run
-    if (!user) {
-      console.log('[Routing] Blocked: no user yet');
-      return;
-    }
-    if (isUserProfileLoading) {
-      console.log('[Routing] Blocked: still loading user profile');
-      return;
-    }
-    
-    // IMPORTANT: Only check hasCheckedSubscription if we're in a login flow!
-    // If isJustLoggedIn is false, don't lock the effect - we're not in a login yet
-    if (hasCheckedSubscription && isJustLoggedIn) {
-      console.log('[Routing] Blocked: already checked subscription');
-      return;
-    }
-    
-    console.log('[Routing] Running with:', { isJustLoggedIn, hasSubscription: !!userProfile?.subscriptionStatus });
-    
-    // Route based on subscription status - SINGLE URL CHANGE, NO FLASHING
-    if (isJustLoggedIn) {
-      // Mark that we've handled this login
-      setHasCheckedSubscription(true);
-      setIsJustLoggedIn(false);
-      
-      // CRITICAL SECURITY CHECK: Is this a NEW account with NO subscription data?
-      // New users should NOT see dashboard - they need to subscribe first
-      // Check for subscriptionStatus (not just userProfile existence)
-      // because new accounts have a userProfile object but no subscriptionStatus property
-      if (!userProfile?.subscriptionStatus) {
-        console.log('[Routing] New account detected - no subscription data exists, redirecting to pricing');
-        window.location.href = '/pricing?from=login';
-        return;
-      }
-      
-      const isSubscribed = userProfile.subscriptionStatus === 'active';
-      
-      if (isSubscribed) {
-        console.log('[Routing] Login - subscribed user → DASHBOARD');
-        setViewState(ViewState.DASHBOARD);
-      } else {
-        console.log('[Routing] Login - unsubscribed user → PRICING');
-        window.location.href = '/pricing?from=login';
-      }
-    } else {
-      // Returning authenticated user (not a fresh login)
-      const isSubscribed = userProfile?.subscriptionStatus === 'active';
-      if (isSubscribed && viewState === ViewState.LANDING) {
-        console.log('[Routing] Returning - subscribed user viewing LANDING → DASHBOARD');
-        setViewState(ViewState.DASHBOARD);
-      }
-    }
-  }, [user, userProfile, isUserProfileLoading, isJustLoggedIn, hasCheckedSubscription, isLoggingOut]);
-
-  // Handle direct=dashboard query param (from pricing page redirect when user is subscribed)
-  // This allows subscribed users to skip LANDING page and go straight to DASHBOARD
-  useEffect(() => {
-    if (typeof window === 'undefined' || !user) return;
-    
-    const params = new URLSearchParams(window.location.search);
-    const directDashboard = params.get('direct') === 'dashboard';
-    
-    if (directDashboard && viewState === ViewState.LANDING && user) {
-      console.log('[Auth] Direct redirect from pricing, going to dashboard');
-      setViewState(ViewState.DASHBOARD);
-      // Clean up the query param from URL
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
-  }, [user, viewState]);
 
   const handleEnterApp = async (topic?: string) => {
       proceedToApp(topic);
@@ -424,17 +394,11 @@ const App: React.FC = () => {
       setIsLoggingOut(true);
       
       // CRITICAL SECURITY: Clear IndexedDB and all user session data
-      // This prevents the next user who logs in on this browser from seeing this user's data
       console.log('[Logout] Clearing user data from browser storage');
       try {
-        // Delete the IndexedDB database to clear all projects
         const deleteRequest = window.indexedDB.deleteDatabase('DefaultDatabase');
-        deleteRequest.onsuccess = () => {
-          console.log('[Logout] IndexedDB cleared');
-        };
-        deleteRequest.onerror = () => {
-          console.warn('[Logout] Failed to clear IndexedDB');
-        };
+        deleteRequest.onsuccess = () => console.log('[Logout] IndexedDB cleared');
+        deleteRequest.onerror = () => console.warn('[Logout] Failed to clear IndexedDB');
       } catch (e) {
         console.warn('[Logout] Error clearing IndexedDB:', e);
       }
@@ -445,7 +409,6 @@ const App: React.FC = () => {
       sessionStorage.removeItem('_current_user_session_id'); // Clear stored user ID
       
       // Reset routing state for next login
-      setHasCheckedSubscription(false);
       setIsJustLoggedIn(false);
       
       // Update UI to LANDING
@@ -498,10 +461,10 @@ const App: React.FC = () => {
         return (
           <AuthPage 
             onLogin={() => {
-              // DON'T set viewState here - let the routing effect handle routing decisions
-              // Setting it here causes a race condition where Dashboard renders before subscription check
+              // Set the login flag - the unified routing effect will handle everything
               setIsJustLoggedIn(true);
-              // Keep view state as is - the routing effect will decide where to send the user
+              // Reset isAppReady to show loading spinner while checking subscription
+              setIsAppReady(false);
             }} 
             onBack={() => setViewState(ViewState.LANDING)} 
             defaultIsLogin={authIsLogin}
@@ -662,7 +625,13 @@ const App: React.FC = () => {
   return (
     <ToastProvider>
       <div className="min-h-screen font-sans text-slate-900 bg-slate-50 selection:bg-primary-100 selection:text-primary-900" suppressHydrationWarning>
-          {renderContent()}
+          {!isAppReady ? (
+            <div className="min-h-screen flex items-center justify-center bg-slate-50">
+              <Loader2 className="w-8 h-8 text-slate-300 animate-spin" />
+            </div>
+          ) : (
+            renderContent()
+          )}
       </div>
     </ToastProvider>
   );
