@@ -187,11 +187,26 @@ const App: React.FC = () => {
 
   // Also check subscription for returning users (e.g., from checkout)
   // This ensures users who just subscribed can access the dashboard
+  // IMPORTANT: Only apply this on initial landing/auth transitions, not during tool navigation
   useEffect(() => {
     if (isJustLoggedIn || !user || isUserProfileLoading || hasCheckedSubscription) return;
     if (viewState === ViewState.DASHBOARD) return; // Already in dashboard
+    
+    // Only force to dashboard if we're in a "transition" state (LANDING, AUTH, FEATURES, etc)
+    // Do NOT override if user is navigating between tools (AGENT_COMMAND, RESEARCH_STUDIO, etc)
+    const isInNavigationState = [
+      ViewState.LANDING,
+      ViewState.AUTH,
+      ViewState.FEATURES,
+      ViewState.PROFILE // Allow Profile to stay (user navigated there intentionally)
+    ].includes(viewState);
+    
+    if (!isInNavigationState) {
+      // User is in a tool view (Agent, Research, Remix, etc) - let them stay there
+      return;
+    }
 
-    // For returning/authenticated users, check if they're subscribed
+    // For returning/authenticated users in transition states, check if they're subscribed
     // Give real-time listener time to sync subscription data
     const isSubscribed = userProfile?.subscriptionStatus === 'active';
     
