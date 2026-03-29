@@ -137,15 +137,10 @@ export async function POST(req: NextRequest) {
               : new Date();
 
             const app = getAdminApp();
+            const adminDb = admin.firestore(app);
             console.log(`[checkout.session.completed] Got Admin app:`, {
               appName: app?.name,
               initialized: !!app,
-            });
-            
-            const adminDb = admin.firestore(app);
-            console.log(`[checkout.session.completed] Got Firestore instance:`, {
-              hasDb: !!adminDb,
-              type: typeof adminDb,
             });
             
             const userData = {
