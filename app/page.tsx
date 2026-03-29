@@ -224,7 +224,8 @@ const App: React.FC = () => {
     }
   }, [user, isLoggingOut]);
 
-  // CRITICAL SECURITY: Detect user changes and clear IndexedDB to prevent data leakage
+  // CRITICAL SECURITY: Detect user changes and update session tracking
+  // Data isolation is handled by user-scoped IndexedDB keys in storage.ts
   useEffect(() => {
     if (!user) return; // Not logged in
     
@@ -232,23 +233,10 @@ const App: React.FC = () => {
     const storedUserId = sessionStorage.getItem('_current_user_session_id');
     
     if (storedUserId && storedUserId !== currentUserId) {
-      // User changed - clear IndexedDB to prevent data leakage
-      console.log('[Security] User changed (was:', storedUserId, 'now:', currentUserId, ') - clearing IndexedDB');
-      try {
-        // Delete the IndexedDB database to clear all projects
-        const deleteRequest = window.indexedDB.deleteDatabase('DefaultDatabase');
-        deleteRequest.onsuccess = () => {
-          console.log('[Security] IndexedDB cleared successfully');
-          // Clear session storage too
-          sessionStorage.removeItem(SESSION_VIEW_KEY);
-          sessionStorage.removeItem(SESSION_PROJECT_KEY);
-        };
-        deleteRequest.onerror = () => {
-          console.warn('[Security] Failed to clear IndexedDB, but continuing');
-        };
-      } catch (e) {
-        console.warn('[Security] Error clearing IndexedDB:', e);
-      }
+      // User changed - clear session navigation state
+      console.log('[Security] User changed (was:', storedUserId, 'now:', currentUserId, ') - IndexedDB keys are user-scoped, no wipe needed');
+      sessionStorage.removeItem(SESSION_VIEW_KEY);
+      sessionStorage.removeItem(SESSION_PROJECT_KEY);
     }
     
     // Always update the stored user ID for future comparisons
@@ -393,15 +381,8 @@ const App: React.FC = () => {
       // Signal that we're logging out - prevents routing effects from interfering
       setIsLoggingOut(true);
       
-      // CRITICAL SECURITY: Clear IndexedDB and all user session data
-      console.log('[Logout] Clearing user data from browser storage');
-      try {
-        const deleteRequest = window.indexedDB.deleteDatabase('DefaultDatabase');
-        deleteRequest.onsuccess = () => console.log('[Logout] IndexedDB cleared');
-        deleteRequest.onerror = () => console.warn('[Logout] Failed to clear IndexedDB');
-      } catch (e) {
-        console.warn('[Logout] Error clearing IndexedDB:', e);
-      }
+      // Clear session navigation state (IndexedDB data is user-scoped, no wipe needed)
+      console.log('[Logout] Clearing session state');
       
       // Clear all session state
       sessionStorage.removeItem(SESSION_VIEW_KEY);

@@ -14,6 +14,16 @@ export const getCurrentAuthUser = () => {
   }
 };
 
+// SECURITY: Prefix all IndexedDB keys with the user's UID so each account
+// has completely isolated storage, even on the same browser.
+const getUserScopedKey = (key: string): string => {
+  const user = auth.currentUser;
+  if (user) {
+    return `${user.uid}_${key}`;
+  }
+  return key;
+};
+
 export const STORAGE_KEYS = {
   EBOOK_DATA: 'manuscript_ebook_data', // Legacy key
   PROJECT_INDEX: 'manuscript_projects_index',
@@ -32,7 +42,7 @@ export const getProjectSettingsKey = (id: string) => `manuscript_settings_${id}`
 export const saveToDB = async (key: string, data: any) => {
   if (typeof window === 'undefined') return;
   try {
-    await set(key, data);
+    await set(getUserScopedKey(key), data);
   } catch (e) {
     console.error(`IDB Save Failed for ${key}:`, e);
   }
@@ -41,7 +51,7 @@ export const saveToDB = async (key: string, data: any) => {
 export const loadFromDB = async <T>(key: string, fallback: T): Promise<T> => {
   if (typeof window === 'undefined') return fallback;
   try {
-    const val = await get(key);
+    const val = await get(getUserScopedKey(key));
     return val === undefined ? fallback : val;
   } catch (e) {
     console.error(`IDB Load Failed for ${key}:`, e);
@@ -52,7 +62,7 @@ export const loadFromDB = async <T>(key: string, fallback: T): Promise<T> => {
 export const deleteFromDB = async (key: string) => {
     if (typeof window === 'undefined') return;
     try {
-        await del(key);
+        await del(getUserScopedKey(key));
     } catch (e) {
         console.error(`IDB Delete Failed for ${key}:`, e);
     }
