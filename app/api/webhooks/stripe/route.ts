@@ -48,7 +48,8 @@ async function resolveFirebaseUid(eventData: any): Promise<string | null> {
   if (email) {
     try {
       const app = getAdminApp();
-      const adminDb = admin.firestore(app);
+      const databaseId = process.env.NEXT_PUBLIC_FIREBASE_FIRESTORE_DB_ID || '(default)';
+      const adminDb = (admin.firestore as any)(app, databaseId);
       console.log('[resolveFirebaseUid] Querying Firestore for user with email:', email);
       
       const querySnapshot = await adminDb
@@ -91,7 +92,9 @@ export async function POST(req: NextRequest) {
     console.log('[STRIPE WEBHOOK] ✓ Firebase Admin app initialized');
     
     // Verify Firestore is accessible
-    const adminDb = admin.firestore(app);
+    const databaseId = process.env.NEXT_PUBLIC_FIREBASE_FIRESTORE_DB_ID || '(default)';
+    console.log('[STRIPE WEBHOOK] Using database ID:', databaseId);
+    const adminDb = (admin.firestore as any)(app, databaseId);
     if (!adminDb) {
       console.error('[STRIPE WEBHOOK] ❌ CRITICAL: Firestore instance not available');
       return NextResponse.json({ error: 'Firestore not available' }, { status: 500 });
@@ -137,7 +140,8 @@ export async function POST(req: NextRequest) {
               : new Date();
 
             const app = getAdminApp();
-            const adminDb = admin.firestore(app);
+            const databaseId = process.env.NEXT_PUBLIC_FIREBASE_FIRESTORE_DB_ID || '(default)';
+            const adminDb = (admin.firestore as any)(app, databaseId);
             console.log(`[checkout.session.completed] Got Admin app:`, {
               appName: app?.name,
               initialized: !!app,
@@ -192,7 +196,8 @@ export async function POST(req: NextRequest) {
               : new Date();
 
             const app = getAdminApp();
-            const adminDb = admin.firestore(app);
+            const databaseId = process.env.NEXT_PUBLIC_FIREBASE_FIRESTORE_DB_ID || '(default)';
+            const adminDb = (admin.firestore as any)(app, databaseId);
             
             const userData = {
               stripeCustomerId: subscription.customer,
@@ -230,7 +235,8 @@ export async function POST(req: NextRequest) {
         if (firebaseUid) {
           try {
             const app = getAdminApp();
-            const adminDb = admin.firestore(app);
+            const databaseId = process.env.NEXT_PUBLIC_FIREBASE_FIRESTORE_DB_ID || '(default)';
+            const adminDb = (admin.firestore as any)(app, databaseId);
             
             console.log(`[customer.subscription.deleted] Canceling subscription for user ${firebaseUid}`);
             
@@ -261,7 +267,8 @@ export async function POST(req: NextRequest) {
         if (firebaseUid) {
           try {
             const app = getAdminApp();
-            const adminDb = admin.firestore(app);
+            const databaseId = process.env.NEXT_PUBLIC_FIREBASE_FIRESTORE_DB_ID || '(default)';
+            const adminDb = (admin.firestore as any)(app, databaseId);
             
             console.log(`[invoice.payment_failed] Marking user ${firebaseUid} as past_due`);
             
