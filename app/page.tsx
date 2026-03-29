@@ -75,6 +75,8 @@ const App: React.FC = () => {
   const { user } = useAuth();
   const { user: userProfile, isLoading: isUserProfileLoading } = useUser();
   
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  
   // Default to LANDING page (always safe for SSR)
   const [viewState, setViewState] = useState<ViewState>(ViewState.LANDING);
   const [ebookData, setEbookData] = useState<EbookData | null>(null);
@@ -164,57 +166,48 @@ const App: React.FC = () => {
     initAnalytics(); // Initialize Google Analytics
   }, []);
 
-  // Single unified subscription check for both new and returning users
-  // This replaces the two-effect system that was causing flashing/rendering loops
+  // Reset logging out flag when user actually logs out (auth state cleared by Firebase)
   useEffect(() => {
-    // Wait for subscription data to load before making any routing decisions
-    if (!user || isUserProfileLoading) return;
+    if (!user && isLoggingOut) {
+      console.log('[Logout] Auth state cleared, logout complete');
+      setIsLoggingOut(false);
+    }
+  }, [user, isLoggingOut]);
+
+  // SINGLE UNIFIED ROUTING DECISION - Runs ONCE when subscription data loads
+  // After routing decision is made, this effect stops interfering
+  useEffect(() => {
+    // Don't run if we're logging out
+    if (isLoggingOut) return;
     
-    // Once we have subscription data, decide where to route
-    // But ONLY if we're in a state where routing decisions apply
+    // Only run when we have the auth and subscription data we need
+    if (!user || isUserProfileLoading || hasCheckedSubscription) return;
+    
+    // ONE-TIME DECISION: Where should this user go?
     const isSubscribed = userProfile?.subscriptionStatus === 'active';
+
+    // Mark that we've made a routing decision (prevents this effect from running again)
+    setHasCheckedSubscription(true);
     
-    // For new logins: User just completed auth flow
+    // Route based on subscription status - SINGLE URL CHANGE, NO FLASHING
     if (isJustLoggedIn) {
-      if (!isSubscribed) {
-        console.log('[Auth] User not subscribed after login, redirecting to pricing');
-        setHasCheckedSubscription(true);
-        setIsJustLoggedIn(false);
-        window.location.href = '/pricing?from=dashboard';
+      // Brand new login
+      setIsJustLoggedIn(false);
+      if (isSubscribed) {
+        console.log('[Routing] New login - subscribed user → DASHBOARD');
+        setViewState(ViewState.DASHBOARD);
       } else {
-        console.log('[Auth] User subscribed after login, going to dashboard');
-        setHasCheckedSubscription(true);
-        setIsJustLoggedIn(false);
+        console.log('[Routing] New login - unsubscribed user → PRICING');
+        window.location.href = '/pricing?from=login';
+      }
+    } else {
+      // Returning authenticated user - just ensure they're routed correctly
+      if (isSubscribed && viewState === ViewState.LANDING) {
+        console.log('[Routing] Returning user - subscribed, viewing LANDING → DASHBOARD');
         setViewState(ViewState.DASHBOARD);
       }
-      return; // Don't run returning user logic
     }
-
-    // For returning users: Check if we need to enforce subscription access
-    if (hasCheckedSubscription) return; // Already decided on routing
-    if (viewState === ViewState.DASHBOARD) return; // Already in dashboard
-    
-    // Don't apply subscription routing for unsubscribed users in transition states
-    // Only apply it when user is subscribed to move them from LANDING to DASHBOARD
-    if (!isSubscribed) return;
-    
-    // Only force to dashboard if we're in a "transition" state (LANDING, AUTH, FEATURES, etc)
-    // Do NOT override if user is navigating between tools (AGENT_COMMAND, RESEARCH_STUDIO, etc)
-    const isInNavigationState = [
-      ViewState.LANDING,
-      ViewState.AUTH,
-      ViewState.FEATURES
-    ].includes(viewState);
-    
-    if (!isInNavigationState) {
-      // User is in a tool view (Agent, Research, Remix, etc) - let them stay there
-      return;
-    }
-
-    // Returning user in transition state and subscribed - move to dashboard
-    console.log('[Auth] Returning subscribed user, going to dashboard');
-    setViewState(ViewState.DASHBOARD);
-  }, [user, userProfile, isUserProfileLoading, viewState, isJustLoggedIn, hasCheckedSubscription]);
+  }, [user, userProfile, isUserProfileLoading, isJustLoggedIn, hasCheckedSubscription, isLoggingOut]);
 
   // Handle direct=dashboard query param (from pricing page redirect when user is subscribed)
   // This allows subscribed users to skip LANDING page and go straight to DASHBOARD
@@ -367,21 +360,29 @@ const App: React.FC = () => {
   };
 
   const handleExit = () => {
-      // CRITICAL: Sign out FIRST, before changing any state
-      // This prevents the subscription check useEffect from redirecting us back to DASHBOARD
-      const signOutPromise = signOut(auth).catch(err => console.error('[Logout] Sign out error:', err));
+      // Signal that we're logging out - prevents routing effects from interfering
+      setIsLoggingOut(true);
       
-      // Clear all session state and reset routing
+      // Clear all session state
       sessionStorage.removeItem(SESSION_VIEW_KEY);
       sessionStorage.removeItem(SESSION_PROJECT_KEY);
       
-      // Reset subscription check so it doesn't override our logout
+      // Reset routing state for next login
       setHasCheckedSubscription(false);
       setIsJustLoggedIn(false);
       
+      // Update UI to LANDING
       setViewState(ViewState.LANDING);
       setEbookData(null);
       setPendingCoverImage(null);
+      
+      // Sign out from Firebase - this will trigger auth state changes
+      signOut(auth)
+        .then(() => {
+          console.log('[Logout] Successfully signed out');
+          // Logging out flag will be reset by the useEffect that watches `user`
+        })
+        .catch(err => console.error('[Logout] Sign out error:', err));
       
       trackEvent('exit_studio');
       logActivity('exit_studio', ebookDataRef.current?.title || 'Exited editor');
