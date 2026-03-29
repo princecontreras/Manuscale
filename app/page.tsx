@@ -174,36 +174,79 @@ const App: React.FC = () => {
     }
   }, [user, isLoggingOut]);
 
+  // CRITICAL SECURITY: Detect user changes and clear IndexedDB to prevent data leakage
+  // When User A logs out and User B logs in on the same browser:
+  // 1. Firebase auth state changes from User A to User B
+  // 2. IndexedDB still contains User A's projects
+  // 3. This effect detects the user change and clears IndexedDB
+  useEffect(() => {
+    if (!user) return; // Not logged in
+    
+    const currentUserId = user.uid;
+    const storedUserId = sessionStorage.getItem('_current_user_session_id');
+    
+    if (storedUserId && storedUserId !== currentUserId) {
+      // User changed - clear IndexedDB to prevent data leakage
+      console.log('[Security] User changed (was:', storedUserId, 'now:', currentUserId, ') - clearing IndexedDB');
+      try {
+        // Delete the IndexedDB database to clear all projects
+        const deleteRequest = window.indexedDB.deleteDatabase('DefaultDatabase');
+        deleteRequest.onsuccess = () => {
+          console.log('[Security] IndexedDB cleared successfully');
+          // Clear session storage too
+          sessionStorage.removeItem(SESSION_VIEW_KEY);
+          sessionStorage.removeItem(SESSION_PROJECT_KEY);
+        };
+        deleteRequest.onerror = () => {
+          console.warn('[Security] Failed to clear IndexedDB, but continuing');
+        };
+      } catch (e) {
+        console.warn('[Security] Error clearing IndexedDB:', e);
+      }
+    }
+    
+    // Always update the stored user ID for future comparisons
+    sessionStorage.setItem('_current_user_session_id', currentUserId);
+  }, [user?.uid]);
+
   // SINGLE UNIFIED ROUTING DECISION - Runs ONCE when subscription data loads
   // After routing decision is made, this effect stops interfering
   useEffect(() => {
     // Don't run if we're logging out
     if (isLoggingOut) return;
     
-    // Only run when we have the auth and subscription data we need
+    // Only run when we have the auth data we need
     if (!user || isUserProfileLoading || hasCheckedSubscription) return;
     
-    // ONE-TIME DECISION: Where should this user go?
-    const isSubscribed = userProfile?.subscriptionStatus === 'active';
-
     // Mark that we've made a routing decision (prevents this effect from running again)
     setHasCheckedSubscription(true);
     
     // Route based on subscription status - SINGLE URL CHANGE, NO FLASHING
     if (isJustLoggedIn) {
-      // Brand new login
       setIsJustLoggedIn(false);
+      
+      // CRITICAL SECURITY CHECK: Is this a NEW account with NO subscription data?
+      // New users should NOT see dashboard - they need to subscribe first
+      if (!userProfile) {
+        console.log('[Routing] New account detected - no subscription data exists, redirecting to pricing');
+        window.location.href = '/pricing?from=login';
+        return;
+      }
+      
+      const isSubscribed = userProfile?.subscriptionStatus === 'active';
+      
       if (isSubscribed) {
-        console.log('[Routing] New login - subscribed user → DASHBOARD');
+        console.log('[Routing] Login - subscribed user → DASHBOARD');
         setViewState(ViewState.DASHBOARD);
       } else {
-        console.log('[Routing] New login - unsubscribed user → PRICING');
+        console.log('[Routing] Login - unsubscribed user → PRICING');
         window.location.href = '/pricing?from=login';
       }
     } else {
-      // Returning authenticated user - just ensure they're routed correctly
+      // Returning authenticated user
+      const isSubscribed = userProfile?.subscriptionStatus === 'active';
       if (isSubscribed && viewState === ViewState.LANDING) {
-        console.log('[Routing] Returning user - subscribed, viewing LANDING → DASHBOARD');
+        console.log('[Routing] Returning - subscribed user viewing LANDING → DASHBOARD');
         setViewState(ViewState.DASHBOARD);
       }
     }
@@ -363,9 +406,26 @@ const App: React.FC = () => {
       // Signal that we're logging out - prevents routing effects from interfering
       setIsLoggingOut(true);
       
+      // CRITICAL SECURITY: Clear IndexedDB and all user session data
+      // This prevents the next user who logs in on this browser from seeing this user's data
+      console.log('[Logout] Clearing user data from browser storage');
+      try {
+        // Delete the IndexedDB database to clear all projects
+        const deleteRequest = window.indexedDB.deleteDatabase('DefaultDatabase');
+        deleteRequest.onsuccess = () => {
+          console.log('[Logout] IndexedDB cleared');
+        };
+        deleteRequest.onerror = () => {
+          console.warn('[Logout] Failed to clear IndexedDB');
+        };
+      } catch (e) {
+        console.warn('[Logout] Error clearing IndexedDB:', e);
+      }
+      
       // Clear all session state
       sessionStorage.removeItem(SESSION_VIEW_KEY);
       sessionStorage.removeItem(SESSION_PROJECT_KEY);
+      sessionStorage.removeItem('_current_user_session_id'); // Clear stored user ID
       
       // Reset routing state for next login
       setHasCheckedSubscription(false);

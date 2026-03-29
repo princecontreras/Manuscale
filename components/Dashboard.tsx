@@ -197,6 +197,13 @@ const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, onCreateNew, onOpe
         let isMounted = true;
         
         const initDashboard = async () => {
+            // CRITICAL SECURITY: Verify user is authenticated before loading projects
+            if (!user) {
+                console.warn('[Security] Attempted to load dashboard projects without authentication');
+                if (isMounted) setProjects([]);
+                return;
+            }
+            
             setIsLoading(true);
             try {
                 const syncedIndex = await syncProjectIndex();
@@ -213,7 +220,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, onCreateNew, onOpe
         initDashboard();
         
         return () => { isMounted = false; };
-    }, []);
+    }, [user]);
 
     const confirmDelete = (e: React.MouseEvent, id: string) => {
         e.stopPropagation();

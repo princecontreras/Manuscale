@@ -1,6 +1,18 @@
 
 import { get, set, del, keys, clear } from 'idb-keyval';
 import { EbookData, ProjectMetadata } from '../types';
+import { auth } from './firebase';
+
+// SECURITY: Helper to get current authenticated user
+// Used for validation checks to prevent unauthorized access
+export const getCurrentAuthUser = () => {
+  try {
+    return auth.currentUser;
+  } catch (e) {
+    console.warn('[Storage Security] Error getting current auth user:', e);
+    return null;
+  }
+};
 
 export const STORAGE_KEYS = {
   EBOOK_DATA: 'manuscript_ebook_data', // Legacy key
