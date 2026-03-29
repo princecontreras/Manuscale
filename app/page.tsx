@@ -163,16 +163,34 @@ const App: React.FC = () => {
 
     if (!isSubscribed) {
       // User is not subscribed, redirect to pricing page
+      console.log('[Dashboard] User not subscribed, redirecting to pricing');
       setHasCheckedSubscription(true);
       setIsJustLoggedIn(false);
-      window.location.href = '/pricing';
+      window.location.href = '/pricing?from=dashboard';
     } else {
       // User is subscribed, allow them to access the dashboard
+      console.log('[Dashboard] User subscribed, allowing access to dashboard');
       setHasCheckedSubscription(true);
       setIsJustLoggedIn(false);
       setViewState(ViewState.DASHBOARD);
     }
   }, [isJustLoggedIn, user, userProfile, isUserProfileLoading, hasCheckedSubscription]);
+
+  // Also check subscription for returning users (e.g., from checkout)
+  // This ensures users who just subscribed can access the dashboard
+  useEffect(() => {
+    if (isJustLoggedIn || !user || isUserProfileLoading || hasCheckedSubscription) return;
+    if (viewState === ViewState.DASHBOARD) return; // Already in dashboard
+
+    // For returning/authenticated users, check if they're subscribed
+    // Give real-time listener time to sync subscription data
+    const isSubscribed = userProfile?.subscriptionStatus === 'active';
+    
+    if (isSubscribed) {
+      console.log('[Dashboard] Returning user is now subscribed, allowing access');
+      setViewState(ViewState.DASHBOARD);
+    }
+  }, [user, userProfile, isUserProfileLoading, viewState, isJustLoggedIn, hasCheckedSubscription]);
 
   const handleEnterApp = async (topic?: string) => {
       proceedToApp(topic);

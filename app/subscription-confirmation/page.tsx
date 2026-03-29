@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { CheckCircle2, ArrowRight } from 'lucide-react';
+import { CheckCircle2, ArrowRight, AlertCircle } from 'lucide-react';
 import { Logo } from '@/components/Logo';
 import { Button } from '@/components/Button';
 import { useAuth } from '@/components/AuthProvider';
@@ -14,6 +14,9 @@ export default function SubscriptionConfirmationPage() {
   const subscription = useSubscription();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
+  const [isVerifying, setIsVerifying] = useState(true);
+  const [verificationError, setVerificationError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     if (!authLoading) {
@@ -28,6 +31,52 @@ export default function SubscriptionConfirmationPage() {
     }
   }, [user, authLoading, router]);
 
+  // Poll for subscription status from Firestore
+  useEffect(() => {
+    if (authLoading || !user || !isVerifying) return;
+
+    const verifySubscription = async () => {
+      try {
+        // Wait a bit for webhook to process (first time)
+        if (retryCount === 0) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+
+        console.log(`[Confirmation] Verifying subscription (attempt ${retryCount + 1})...`);
+        
+        // Check if subscription data exists
+        if (subscription.subscriptionStatus === 'active') {
+          console.log('[Confirmation] ✓ Subscription verified as active');
+          setVerificationError(null);
+          setIsVerifying(false);
+          return;
+        }
+
+        // If still not active and we haven't retried too many times, retry
+        if (retryCount < 5) {
+          console.log(`[Confirmation] Subscription not yet active, retrying (${retryCount + 1}/5)...`);
+          setRetryCount(prev => prev + 1);
+          // Wait 2 seconds and try again
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        } else {
+          console.error('[Confirmation] ✗ Subscription failed to activate after 5 retries');
+          setVerificationError('Subscription is taking longer than expected to activate. Please refresh or contact support.');
+          setIsVerifying(false);
+        }
+      } catch (error) {
+        console.error('[Confirmation] Error verifying subscription:', error);
+        if (retryCount < 5) {
+          setRetryCount(prev => prev + 1);
+        } else {
+          setVerificationError('Error verifying subscription. Please refresh the page.');
+          setIsVerifying(false);
+        }
+      }
+    };
+
+    verifySubscription();
+  }, [authLoading, user, subscription.subscriptionStatus, isVerifying, retryCount]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -38,6 +87,79 @@ export default function SubscriptionConfirmationPage() {
 
   const planLabel = subscription.isYearly ? 'Yearly' : 'Monthly';
 
+  // Still verifying
+  if (isVerifying) {
+    return (
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 font-sans">
+        <div className="w-full max-w-sm text-center">
+          <div className="mb-16">
+            <Link href="/">
+              <Logo />
+            </Link>
+          </div>
+
+          <div className="flex justify-center mb-8">
+            <div className="w-12 h-12 border-4 border-slate-200 border-t-primary-600 rounded-full animate-spin"></div>
+          </div>
+
+          <h1 className="font-heading text-2xl font-bold text-slate-900 tracking-tight mb-3">
+            Activating your subscription...
+          </h1>
+          <p className="text-slate-500 text-sm leading-relaxed mb-10">
+            Your payment was successful. We're finalizing your {planLabel} subscription.
+            This usually takes a few seconds.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Verification error
+  if (verificationError) {
+    return (
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 font-sans">
+        <div className="w-full max-w-sm text-center">
+          <div className="mb-16">
+            <Link href="/">
+              <Logo />
+            </Link>
+          </div>
+
+          <div className="flex justify-center mb-8">
+            <AlertCircle size={48} className="text-orange-500" strokeWidth={1.5} />
+          </div>
+
+          <h1 className="font-heading text-2xl font-bold text-slate-900 tracking-tight mb-3">
+            Subscription Pending
+          </h1>
+          <p className="text-slate-600 text-sm leading-relaxed mb-8">
+            {verificationError}
+          </p>
+
+          <div className="space-y-3">
+            <Button
+              onClick={() => window.location.reload()}
+              variant="primary"
+              size="lg"
+              className="w-full"
+            >
+              Refresh and Try Again
+            </Button>
+            <Button
+              onClick={() => router.push('/')}
+              variant="ghost"
+              size="lg"
+              className="w-full border border-slate-200"
+            >
+              Go to Dashboard Anyway
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Success - subscription verified
   return (
     <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 font-sans">
       <div className="w-full max-w-sm text-center">
