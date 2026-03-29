@@ -164,39 +164,38 @@ const App: React.FC = () => {
     initAnalytics(); // Initialize Google Analytics
   }, []);
 
-  // Check subscription ONLY when user just logged in
-  // Don't check on page load if they're already authenticated via auth persistence
+  // Single unified subscription check for both new and returning users
+  // This replaces the two-effect system that was causing flashing/rendering loops
   useEffect(() => {
-    if (!isJustLoggedIn || !user || isUserProfileLoading || hasCheckedSubscription) return;
-
-    // User just logged in and profile data has loaded
+    // Wait for subscription data to load before making any routing decisions
+    if (!user || isUserProfileLoading) return;
+    
+    // Once we have subscription data, decide where to route
+    // But ONLY if we're in a state where routing decisions apply
     const isSubscribed = userProfile?.subscriptionStatus === 'active';
-
-    if (!isSubscribed) {
-      // User is not subscribed, redirect to pricing page
-      console.log('[Dashboard] User not subscribed, redirecting to pricing');
-      setHasCheckedSubscription(true);
-      setIsJustLoggedIn(false);
-      window.location.href = '/pricing?from=dashboard';
-    } else {
-      // User is subscribed, allow them to access the dashboard
-      console.log('[Dashboard] User subscribed, allowing access to dashboard');
-      setHasCheckedSubscription(true);
-      setIsJustLoggedIn(false);
-      setViewState(ViewState.DASHBOARD);
+    
+    // For new logins: User just completed auth flow
+    if (isJustLoggedIn) {
+      if (!isSubscribed) {
+        console.log('[Auth] User not subscribed after login, redirecting to pricing');
+        setHasCheckedSubscription(true);
+        setIsJustLoggedIn(false);
+        window.location.href = '/pricing?from=dashboard';
+      } else {
+        console.log('[Auth] User subscribed after login, going to dashboard');
+        setHasCheckedSubscription(true);
+        setIsJustLoggedIn(false);
+        setViewState(ViewState.DASHBOARD);
+      }
+      return; // Don't run returning user logic
     }
-  }, [isJustLoggedIn, user, userProfile, isUserProfileLoading, hasCheckedSubscription]);
 
-  // Also check subscription for returning users (e.g., from checkout)
-  // This ensures users who just subscribed can access the dashboard
-  // IMPORTANT: Only apply this on initial landing/auth transitions, not during tool navigation
-  useEffect(() => {
-    if (isJustLoggedIn || !user || isUserProfileLoading || hasCheckedSubscription) return;
+    // For returning users: Check if we need to enforce subscription access
+    if (hasCheckedSubscription) return; // Already decided on routing
     if (viewState === ViewState.DASHBOARD) return; // Already in dashboard
     
     // Only force to dashboard if we're in a "transition" state (LANDING, AUTH, FEATURES, etc)
     // Do NOT override if user is navigating between tools (AGENT_COMMAND, RESEARCH_STUDIO, etc)
-    // PROFILE is treated like a tool - once user navigates there, don't force them back
     const isInNavigationState = [
       ViewState.LANDING,
       ViewState.AUTH,
@@ -208,12 +207,9 @@ const App: React.FC = () => {
       return;
     }
 
-    // For returning/authenticated users in transition states, check if they're subscribed
-    // Give real-time listener time to sync subscription data
-    const isSubscribed = userProfile?.subscriptionStatus === 'active';
-    
+    // Returning user in transition state and subscribed - move to dashboard
     if (isSubscribed) {
-      console.log('[Dashboard] Returning user is now subscribed, allowing access');
+      console.log('[Auth] Returning subscribed user, going to dashboard');
       setViewState(ViewState.DASHBOARD);
     }
   }, [user, userProfile, isUserProfileLoading, viewState, isJustLoggedIn, hasCheckedSubscription]);
