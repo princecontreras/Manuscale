@@ -16,43 +16,90 @@ function initAdmin(): admin.app.App {
     try {
       console.log('[Firebase] Service account JSON detected, length:', serviceAccountJson.length);
       
-      // Log first and last 100 chars to debug
-      console.log('[Firebase] First 100 chars:', serviceAccountJson.substring(0, 100));
-      console.log('[Firebase] Last 100 chars:', serviceAccountJson.substring(serviceAccountJson.length - 100));
-      
-      // In Vercel/production, env vars store escape sequences as literal characters.
-      // Replace literal \n, \r, \t with actual newline/return/tab characters.
-      let processedJson = serviceAccountJson
-        .replace(/\\n/g, '\n')    // Replace literal \n with actual newline
-        .replace(/\\r/g, '\r')    // Replace literal \r with actual carriage return
-        .replace(/\\t/g, '\t');   // Replace literal \t with actual tab
-      
-      console.log('[Firebase] Parsing service account JSON...');
-      const serviceAccount = JSON.parse(processedJson) as admin.ServiceAccount;
-      
-      // Verify the private key was properly formatted
-      const privateKey = (serviceAccount as any).private_key || (serviceAccount as any).privateKey;
-      if (privateKey) {
-        const keyLines = privateKey.split('\n');
-        console.log('[Firebase] Private key lines:', keyLines.length);
-        console.log('[Firebase] First line:', keyLines[0]);
-        console.log('[Firebase] Last line:', keyLines[keyLines.length - 1]);
+      let serviceAccount: admin.ServiceAccount | null = null;
+      let parseStrategy = '';
+
+      // Strategy 1: Try parsing as-is (in case it doesn't need conversion)
+      try {
+        serviceAccount = JSON.parse(serviceAccountJson) as admin.ServiceAccount;
+        parseStrategy = 'as-is';
+        console.log('[Firebase] ✓ Successfully parsed as-is');
+      } catch (e1) {
+        console.log('[Firebase] Strategy 1 (as-is) failed, trying escape sequence replacement...');
+        
+        // Strategy 2: Replace literal \n sequences with actual newlines
+        try {
+          const processedJson = serviceAccountJson
+            .replace(/\\n/g, '\n')
+            .replace(/\\r/g, '\r')
+            .replace(/\\t/g, '\t');
+          
+          serviceAccount = JSON.parse(processedJson) as admin.ServiceAccount;
+          parseStrategy = 'escape-replacement';
+          console.log('[Firebase] ✓ Successfully parsed with escape replacement');
+        } catch (e2) {
+          console.log('[Firebase] Strategy 2 (escape replacement) failed, trying double-escape fix...');
+          
+          // Strategy 3: Handle double-escaped sequences (\\\\n -> \\n -> \n)
+          try {
+            const doubleEscaped = serviceAccountJson
+              .replace(/\\\\\\\n/g, '\n')          // \\n -> \n
+              .replace(/\\\\n/g, '\n')              // \\n -> \n
+              .replace(/\\\\\\\r/g, '\r')
+              .replace(/\\\\r/g, '\r')
+              .replace(/\\\\\\\t/g, '\t')
+              .replace(/\\\\t/g, '\t');
+            
+            serviceAccount = JSON.parse(doubleEscaped) as admin.ServiceAccount;
+            parseStrategy = 'double-escape-fix';
+            console.log('[Firebase] ✓ Successfully parsed with double-escape fix');
+          } catch (e3) {
+            throw new Error(
+              `All parsing strategies failed. ` +
+              `Strategy 1 (as-is): ${e1}. ` +
+              `Strategy 2 (escape-replacement): ${e2}. ` +
+              `Strategy 3 (double-escape-fix): ${e3}`
+            );
+          }
+        }
       }
+
+      if (!serviceAccount) {
+        throw new Error('Service account is null after parsing');
+      }
+
+      // Validate the private key exists and is properly formatted
+      const privateKey = (serviceAccount as any).private_key || (serviceAccount as any).privateKey;
+      if (!privateKey) {
+        throw new Error('No private_key found in service account');
+      }
+
+      if (!privateKey.includes('BEGIN PRIVATE KEY') || !privateKey.includes('END PRIVATE KEY')) {
+        throw new Error('Private key does not have valid PEM format markers');
+      }
+
+      const keyLines = privateKey.split('\n');
+      console.log(`[Firebase] Private key format valid: ${keyLines.length} lines, using strategy: ${parseStrategy}`);
       
       console.log('✓ Firebase Admin initialized with service account');
       return admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
     } catch (error) {
       console.error('❌ Failed to parse Firebase service account JSON:', error);
       console.error('Service account JSON length:', serviceAccountJson?.length);
-      console.error('First 150 chars:', serviceAccountJson?.substring(0, 150));
+      console.error('First 200 chars:', serviceAccountJson?.substring(0, 200));
       
-      // Provide more detailed error info
       if (error instanceof Error) {
-        console.error('Error name:', error.name);
         console.error('Error message:', error.message);
-        console.error('Full error:', JSON.stringify(error, null, 2));
       }
-      
+
+      // Fallback: Try projectId-only mode so app doesn't crash completely
+      const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+      if (projectId) {
+        console.warn('⚠ Falling back to projectId-only Firebase Admin mode. Firestore operations will fail.');
+        console.warn('❌ CRITICAL: You must fix FIREBASE_ADMIN_SERVICE_ACCOUNT to enable Firestore access.');
+        return admin.initializeApp({ projectId });
+      }
+
       throw new Error(`Firebase Admin: Failed to parse FIREBASE_ADMIN_SERVICE_ACCOUNT. ${String(error)}`);
     }
   }
