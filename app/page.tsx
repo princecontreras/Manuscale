@@ -215,11 +215,24 @@ const App: React.FC = () => {
     // Don't run if we're logging out
     if (isLoggingOut) return;
     
-    // Only run when we have the auth data we need
-    if (!user || isUserProfileLoading || hasCheckedSubscription) return;
+    // Debug: Log why effect might not run
+    if (!user) {
+      console.log('[Routing] Blocked: no user yet');
+      return;
+    }
+    if (isUserProfileLoading) {
+      console.log('[Routing] Blocked: still loading user profile');
+      return;
+    }
+    if (hasCheckedSubscription) {
+      console.log('[Routing] Blocked: already checked subscription');
+      return;
+    }
     
     // Mark that we've made a routing decision (prevents this effect from running again)
     setHasCheckedSubscription(true);
+    
+    console.log('[Routing] Running with:', { isJustLoggedIn, hasSubscription: !!userProfile?.subscriptionStatus });
     
     // Route based on subscription status - SINGLE URL CHANGE, NO FLASHING
     if (isJustLoggedIn) {
