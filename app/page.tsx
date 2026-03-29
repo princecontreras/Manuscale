@@ -20,6 +20,8 @@ import { Bot, Layout, Image as ImageIcon, ArrowLeft, Loader2 } from 'lucide-reac
 import { ToastProvider } from '../components/ToastContext';
 import { useAuth } from '../components/AuthProvider';
 import { useUser } from '../hooks/useUser';
+import { signOut } from 'firebase/auth';
+import { auth } from '../services/firebase';
 
 enum ViewState {
   LANDING = 'LANDING',
@@ -194,11 +196,11 @@ const App: React.FC = () => {
     
     // Only force to dashboard if we're in a "transition" state (LANDING, AUTH, FEATURES, etc)
     // Do NOT override if user is navigating between tools (AGENT_COMMAND, RESEARCH_STUDIO, etc)
+    // PROFILE is treated like a tool - once user navigates there, don't force them back
     const isInNavigationState = [
       ViewState.LANDING,
       ViewState.AUTH,
-      ViewState.FEATURES,
-      ViewState.PROFILE // Allow Profile to stay (user navigated there intentionally)
+      ViewState.FEATURES
     ].includes(viewState);
     
     if (!isInNavigationState) {
@@ -357,6 +359,8 @@ const App: React.FC = () => {
       setViewState(ViewState.LANDING);
       setEbookData(null);
       setPendingCoverImage(null);
+      // Sign user out from Firebase Auth so they truly log out
+      signOut(auth).catch(err => console.error('[Logout] Sign out error:', err));
       trackEvent('exit_studio');
       logActivity('exit_studio', ebookDataRef.current?.title || 'Exited editor');
   };
