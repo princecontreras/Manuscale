@@ -54,7 +54,8 @@ export async function POST(req: NextRequest) {
 
     // Check for existing active subscription to prevent duplicates
     const app = getAdminApp();
-    const adminDb = admin.firestore(app);
+    const databaseId = process.env.NEXT_PUBLIC_FIREBASE_FIRESTORE_DB_ID || '(default)';
+    const adminDb = (admin.firestore as any)(app, databaseId);
     
     try {
       const userDocSnap = await adminDb.collection('users').doc(firebaseUid).get();

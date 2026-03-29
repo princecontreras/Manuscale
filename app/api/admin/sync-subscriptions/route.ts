@@ -34,7 +34,8 @@ export async function POST(req: NextRequest) {
     console.log(`[SYNC] Params:`, { email, limit, verbose });
 
     const app = getAdminApp();
-    const adminDb = admin.firestore(app);
+    const databaseId = process.env.NEXT_PUBLIC_FIREBASE_FIRESTORE_DB_ID || '(default)';
+    const adminDb = (admin.firestore as any)(app, databaseId);
     const results = {
       checked: 0,
       synced: 0,
