@@ -32,12 +32,13 @@ export const useUser = () => {
         
         if (!docSnapshot.exists()) {
           // Create new user document if it doesn't exist
+          // NOTE: Don't include createdAt - Firestore rules block it to ensure it's only set server-side
           const newProfile = {
             uid: firebaseUser.uid,
             email: firebaseUser.email || '',
             displayName: firebaseUser.displayName || null,
             photoURL: firebaseUser.photoURL || null,
-            createdAt: new Date(),
+            // createdAt is omitted - server-side operations will set it
           };
           await setDoc(userDocRef, newProfile);
           console.log('[useUser] Created new user profile document');
