@@ -142,7 +142,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                                     onClick={() => onGoToAuth(false)} 
                                     className="w-full sm:w-auto text-lg px-8 py-4 h-auto rounded-full shadow-lg shadow-primary-600/20"
                                 >
-                                    Start Writing for Free <ArrowRight size={20} className="ml-2 group-hover:translate-x-1 transition-transform" />
+                                    Start Writing Now <ArrowRight size={20} className="ml-2 group-hover:translate-x-1 transition-transform" />
                                 </Button>
                             )}
                         </div>

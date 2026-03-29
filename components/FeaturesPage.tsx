@@ -88,9 +88,9 @@ export const FeaturesPage: React.FC<FeaturesPageProps> = ({ onGoToAuth, onBack }
                                 className="bg-slate-50 p-8 rounded-2xl border border-slate-200 group hover:border-primary-200 transition-colors"
                             >
                                 <div className="w-12 h-12 bg-white rounded-xl shadow-sm border border-slate-200 flex items-center justify-center text-primary-600 mb-6 font-bold text-xl">2</div>
-                                <h3 className="font-heading text-2xl font-bold text-slate-900 mb-3">Iterative Drafting</h3>
+                                <h3 className="font-heading text-2xl font-bold text-slate-900 mb-3">Manuscript Board</h3>
                                 <p className="text-slate-600 leading-relaxed">
-                                    Instead of generating the whole book invisibly, the system stops chapter by chapter. You review the draft of Chapter 1, refine the prose, inject specific research or anecdotes, and approve it before the AI drafts Chapter 2.
+                                    Once the AI finishes auto-generating your entire manuscript, it lands in the editable Manuscript Board. Here you can read your full book, edit any chapter, reorder sections, adjust tone and voice, add citations, and refine every sentence. Full creative control, anytime.
                                 </p>
                             </motion.div>
 
@@ -102,9 +102,9 @@ export const FeaturesPage: React.FC<FeaturesPageProps> = ({ onGoToAuth, onBack }
                                 className="bg-slate-50 p-8 rounded-2xl border border-slate-200 group hover:border-primary-200 transition-colors"
                             >
                                 <div className="w-12 h-12 bg-white rounded-xl shadow-sm border border-slate-200 flex items-center justify-center text-primary-600 mb-6 font-bold text-xl">3</div>
-                                <h3 className="font-heading text-2xl font-bold text-slate-900 mb-3">Format Lab Rendering</h3>
+                                <h3 className="font-heading text-2xl font-bold text-slate-900 mb-3">Publish Wizard</h3>
                                 <p className="text-slate-600 leading-relaxed">
-                                    Once completed, sync the text directly to the Format Lab, automatically injecting elegant typography, chapter headers, and compiling it instantly into standard publishing formats (EPUB/PDF).
+                                    Launch the Publish Wizard to auto-generate a professional cover, dedication page, and author bio. Download your finished book as EPUB or DOCX for immediate distribution. Bonus: Generate marketing hero images and order audiobook narration—all built-in.
                                 </p>
                             </motion.div>
                         </div>
@@ -126,7 +126,7 @@ export const FeaturesPage: React.FC<FeaturesPageProps> = ({ onGoToAuth, onBack }
                                 <div className="w-12 h-12 bg-slate-900 rounded-xl border border-slate-600 flex items-center justify-center text-blue-400 mb-6 font-bold text-xl relative z-10">1</div>
                                 <h3 className="font-heading text-2xl font-bold text-white mb-3 relative z-10">Swarm Initialization</h3>
                                 <p className="text-slate-400 leading-relaxed relative z-10">
-                                    You simply write the prompt. Need a 20-chapter novel about a space detective? Or a 5-chapter business guide? The engine assigns multiple AI agents that immediately begin negotiating an outline.
+                                    You simply write the prompt. Need a 20-chapter book about the history of earth? Or a 5-chapter business guide? The engine assigns multiple AI agents that immediately begin negotiating an outline.
                                 </p>
                             </motion.div>
                             
@@ -156,7 +156,7 @@ export const FeaturesPage: React.FC<FeaturesPageProps> = ({ onGoToAuth, onBack }
                                 <div className="w-12 h-12 bg-slate-900 rounded-xl border border-slate-600 flex items-center justify-center text-blue-400 mb-6 font-bold text-xl relative z-10">3</div>
                                 <h3 className="font-heading text-2xl font-bold text-white mb-3 relative z-10">Instant Delivery</h3>
                                 <p className="text-slate-400 leading-relaxed relative z-10">
-                                    As soon as the execution trace completes, the finished book immediately appears in your library for viewing or download. No review loops required.
+                                    As soon as the book is completed, the publisher agent automatically downloads it directly to your device—ready for instant access, with no extra steps required.
                                 </p>
                             </motion.div>
                         </div>
