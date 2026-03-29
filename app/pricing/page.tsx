@@ -91,7 +91,12 @@ const PricingPage: React.FC = () => {
     }
   };
 
-  if (isLoading || authLoading) {
+  // Keep showing spinner while:
+  // - Auth or profile is still loading
+  // - No user (will redirect to /signup)
+  // - Already subscribed (will redirect to /?direct=dashboard)
+  // This prevents pricing content from flashing before redirects fire
+  if (isLoading || authLoading || !firebaseUser || subscription.isSubscribed) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
