@@ -27,7 +27,8 @@ const PricingPage: React.FC = () => {
   // Redirect already-subscribed users to dashboard
   React.useEffect(() => {
     if (!isLoading && !authLoading && firebaseUser && subscription.isSubscribed) {
-      window.location.href = '/';
+      // Direct redirect to home with dashboard flag to avoid LANDING page flashing
+      window.location.href = '/?direct=dashboard';
     }
   }, [isLoading, authLoading, firebaseUser, subscription.isSubscribed]);
 

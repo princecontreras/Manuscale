@@ -194,6 +194,10 @@ const App: React.FC = () => {
     if (hasCheckedSubscription) return; // Already decided on routing
     if (viewState === ViewState.DASHBOARD) return; // Already in dashboard
     
+    // Don't apply subscription routing for unsubscribed users in transition states
+    // Only apply it when user is subscribed to move them from LANDING to DASHBOARD
+    if (!isSubscribed) return;
+    
     // Only force to dashboard if we're in a "transition" state (LANDING, AUTH, FEATURES, etc)
     // Do NOT override if user is navigating between tools (AGENT_COMMAND, RESEARCH_STUDIO, etc)
     const isInNavigationState = [
@@ -208,11 +212,25 @@ const App: React.FC = () => {
     }
 
     // Returning user in transition state and subscribed - move to dashboard
-    if (isSubscribed) {
-      console.log('[Auth] Returning subscribed user, going to dashboard');
-      setViewState(ViewState.DASHBOARD);
-    }
+    console.log('[Auth] Returning subscribed user, going to dashboard');
+    setViewState(ViewState.DASHBOARD);
   }, [user, userProfile, isUserProfileLoading, viewState, isJustLoggedIn, hasCheckedSubscription]);
+
+  // Handle direct=dashboard query param (from pricing page redirect when user is subscribed)
+  // This allows subscribed users to skip LANDING page and go straight to DASHBOARD
+  useEffect(() => {
+    if (typeof window === 'undefined' || !user) return;
+    
+    const params = new URLSearchParams(window.location.search);
+    const directDashboard = params.get('direct') === 'dashboard';
+    
+    if (directDashboard && viewState === ViewState.LANDING && user) {
+      console.log('[Auth] Direct redirect from pricing, going to dashboard');
+      setViewState(ViewState.DASHBOARD);
+      // Clean up the query param from URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [user, viewState]);
 
   const handleEnterApp = async (topic?: string) => {
       proceedToApp(topic);
@@ -349,14 +367,22 @@ const App: React.FC = () => {
   };
 
   const handleExit = () => {
-      // Clear all session state when exiting to landing page
+      // CRITICAL: Sign out FIRST, before changing any state
+      // This prevents the subscription check useEffect from redirecting us back to DASHBOARD
+      const signOutPromise = signOut(auth).catch(err => console.error('[Logout] Sign out error:', err));
+      
+      // Clear all session state and reset routing
       sessionStorage.removeItem(SESSION_VIEW_KEY);
       sessionStorage.removeItem(SESSION_PROJECT_KEY);
+      
+      // Reset subscription check so it doesn't override our logout
+      setHasCheckedSubscription(false);
+      setIsJustLoggedIn(false);
+      
       setViewState(ViewState.LANDING);
       setEbookData(null);
       setPendingCoverImage(null);
-      // Sign user out from Firebase Auth so they truly log out
-      signOut(auth).catch(err => console.error('[Logout] Sign out error:', err));
+      
       trackEvent('exit_studio');
       logActivity('exit_studio', ebookDataRef.current?.title || 'Exited editor');
   };
