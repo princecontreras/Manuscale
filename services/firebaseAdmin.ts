@@ -12,9 +12,13 @@ function initAdmin(): admin.app.App {
   // Otherwise, fall back to projectId-only mode (sufficient for ID token verification
   // via the public JWKS endpoint — no private key required).
   const serviceAccountJson = process.env.FIREBASE_ADMIN_SERVICE_ACCOUNT;
+  console.log('[Firebase] FIREBASE_ADMIN_SERVICE_ACCOUNT env var exists:', !!serviceAccountJson);
+  console.log('[Firebase] FIREBASE_ADMIN_SERVICE_ACCOUNT length:', serviceAccountJson?.length);
+  
   if (serviceAccountJson && serviceAccountJson !== '{}') {
     try {
       console.log('[Firebase] Service account JSON detected, length:', serviceAccountJson.length);
+      console.log('[Firebase] First 100 chars:', serviceAccountJson.substring(0, 100));
       
       let serviceAccount: admin.ServiceAccount | null = null;
       let parseStrategy = '';
@@ -25,7 +29,7 @@ function initAdmin(): admin.app.App {
         parseStrategy = 'as-is';
         console.log('[Firebase] ✓ Successfully parsed as-is');
       } catch (e1) {
-        console.log('[Firebase] Strategy 1 (as-is) failed, trying escape sequence replacement...');
+        console.log('[Firebase] Strategy 1 (as-is) failed:', String(e1));
         
         // Strategy 2: Replace literal \n sequences with actual newlines
         try {
@@ -38,7 +42,7 @@ function initAdmin(): admin.app.App {
           parseStrategy = 'escape-replacement';
           console.log('[Firebase] ✓ Successfully parsed with escape replacement');
         } catch (e2) {
-          console.log('[Firebase] Strategy 2 (escape replacement) failed, trying double-escape fix...');
+          console.log('[Firebase] Strategy 2 (escape replacement) failed:', String(e2));
           
           // Strategy 3: Handle double-escaped sequences (\\\\n -> \\n -> \n)
           try {
@@ -54,6 +58,7 @@ function initAdmin(): admin.app.App {
             parseStrategy = 'double-escape-fix';
             console.log('[Firebase] ✓ Successfully parsed with double-escape fix');
           } catch (e3) {
+            console.log('[Firebase] Strategy 3 (double-escape fix) failed:', String(e3));
             throw new Error(
               `All parsing strategies failed. ` +
               `Strategy 1 (as-is): ${e1}. ` +
@@ -81,22 +86,25 @@ function initAdmin(): admin.app.App {
       const keyLines = privateKey.split('\n');
       console.log(`[Firebase] Private key format valid: ${keyLines.length} lines, using strategy: ${parseStrategy}`);
       
-      console.log('✓ Firebase Admin initialized with service account');
+      console.log('✓ Firebase Admin initialized WITH service account credentials - Firestore writes will work!');
       return admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
     } catch (error) {
-      console.error('❌ Failed to parse Firebase service account JSON:', error);
+      console.error('❌ CRITICAL: Failed to parse Firebase service account JSON:', error);
       console.error('Service account JSON length:', serviceAccountJson?.length);
       console.error('First 200 chars:', serviceAccountJson?.substring(0, 200));
       
       if (error instanceof Error) {
         console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
       }
 
       // Fallback: Try projectId-only mode so app doesn't crash completely
       const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
       if (projectId) {
-        console.warn('⚠ Falling back to projectId-only Firebase Admin mode. Firestore operations will fail.');
-        console.warn('❌ CRITICAL: You must fix FIREBASE_ADMIN_SERVICE_ACCOUNT to enable Firestore access.');
+        console.error('❌ CRITICAL: Falling back to projectId-only Firebase Admin mode.');
+        console.error('❌ CRITICAL: Firestore write operations will FAIL with "Could not load default credentials"');
+        console.error('❌ CRITICAL: You MUST fix FIREBASE_ADMIN_SERVICE_ACCOUNT in Vercel environment variables');
+        console.error('❌ CRITICAL: Service account JSON must be set as a multi-line env variable');
         return admin.initializeApp({ projectId });
       }
 
@@ -109,7 +117,10 @@ function initAdmin(): admin.app.App {
   }
 
   // Minimal init — only token verification works without a service account key.
-  console.warn('⚠ Firebase Admin initialized without service account (projectId-only mode). Firestore operations will fail.');
+  console.error('❌ CRITICAL: Firebase Admin initialized WITHOUT service account credentials (projectId-only mode)');
+  console.error('❌ CRITICAL: Firestore write operations will FAIL with "Could not load default credentials"');
+  console.error('❌ CRITICAL: FIREBASE_ADMIN_SERVICE_ACCOUNT env var is missing or empty');
+  console.error('❌ CRITICAL: You MUST set this in Vercel environment variables for the webhook to work');
   return admin.initializeApp({ projectId });
 }
 
