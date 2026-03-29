@@ -2,6 +2,7 @@ import Stripe from 'stripe';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminApp, verifyIdToken } from '@/services/firebaseAdmin';
 import * as admin from 'firebase-admin';
+import { getFirestore } from 'firebase-admin/firestore';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const domain = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
@@ -55,7 +56,7 @@ export async function POST(req: NextRequest) {
     // Check for existing active subscription to prevent duplicates
     const app = getAdminApp();
     const databaseId = process.env.NEXT_PUBLIC_FIREBASE_FIRESTORE_DB_ID || '(default)';
-    const adminDb = (admin.firestore as any)(app, databaseId);
+    const adminDb = getFirestore(app, databaseId);
     
     try {
       const userDocSnap = await adminDb.collection('users').doc(firebaseUid).get();

@@ -2,6 +2,7 @@ import Stripe from 'stripe';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminApp } from '@/services/firebaseAdmin';
 import * as admin from 'firebase-admin';
+import { getFirestore } from 'firebase-admin/firestore';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest) {
 
     const app = getAdminApp();
     const databaseId = process.env.NEXT_PUBLIC_FIREBASE_FIRESTORE_DB_ID || '(default)';
-    const adminDb = (admin.firestore as any)(app, databaseId);
+    const adminDb = getFirestore(app, databaseId);
     const results = {
       checked: 0,
       synced: 0,
