@@ -227,13 +227,15 @@ const App: React.FC = () => {
       
       // CRITICAL SECURITY CHECK: Is this a NEW account with NO subscription data?
       // New users should NOT see dashboard - they need to subscribe first
-      if (!userProfile) {
+      // Check for subscriptionStatus (not just userProfile existence)
+      // because new accounts have a userProfile object but no subscriptionStatus property
+      if (!userProfile?.subscriptionStatus) {
         console.log('[Routing] New account detected - no subscription data exists, redirecting to pricing');
         window.location.href = '/pricing?from=login';
         return;
       }
       
-      const isSubscribed = userProfile?.subscriptionStatus === 'active';
+      const isSubscribed = userProfile.subscriptionStatus === 'active';
       
       if (isSubscribed) {
         console.log('[Routing] Login - subscribed user → DASHBOARD');
@@ -481,8 +483,10 @@ const App: React.FC = () => {
         return (
           <AuthPage 
             onLogin={() => {
+              // DON'T set viewState here - let the routing effect handle routing decisions
+              // Setting it here causes a race condition where Dashboard renders before subscription check
               setIsJustLoggedIn(true);
-              setViewState(ViewState.DASHBOARD);
+              // Keep view state as is - the routing effect will decide where to send the user
             }} 
             onBack={() => setViewState(ViewState.LANDING)} 
             defaultIsLogin={authIsLogin}
