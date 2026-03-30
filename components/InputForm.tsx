@@ -16,6 +16,19 @@ import {
 } from 'lucide-react';
 import { useToast } from './ToastContext';
 
+const DOMPURIFY_CONFIG = {
+    ALLOWED_TAGS: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'br', 'hr', 'div', 'span', 'section', 'article',
+                   'strong', 'b', 'em', 'i', 'u', 'mark', 'small', 'del', 'ins', 'sup', 'sub',
+                   'ol', 'ul', 'li', 'dl', 'dt', 'dd',
+                   'blockquote', 'quote', 'pre', 'code',
+                   'table', 'thead', 'tbody', 'tfoot', 'tr', 'td', 'th', 'caption', 'col', 'colgroup',
+                   'a', 'img', 'figure', 'figcaption',
+                   'video', 'audio', 'source', 'iframe',
+                   'details', 'summary',
+                   'cite', 'abbr', 'address', 'time'],
+    ALLOWED_ATTR: ['class', 'style', 'id', 'href', 'src', 'alt', 'title', 'width', 'height', 'data-*', 'aria-*']
+};
+
 export interface InputFormProps {
   onGenerate: (data: EbookData) => void;
   initialTopic?: string;
@@ -91,7 +104,7 @@ const AutoPilotModal: React.FC<{
     const theme = { bg: 'bg-slate-950', accent: 'text-cyan-400', border: 'border-cyan-900', glow: 'shadow-cyan-900/20' };
 
     const activeAgents = AGENTS.non_fiction;
-    const safeStreamLog = DOMPurify.sanitize(streamLog);
+    const safeStreamLog = DOMPurify.sanitize(streamLog, DOMPURIFY_CONFIG);
 
     return (
         <div className={`fixed inset-0 z-[100] ${theme.bg} flex flex-col font-sans animate-in fade-in duration-500 text-slate-200 overflow-hidden`}>

@@ -5,6 +5,19 @@ import { Bookmark, ChevronLeft, Type, Wifi, Battery, BookOpen } from 'lucide-rea
 import { OutlineItem, DesignSettings } from '../types';
 import DOMPurify from 'dompurify';
 
+const DOMPURIFY_CONFIG = {
+    ALLOWED_TAGS: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'br', 'hr', 'div', 'span', 'section', 'article',
+                   'strong', 'b', 'em', 'i', 'u', 'mark', 'small', 'del', 'ins', 'sup', 'sub',
+                   'ol', 'ul', 'li', 'dl', 'dt', 'dd',
+                   'blockquote', 'quote', 'pre', 'code',
+                   'table', 'thead', 'tbody', 'tfoot', 'tr', 'td', 'th', 'caption', 'col', 'colgroup',
+                   'a', 'img', 'figure', 'figcaption',
+                   'video', 'audio', 'source', 'iframe',
+                   'details', 'summary',
+                   'cite', 'abbr', 'address', 'time'],
+    ALLOWED_ATTR: ['class', 'style', 'id', 'href', 'src', 'alt', 'title', 'width', 'height', 'data-*', 'aria-*']
+};
+
 interface MobileReaderProps {
     title: string;
     outline: OutlineItem[];
@@ -103,7 +116,7 @@ export const MobileReader: React.FC<MobileReaderProps> = ({ title, outline, desi
     };
 
     const sanitizedContent = useMemo(() => {
-        return currentChapter?.content ? DOMPurify.sanitize(currentChapter.content) : '';
+        return currentChapter?.content ? DOMPurify.sanitize(currentChapter.content, DOMPURIFY_CONFIG) : '';
     }, [currentChapter]);
 
     const progress = useMemo(() => {

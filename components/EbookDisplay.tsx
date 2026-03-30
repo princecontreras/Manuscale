@@ -13,6 +13,19 @@ import { Image as ImageIcon, Bold, Italic, Underline, Heading1, Heading2, Headin
 import { useToast } from './ToastContext';
 import { Button } from './Button';
 
+const DOMPURIFY_CONFIG = {
+    ALLOWED_TAGS: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'br', 'hr', 'div', 'span', 'section', 'article',
+                   'strong', 'b', 'em', 'i', 'u', 'mark', 'small', 'del', 'ins', 'sup', 'sub',
+                   'ol', 'ul', 'li', 'dl', 'dt', 'dd',
+                   'blockquote', 'quote', 'pre', 'code',
+                   'table', 'thead', 'tbody', 'tfoot', 'tr', 'td', 'th', 'caption', 'col', 'colgroup',
+                   'a', 'img', 'figure', 'figcaption',
+                   'video', 'audio', 'source', 'iframe',
+                   'details', 'summary',
+                   'cite', 'abbr', 'address', 'time'],
+    ALLOWED_ATTR: ['class', 'style', 'id', 'href', 'src', 'alt', 'title', 'width', 'height', 'data-*', 'aria-*']
+};
+
 interface EbookDisplayProps {
   data: EbookData;
   onUpdate: (pages: string[], frontMatter?: FrontMatter, extra?: Partial<EbookData>) => void;
@@ -428,7 +441,7 @@ const DocxPreview: React.FC<{ html: string, design: DesignSettings, chapterTitle
                 <div 
                     className={`book-content ${paraClass}`} 
                     style={styles} 
-                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(html, { ADD_ATTR: ['class', 'style'] }) }} 
+                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(html, DOMPURIFY_CONFIG) }} 
                 />
             </div>
         </div>
@@ -437,7 +450,7 @@ const DocxPreview: React.FC<{ html: string, design: DesignSettings, chapterTitle
 
 const PageView = React.memo<{ html: string, pageNum: number, chapterId?: string, pageIndex?: number, design?: DesignSettings, onContentChange?: (chapterId: string, pageIndex: number, newHtml: string, skipPagination?: boolean) => void, readOnly?: boolean }>(({ html, pageNum, chapterId, pageIndex, design, onContentChange, readOnly }) => {
     const contentRef = useRef<HTMLDivElement>(null);
-    const sanitizedHtml = useMemo(() => DOMPurify.sanitize(html, { ADD_ATTR: ['class', 'style'] }), [html]);
+    const sanitizedHtml = useMemo(() => DOMPurify.sanitize(html, DOMPURIFY_CONFIG), [html]);
 
     useLayoutEffect(() => { if (contentRef.current && contentRef.current.innerHTML !== sanitizedHtml) { contentRef.current.innerHTML = sanitizedHtml; } }, [sanitizedHtml]);
     
@@ -630,7 +643,7 @@ const DevicePreview: React.FC<{ html: string, device: 'mobile' | 'tablet' | 'des
                         columnFill: 'auto',
                         overflow: 'visible',
                     }}
-                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(html, { ADD_ATTR: ['class', 'style'] }) }}
+                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(html, DOMPURIFY_CONFIG) }}
                 />
             </div>
 
@@ -648,7 +661,7 @@ const DevicePreview: React.FC<{ html: string, device: 'mobile' | 'tablet' | 'des
                         transition: 'transform 0.4s cubic-bezier(0.4, 0.0, 0.2, 1)',
                         overflow: 'visible',
                     }} 
-                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(html, { ADD_ATTR: ['class', 'style'] }) }} 
+                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(html, DOMPURIFY_CONFIG) }} 
                 />
             </div>
 

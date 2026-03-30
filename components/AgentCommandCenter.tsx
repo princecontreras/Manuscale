@@ -18,6 +18,19 @@ import {
 import { Database, MessageSquare } from 'lucide-react';
 import { useToast } from './ToastContext';
 
+const DOMPURIFY_CONFIG = {
+    ALLOWED_TAGS: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'br', 'hr', 'div', 'span', 'section', 'article',
+                   'strong', 'b', 'em', 'i', 'u', 'mark', 'small', 'del', 'ins', 'sup', 'sub',
+                   'ol', 'ul', 'li', 'dl', 'dt', 'dd',
+                   'blockquote', 'quote', 'pre', 'code',
+                   'table', 'thead', 'tbody', 'tfoot', 'tr', 'td', 'th', 'caption', 'col', 'colgroup',
+                   'a', 'img', 'figure', 'figcaption',
+                   'video', 'audio', 'source', 'iframe',
+                   'details', 'summary',
+                   'cite', 'abbr', 'address', 'time'],
+    ALLOWED_ATTR: ['class', 'style', 'id', 'href', 'src', 'alt', 'title', 'width', 'height', 'data-*', 'aria-*']
+};
+
 interface AgentCommandCenterProps {
     onBack: () => void;
 }
@@ -872,7 +885,7 @@ CRITICAL: Do NOT duplicate the title. Only include the title text once.`;
                                             </div>
                                             <div 
                                                 className="prose prose-invert prose-sm max-w-none text-slate-300 font-serif leading-relaxed"
-                                                dangerouslySetInnerHTML={{__html: DOMPurify.sanitize(c.content || '', { ADD_ATTR: ['class', 'style'] })}}
+                                                dangerouslySetInnerHTML={{__html: DOMPurify.sanitize(c.content || '', DOMPURIFY_CONFIG)}}
                                             />
                                         </div>
                                     ))}
@@ -884,7 +897,7 @@ CRITICAL: Do NOT duplicate the title. Only include the title text once.`;
                                             </div>
                                             <div 
                                                 className="prose prose-invert prose-sm max-w-none text-slate-300 font-serif leading-relaxed"
-                                                dangerouslySetInnerHTML={{__html: DOMPurify.sanitize(liveStreamContent, { ADD_ATTR: ['class', 'style'] })}}
+                                                dangerouslySetInnerHTML={{__html: DOMPurify.sanitize(liveStreamContent, DOMPURIFY_CONFIG)}}
                                             />
                                         </div>
                                     )}
