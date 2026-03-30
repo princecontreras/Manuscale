@@ -66,15 +66,46 @@ const formatRelativeTime = (timestamp: number): string => {
 
 // Billing Section Component
 const BillingSection: React.FC = () => {
-  const { isSubscribed, subscriptionStatus, currentPeriodEnd, openBillingPortal, isMonthly, isYearly } = useSubscription();
+  const { isSubscribed, subscriptionStatus, currentPeriodEnd, openBillingPortal, isMonthly, isYearly, isPortalLoading, switchPlan } = useSubscription();
+  const { showToast } = useToast();
+  const [isSwitching, setIsSwitching] = useState(false);
+  const [showSwitchConfirm, setShowSwitchConfirm] = useState(false);
 
   const formatDate = (date?: Date) => {
     if (!date) return 'N/A';
-    return new Date(date).toLocaleDateString('en-US', {
+    // Handle Firestore Timestamps, Date objects, and ISO strings
+    const d = date instanceof Date ? date : new Date(date);
+    if (isNaN(d.getTime())) return 'N/A';
+    return d.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
     });
+  };
+
+  const handleManageSubscription = async () => {
+    try {
+      await openBillingPortal();
+    } catch (e: any) {
+      showToast(e.message || 'Failed to open billing portal. Please try again.', 'error');
+    }
+  };
+
+  const targetPlan = isMonthly ? 'yearly' : 'monthly';
+  const targetLabel = isMonthly ? 'Yearly ($169/yr — save 26%)' : 'Monthly ($19/mo)';
+  const switchAction = isMonthly ? 'Upgrade' : 'Downgrade';
+
+  const handleSwitchPlan = async () => {
+    setIsSwitching(true);
+    setShowSwitchConfirm(false);
+    try {
+      await switchPlan(targetPlan);
+      showToast(`Successfully switched to ${targetPlan} plan!`, 'success');
+    } catch (e: any) {
+      showToast(e.message || 'Failed to switch plan. Please try again.', 'error');
+    } finally {
+      setIsSwitching(false);
+    }
   };
 
   if (isSubscribed) {
@@ -92,7 +123,7 @@ const BillingSection: React.FC = () => {
             </div>
             <div className="space-y-2 text-sm text-slate-600">
               <p>
-                <strong>Plan:</strong> Typoscale Pro {isMonthly ? '(Monthly)' : isYearly ? '(Yearly)' : ''}
+                <strong>Plan:</strong> Typoscale {isMonthly ? '(Monthly — $19/mo)' : isYearly ? '(Yearly — $169/yr)' : ''}
               </p>
               <p>
                 <strong>Status:</strong>{' '}
@@ -103,12 +134,63 @@ const BillingSection: React.FC = () => {
               </p>
             </div>
           </div>
+
+          {/* Switch Plan */}
+          {(isMonthly || isYearly) && !showSwitchConfirm && (
+            <button
+              onClick={() => setShowSwitchConfirm(true)}
+              disabled={isSwitching}
+              className="w-full text-left p-4 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 transition-colors"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-indigo-900">{switchAction} to {targetPlan === 'yearly' ? 'Yearly' : 'Monthly'}</p>
+                  <p className="text-xs text-indigo-600 mt-0.5">{targetLabel}</p>
+                </div>
+                <ArrowLeft size={16} className="text-indigo-400 rotate-180" />
+              </div>
+            </button>
+          )}
+
+          {showSwitchConfirm && (
+            <div className="p-4 rounded-xl border border-amber-200 bg-amber-50 space-y-3">
+              <p className="text-sm font-semibold text-amber-900">
+                {switchAction} to {targetLabel}?
+              </p>
+              <p className="text-xs text-amber-700">
+                {isMonthly
+                  ? 'You will be charged the prorated difference for the yearly plan. Your billing cycle will reset.'
+                  : 'You will receive prorated credit for the remaining time on your yearly plan.'}
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleSwitchPlan}
+                  disabled={isSwitching}
+                  className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white text-sm"
+                >
+                  {isSwitching ? <Loader2 size={14} className="animate-spin mr-1" /> : null}
+                  {isSwitching ? 'Switching...' : `Confirm ${switchAction}`}
+                </Button>
+                <Button
+                  onClick={() => setShowSwitchConfirm(false)}
+                  variant="ghost"
+                  disabled={isSwitching}
+                  className="flex-1 border border-slate-200 text-sm"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+
           <Button
-            onClick={openBillingPortal}
+            onClick={handleManageSubscription}
+            disabled={isPortalLoading}
             variant="ghost"
             className="w-full border border-slate-200 hover:bg-slate-50"
           >
-            Manage Subscription
+            {isPortalLoading ? <Loader2 size={14} className="animate-spin mr-2" /> : null}
+            {isPortalLoading ? 'Opening...' : 'Manage Subscription'}
           </Button>
         </div>
       </section>
