@@ -65,10 +65,13 @@ const AutoPilotModal: React.FC<{
     systemLog: string[];
     liveSources: {title: string, uri: string}[];
     onStop: () => void;
+    onResume: () => void;
     isStopping: boolean;
+    isPaused: boolean;
+    pauseReason: string;
     blueprint: ProjectBlueprint | null;
     activeAgentId: string;
-}> = ({ isOpen, currentChapterIndex, totalChapters, currentTitle, streamLog, systemLog, liveSources, onStop, isStopping, blueprint, activeAgentId }) => {
+}> = ({ isOpen, currentChapterIndex, totalChapters, currentTitle, streamLog, systemLog, liveSources, onStop, onResume, isStopping, isPaused, pauseReason, blueprint, activeAgentId }) => {
     const streamRef = useRef<HTMLDivElement>(null);
     const terminalRef = useRef<HTMLDivElement>(null);
     const startTimeRef = useRef<number>(Date.now());
@@ -140,14 +143,24 @@ const AutoPilotModal: React.FC<{
                         <div className="text-label text-slate-500">Session Stats</div>
                         <div className="text-label font-mono text-slate-300">{stats.words} words • {stats.wpm} wpm</div>
                     </div>
-                    <button 
-                        onClick={onStop}
-                        disabled={isStopping}
-                        className={`border px-4 py-2 rounded-lg text-label flex items-center gap-2 transition-all ${isStopping ? 'bg-slate-800 text-slate-400 border-slate-700 cursor-not-allowed' : 'bg-red-500/10 hover:bg-red-500/20 text-red-500 border-red-500/30 hover:scale-105'}`}
-                    >
-                        {isStopping ? <Loader2 size={12} className="animate-spin"/> : <Square size={12} fill="currentColor"/>} 
-                        {isStopping ? 'Stopping...' : 'Pause / Stop'}
-                    </button>
+                    <div className="flex items-center gap-2">
+                        {isPaused && (
+                            <button 
+                                onClick={onResume}
+                                className="border px-4 py-2 rounded-lg text-label flex items-center gap-2 transition-all bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/30 hover:scale-105"
+                            >
+                                <Play size={12} fill="currentColor"/> Resume
+                            </button>
+                        )}
+                        <button 
+                            onClick={onStop}
+                            disabled={isStopping}
+                            className={`border px-4 py-2 rounded-lg text-label flex items-center gap-2 transition-all ${isStopping ? 'bg-slate-800 text-slate-400 border-slate-700 cursor-not-allowed' : 'bg-red-500/10 hover:bg-red-500/20 text-red-500 border-red-500/30 hover:scale-105'}`}
+                        >
+                            {isStopping ? <Loader2 size={12} className="animate-spin"/> : <Square size={12} fill="currentColor"/>} 
+                            {isStopping ? 'Stopping...' : 'Stop'}
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -242,11 +255,31 @@ const AutoPilotModal: React.FC<{
                     
                     {/* Chapter Header */}
                     <div className="p-4 flex justify-center sticky top-0 z-20 pointer-events-none">
-                        <div className="bg-black/60 backdrop-blur-md border border-white/10 px-6 py-2 rounded-full flex items-center gap-3 shadow-xl">
-                            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                            <span className="text-label text-white">Generating Chapter {currentChapterIndex + 1}</span>
+                        <div className={`bg-black/60 backdrop-blur-md border px-6 py-2 rounded-full flex items-center gap-3 shadow-xl ${isPaused ? 'border-amber-500/30' : 'border-white/10'}`}>
+                            <div className={`w-2 h-2 rounded-full ${isPaused ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500 animate-pulse'}`}></div>
+                            <span className="text-label text-white">
+                                {isPaused ? 'Paused — Waiting to Resume' : `Generating Chapter ${currentChapterIndex + 1}`}
+                            </span>
                         </div>
                     </div>
+
+                    {/* Pause Overlay */}
+                    {isPaused && (
+                        <div className="relative z-20 mx-8 mt-4">
+                            <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-6 text-center backdrop-blur-sm">
+                                <div className="text-amber-400 text-lg font-bold mb-2">Auto-Drafting Paused</div>
+                                <p className="text-sm text-slate-400 mb-4 max-w-md mx-auto">{pauseReason}</p>
+                                <div className="flex items-center justify-center gap-3">
+                                    <button onClick={onResume} className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-bold flex items-center gap-2 transition-all hover:scale-105">
+                                        <Play size={14} fill="currentColor"/> Resume Drafting
+                                    </button>
+                                    <button onClick={onStop} className="px-4 py-2 bg-white/5 hover:bg-white/10 text-slate-400 rounded-lg text-sm border border-white/10 transition-all">
+                                        Stop & Save Progress
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Stream Content */}
                     <div className="flex-grow overflow-y-auto p-8 md:p-12 relative z-10" ref={streamRef}>
@@ -516,6 +549,9 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, initialTopic, 
   
   const [showContextStudio, setShowContextStudio] = useState(false);
   const [draggedItemIndex, setDraggedItemIndex] = useState<number | null>(null);
+  const [isPaused, setIsPaused] = useState(false);
+  const [pauseReason, setPauseReason] = useState('');
+  const resumeResolverRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
       let interval: any;
@@ -550,13 +586,21 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, initialTopic, 
   }, [isAutoGenerating]);
 
   useEffect(() => {
-      if (step === 'OUTLINE' && outline.length > 0 && !planningChapterId && !isAutoGenerating) {
+      // Only auto-plan if:
+      // 1. We're on the OUTLINE step
+      // 2. We have chapters
+      // 3. No chapter is currently being planned
+      // 4. Auto-drafting is NOT in progress (critical guard)
+      // 5. We're not finalizing
+      // 6. The component is mounted
+      if (step === 'OUTLINE' && outline.length > 0 && !planningChapterId && !isAutoGenerating && !isFinalizing && isMounted.current) {
           const needsPlanning = outline.some(item => !item.logicFlow || item.logicFlow.length === 0);
-          if (needsPlanning) {
+          if (needsPlanning && abortControllerRef.current === null) {
+              // Only trigger if no abort controller is active (no background operations)
               handleManualPlanAll();
           }
       }
-  }, [step, outline]);
+  }, [step, outline, isFinalizing]);
 
   const handleManualPlanAll = async () => {
       if (!blueprint) return;
@@ -596,6 +640,48 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, initialTopic, 
       if (isMounted.current) setPlanningChapterId(null);
   };
 
+  // Retryable error detection for rate-limit / overload errors
+  const isRetryableError = (e: any): boolean => {
+      const msg = (e?.message || '').toLowerCase();
+      return msg.includes('high demand') ||
+             msg.includes('rate limit') ||
+             msg.includes('overloaded') ||
+             msg.includes('503') ||
+             msg.includes('502') ||
+             msg.includes('504') ||
+             msg.includes('resource_exhausted') ||
+             msg.includes('unavailable') ||
+             msg.includes('deadline_exceeded') ||
+             msg.includes('try again');
+  };
+
+  // Wait with visible countdown in the modal
+  const waitWithCountdown = async (seconds: number, reason: string, ac: AbortController): Promise<void> => {
+      for (let s = seconds; s > 0; s--) {
+          if (ac.signal.aborted) return;
+          addLog(`⏳ ${reason} — retrying in ${s}s...`);
+          await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+  };
+
+  // Pause and wait for user to click Resume
+  const pauseAndWaitForResume = (reason: string): Promise<void> => {
+      return new Promise((resolve) => {
+          setIsPaused(true);
+          setPauseReason(reason);
+          resumeResolverRef.current = resolve;
+      });
+  };
+
+  const handleResume = () => {
+      setIsPaused(false);
+      setPauseReason('');
+      if (resumeResolverRef.current) {
+          resumeResolverRef.current();
+          resumeResolverRef.current = null;
+      }
+  };
+
   const handleAutoWrite = async (limitOne: boolean = false) => {
       if (!blueprint) return;
       
@@ -608,6 +694,8 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, initialTopic, 
       const newId = crypto.randomUUID();
       setIsAutoGenerating(true);
       setIsStopping(false);
+      setIsPaused(false);
+      setPauseReason('');
       setStreamLog(""); 
       setSystemLog([]);
       setAutoGenSources([]);
@@ -620,9 +708,24 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, initialTopic, 
       try {
           if ((!memory.concepts || memory.concepts.length === 0)) {
               addLog("Generating initial Knowledge Base...");
-              const generatedMemory = await generateAuthorityBible(blueprint, outline, initialMemory, ac.signal);
-              if (ac.signal.aborted) throw new Error("Aborted");
-              memory = generatedMemory;
+              // Retry knowledge base generation with backoff
+              for (let attempt = 0; attempt < 4; attempt++) {
+                  try {
+                      const generatedMemory = await generateAuthorityBible(blueprint, outline, initialMemory, ac.signal);
+                      if (ac.signal.aborted) throw new Error("Aborted");
+                      memory = generatedMemory;
+                      break; // success
+                  } catch (kbErr: any) {
+                      if (ac.signal.aborted || kbErr.message === 'Aborted') throw kbErr;
+                      if (isRetryableError(kbErr) && attempt < 3) {
+                          const waitSecs = [30, 60, 90][attempt];
+                          addLog(`\u26a0\ufe0f Model busy during knowledge generation \u2014 auto-retry ${attempt + 1}/3`);
+                          await waitWithCountdown(waitSecs, 'Model cooling down', ac);
+                          continue;
+                      }
+                      throw kbErr;
+                  }
+              }
               setProjectMemory(memory); 
               addLog(`Context established: ${memory.research?.length || 0} Facts, ${memory.concepts?.length || 0} Concepts.`);
           } else {
@@ -658,8 +761,23 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, initialTopic, 
 
               if (logicFlow.length === 0) {
                   addLog(`Generating Logic Flow for "${currentItem.title}"...`);
-                  expandedBeat = await expandNonFictionOutline(currentItem.beat, blueprint.title, globalSummary, ac.signal);
-                  logicFlow = await breakDownChapter(currentItem.title, expandedBeat, blueprint.type, projectMemory, ac.signal);
+                  // Retry logic flow generation with backoff
+                  for (let attempt = 0; attempt < 4; attempt++) {
+                      try {
+                          expandedBeat = await expandNonFictionOutline(currentItem.beat, blueprint.title, globalSummary, ac.signal);
+                          logicFlow = await breakDownChapter(currentItem.title, expandedBeat, blueprint.type, projectMemory, ac.signal);
+                          break; // success
+                      } catch (planErr: any) {
+                          if (ac.signal.aborted) throw planErr;
+                          if (isRetryableError(planErr) && attempt < 3) {
+                              const waitSecs = [30, 60, 90][attempt];
+                              addLog(`⚠️ Model busy during planning — auto-retry ${attempt + 1}/3`);
+                              await waitWithCountdown(waitSecs, 'Model cooling down', ac);
+                              continue;
+                          }
+                          throw planErr; // non-retryable or max attempts
+                      }
+                  }
                   
                   // Update the outline state so the user sees the plan
                   if (isMounted.current) {
@@ -685,9 +803,26 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, initialTopic, 
               if (isMounted.current) setActiveAgentId('writer'); 
               addLog(`Performing Deep Research for "${currentItem.title}"...`);
               
-              const researchResult = await gatherChapterFacts(finalBeat, blueprint, ac.signal);
-              facts = researchResult.context;
-              verifiedSources = researchResult.sources;
+              // Retry research with backoff
+              for (let attempt = 0; attempt < 4; attempt++) {
+                  try {
+                      const researchResult = await gatherChapterFacts(finalBeat, blueprint, ac.signal);
+                      facts = researchResult.context;
+                      verifiedSources = researchResult.sources;
+                      break; // success
+                  } catch (researchErr: any) {
+                      if (ac.signal.aborted) throw researchErr;
+                      if (isRetryableError(researchErr) && attempt < 3) {
+                          const waitSecs = [30, 60, 90][attempt];
+                          addLog(`⚠️ Model busy during research — auto-retry ${attempt + 1}/3`);
+                          await waitWithCountdown(waitSecs, 'Model cooling down', ac);
+                          continue;
+                      }
+                      // Research is non-critical — continue without it
+                      addLog(`⚠️ Research unavailable, continuing with existing context.`);
+                      break;
+                  }
+              }
 
               if (verifiedSources.length > 0) {
                   if (isMounted.current) {
@@ -727,7 +862,44 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, initialTopic, 
                   });
               }
               
-              const refinedHtml = await agenticChapterGeneration(blueprint, safeProfile, { ...currentItem, beat: expandedBeat }, memory, (chunk) => { if (isMounted.current) setStreamLog(prev => prev + chunk); }, prevContext, nextContext, filledOutline.map(o => ({ ...o, content: undefined, generatedPages: undefined, sourceContent: undefined })), globalSummary, facts, ac.signal);
+              // Retry chapter generation with escalating backoff + pause fallback
+              let refinedHtml = '';
+              for (let attempt = 0; attempt < 4; attempt++) {
+                  try {
+                      if (attempt > 0) {
+                          // Reset stream for retry
+                          if (isMounted.current) setStreamLog('');
+                          addLog(`Retrying draft for Chapter ${i+1} (attempt ${attempt + 1})...`);
+                          lastProCallTime.current = Date.now();
+                      }
+                      refinedHtml = await agenticChapterGeneration(blueprint, safeProfile, { ...currentItem, beat: expandedBeat }, memory, (chunk) => { if (isMounted.current) setStreamLog(prev => prev + chunk); }, prevContext, nextContext, filledOutline.map(o => ({ ...o, content: undefined, generatedPages: undefined, sourceContent: undefined })), globalSummary, facts, ac.signal);
+                      break; // success
+                  } catch (genErr: any) {
+                      if (ac.signal.aborted) throw genErr;
+                      if (isRetryableError(genErr)) {
+                          if (attempt < 2) {
+                              // Auto-retry with escalating cooldown
+                              const waitSecs = [45, 90][attempt];
+                              addLog(`⚠️ Model overloaded during drafting — auto-retry ${attempt + 1}/2`);
+                              await waitWithCountdown(waitSecs, 'Model cooling down', ac);
+                              continue;
+                          } else {
+                              // Max auto-retries exhausted — pause and let user decide
+                              addLog(`⏸️ Model still busy. Pausing — click Resume when ready.`);
+                              await pauseAndWaitForResume(
+                                  'The AI model is experiencing high demand. Your progress has been saved. Click Resume to continue drafting when the model is available.'
+                              );
+                              if (ac.signal.aborted) throw new Error('Aborted');
+                              // User clicked Resume — retry once more
+                              if (isMounted.current) setStreamLog('');
+                              addLog(`Resuming draft for Chapter ${i+1}...`);
+                              lastProCallTime.current = Date.now();
+                              continue;
+                          }
+                      }
+                      throw genErr; // non-retryable error
+                  }
+              }
               
               if (ac.signal.aborted) break;
               
@@ -785,37 +957,49 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, initialTopic, 
                       dna: memory.dna
                   };
                   saveLocal(getProjectMemoryKey(newId), memory);
-                  if (currentProjectData && isMounted.current) onGenerate(currentProjectData); 
-                  if (isMounted.current) setIsAutoGenerating(false); 
+                  if (currentProjectData && isMounted.current) {
+                      // Clear auto-generating state before calling onGenerate
+                      setIsAutoGenerating(false);
+                      setIsStopping(false);
+                      await new Promise(resolve => setTimeout(resolve, 100));
+                      onGenerate(currentProjectData);
+                  }
                   return; 
               }
 
               if (isMounted.current) setActiveAgentId('lore');
               addLog(`Indexing Chapter ${i+1} arguments & concepts...`);
-              const aftermath = await analyzeChapterAftermath(refinedHtml, memory, 'Non-Fiction', ac.signal);
-              if (ac.signal.aborted) break;
-              
-              const merge = (existing: any[], newItems: any[]) => { const existingNames = new Set(existing.map(e => (e.name || '').toLowerCase())); return [...existing, ...newItems.filter(n => n && typeof n.name === 'string' && n.name.trim() !== '' && !existingNames.has(n.name.toLowerCase()))]; };
-              memory = { 
-                  research: merge(memory.research || [], aftermath.newLore.research || []), 
-                  keyFigures: merge(memory.keyFigures || [], aftermath.newLore.keyFigures || []),
-                  glossary: merge(memory.glossary || [], aftermath.newLore.glossary || []),
-                  concepts: merge(memory.concepts || [], aftermath.newLore.concepts || []),
-                  argumentMap: [...(memory.argumentMap || [])],
-                  characters: [...(memory.characters || [])],
-                  world: [...(memory.world || [])],
-                  plot: [...(memory.plot || [])],
-                  dna: memory.dna
-              };
-              saveLocal(getProjectMemoryKey(newId), memory); 
-              if (isMounted.current) setProjectMemory(memory);
-              
-              const newEventSummary = `Chapter ${i+1}: ${aftermath.summary}`;
-              // Trim globalSummary to max 2000 chars to prevent unbounded growth
-              if (globalSummary.length > 2000) {
-                  globalSummary = globalSummary.substring(globalSummary.length - 1500) + `\n${newEventSummary}`;
-              } else {
-                  globalSummary = globalSummary.length > 5000 ? await compressGlobalSummary(globalSummary, newEventSummary, ac.signal) : globalSummary + `\n${newEventSummary}`;
+              // Aftermath analysis is non-critical — don't let it crash the loop
+              try {
+                  const aftermath = await analyzeChapterAftermath(refinedHtml, memory, 'Non-Fiction', ac.signal);
+                  if (ac.signal.aborted) break;
+                  
+                  const merge = (existing: any[], newItems: any[]) => { const existingNames = new Set(existing.map(e => (e.name || '').toLowerCase())); return [...existing, ...newItems.filter(n => n && typeof n.name === 'string' && n.name.trim() !== '' && !existingNames.has(n.name.toLowerCase()))]; };
+                  memory = { 
+                      research: merge(memory.research || [], aftermath.newLore.research || []), 
+                      keyFigures: merge(memory.keyFigures || [], aftermath.newLore.keyFigures || []),
+                      glossary: merge(memory.glossary || [], aftermath.newLore.glossary || []),
+                      concepts: merge(memory.concepts || [], aftermath.newLore.concepts || []),
+                      argumentMap: [...(memory.argumentMap || [])],
+                      characters: [...(memory.characters || [])],
+                      world: [...(memory.world || [])],
+                      plot: [...(memory.plot || [])],
+                      dna: memory.dna
+                  };
+                  saveLocal(getProjectMemoryKey(newId), memory); 
+                  if (isMounted.current) setProjectMemory(memory);
+                  
+                  const newEventSummary = `Chapter ${i+1}: ${aftermath.summary}`;
+                  // Trim globalSummary to max 2000 chars to prevent unbounded growth
+                  if (globalSummary.length > 2000) {
+                      globalSummary = globalSummary.substring(globalSummary.length - 1500) + `\n${newEventSummary}`;
+                  } else {
+                      globalSummary = globalSummary.length > 5000 ? await compressGlobalSummary(globalSummary, newEventSummary, ac.signal) : globalSummary + `\n${newEventSummary}`;
+                  }
+              } catch (aftermathErr: any) {
+                  if (ac.signal.aborted) break;
+                  addLog(`\u26a0\ufe0f Chapter ${i+1} indexing skipped. Continuing...`);
+                  globalSummary += `\nChapter ${i+1}: ${currentItem.title} (summary unavailable)`;
               }
               
               if (i < filledOutline.length - 1) { 
@@ -826,7 +1010,13 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, initialTopic, 
           
           if (!ac.signal.aborted && isMounted.current) { 
               const finalProjectData = constructEbookData(newId, memory, filledOutline); 
-              if (finalProjectData) { onGenerate(finalProjectData); } 
+              if (finalProjectData) {
+                  // Clear auto-generating state immediately before transition
+                  setIsAutoGenerating(false);
+                  setIsStopping(false);
+                  await new Promise(resolve => setTimeout(resolve, 100));
+                  onGenerate(finalProjectData);
+              }
           }
 
       } catch (e: any) {
@@ -840,7 +1030,10 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, initialTopic, 
           if (isMounted.current) {
               setIsAutoGenerating(false);
               setIsStopping(false);
+              setIsPaused(false);
+              setPauseReason('');
               abortControllerRef.current = null;
+              resumeResolverRef.current = null;
           }
       }
   };
@@ -866,6 +1059,11 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, initialTopic, 
 
   const handleStopAutoWrite = () => { 
       setIsStopping(true); 
+      // Resolve any pending pause so the loop can exit cleanly
+      if (resumeResolverRef.current) {
+          resumeResolverRef.current();
+          resumeResolverRef.current = null;
+      }
       if (abortControllerRef.current) {
           abortControllerRef.current.abort(); // KILL SWITCH
       }
@@ -882,8 +1080,12 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, initialTopic, 
       }
       saveLocal(getProjectMemoryKey(newId), memory);
       const finalData = constructEbookData(newId, memory, outline);
-      if (finalData && isMounted.current) { onGenerate(finalData); }
-      if (isMounted.current) setIsFinalizing(false);
+      if (finalData && isMounted.current) {
+          setIsFinalizing(false);
+          onGenerate(finalData);
+      } else {
+          if (isMounted.current) setIsFinalizing(false);
+      }
   };
 
   const normalizeChapters = (items: OutlineItem[]) => items.map((item, idx) => ({ ...item, chapterNumber: idx + 1 }));
@@ -1271,7 +1473,10 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, initialTopic, 
                   systemLog={systemLog}
                   liveSources={autoGenSources}
                   onStop={handleStopAutoWrite}
+                  onResume={handleResume}
                   isStopping={isStopping}
+                  isPaused={isPaused}
+                  pauseReason={pauseReason}
                   blueprint={blueprint}
                   activeAgentId={activeAgentId}
               />

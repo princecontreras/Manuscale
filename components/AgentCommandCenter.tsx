@@ -183,6 +183,8 @@ const AgentCommandCenter: React.FC<AgentCommandCenterProps> = ({ onBack }) => {
 
     // --- STATE: SAFETY & METRICS ---
     const [stepCount, setStepCount] = useState(0);
+    const [errorPauseReason, setErrorPauseReason] = useState('');
+    const resumeResolverRef = useRef<(() => void) | null>(null);
 
     // --- REFS ---
     const projectRef = useRef<Partial<EbookData>>({});
@@ -292,6 +294,23 @@ const AgentCommandCenter: React.FC<AgentCommandCenterProps> = ({ onBack }) => {
         
         setIsRunning(true);
         handleStart();
+    };
+
+    // --- ERROR RECOVERY HELPERS ---
+    const isRetryableError = (error: any): boolean => {
+        const msg = (error?.message || error?.toString() || '').toLowerCase();
+        return msg.includes('high demand') || msg.includes('rate limit') ||
+               msg.includes('overloaded') || msg.includes('503') || 
+               msg.includes('429') || msg.includes('502') || msg.includes('504') ||
+               msg.includes('resource_exhausted') || msg.includes('unavailable');
+    };
+
+    const waitWithCountdown = async (seconds: number, label: string): Promise<void> => {
+        for (let s = seconds; s > 0; s--) {
+            if (stopRef.current) throw new Error('Stopped by user');
+            setAgentAction(`${label} — retrying in ${s}s...`);
+            await new Promise(r => setTimeout(r, 1000));
+        }
     };
 
     // --- CORE LOGIC: THE STEP FUNCTION ---
@@ -428,7 +447,12 @@ const AgentCommandCenter: React.FC<AgentCommandCenterProps> = ({ onBack }) => {
                                 setActiveTab('vault');
                                 addLog('scholar', `Performing Deep Research for Chapter ${chapterIdx + 1}: "${chapter.title}"...`, 'action');
                                 
-                                const researchResult = await gatherChapterFacts(chapter.beat, newState.blueprint!);
+                                let researchResult = { sources: [] as {title: string, uri: string}[], context: '' };
+                                try {
+                                    researchResult = await gatherChapterFacts(chapter.beat, newState.blueprint!);
+                                } catch (researchErr: any) {
+                                    addLog('scholar', `Research unavailable (${isRetryableError(researchErr) ? 'AI overloaded' : 'error'}). Proceeding without research data.`, 'error');
+                                }
                                 
                                 const newMemory = { ...projectMemory };
                                 if (researchResult.sources.length > 0) {
@@ -679,8 +703,58 @@ CRITICAL: Do NOT duplicate the title. Only include the title text once.`;
             return true;
 
         } catch (e: any) {
-            const errorMsg = e instanceof Error ? e.message : "An error occurred during agent execution. Please try again.";
+            const errorMsg = e instanceof Error ? e.message : "An error occurred during agent execution.";
             console.error("Agent execution error:", e);
+
+            if (isRetryableError(e)) {
+                // Auto-retry with escalating cooldowns
+                const COOLDOWNS = [30, 60, 90];
+                for (let attempt = 0; attempt < COOLDOWNS.length; attempt++) {
+                    if (stopRef.current) return false;
+                    const cooldown = COOLDOWNS[attempt];
+                    addLog('director', `AI service overloaded. Auto-retry ${attempt + 1}/${COOLDOWNS.length} in ${cooldown}s...`, 'error');
+                    try {
+                        await waitWithCountdown(cooldown, 'Rate limited');
+                    } catch {
+                        return false; // Stopped by user during countdown
+                    }
+                    
+                    // Re-attempt the entire step
+                    try {
+                        addLog('director', `Retrying step...`, 'action');
+                        // Reset agent display for fresh attempt
+                        setActiveAgent('director');
+                        setAgentAction('Retrying...');
+                        // Recursion-safe: just return true to let the main loop call runStep again
+                        return true;
+                    } catch (retryErr: any) {
+                        if (!isRetryableError(retryErr)) {
+                            showToast(retryErr?.message || errorMsg, "error");
+                            addLog('director', `ERROR: ${retryErr?.message || errorMsg}`, 'error');
+                            setIsRunning(false);
+                            stopRef.current = true;
+                            return false;
+                        }
+                        // Continue to next cooldown
+                    }
+                }
+
+                // All auto-retries exhausted — pause and wait for user resume
+                addLog('director', 'All auto-retries exhausted. Engine paused — press Resume when ready.', 'error');
+                setErrorPauseReason('AI service is experiencing high demand. The engine has paused automatically.');
+                setActiveAgent('director');
+                setAgentAction('Paused — waiting for resume');
+
+                await new Promise<void>(resolve => {
+                    resumeResolverRef.current = resolve;
+                });
+                resumeResolverRef.current = null;
+                setErrorPauseReason('');
+                addLog('director', 'Resuming agent operations...', 'action');
+                return true; // Continue the loop
+            }
+
+            // Non-retryable error — stop
             showToast(errorMsg, "error");
             addLog('director', `ERROR: ${e.message}`, 'error');
             setIsRunning(false);
@@ -727,12 +801,30 @@ CRITICAL: Do NOT duplicate the title. Only include the title text once.`;
     };
 
     const handlePause = () => {
+        // If paused due to error recovery, resolve the pending promise to let it clean up
+        if (resumeResolverRef.current) {
+            resumeResolverRef.current();
+            resumeResolverRef.current = null;
+            setErrorPauseReason('');
+        }
         setIsPaused(true);
         stopRef.current = true;
         setIsRunning(false);
     };
 
+    const handleErrorResume = () => {
+        if (resumeResolverRef.current) {
+            resumeResolverRef.current();
+        }
+    };
+
     const handleReset = () => {
+        // Resolve any pending error pause before resetting
+        if (resumeResolverRef.current) {
+            resumeResolverRef.current();
+            resumeResolverRef.current = null;
+        }
+        setErrorPauseReason('');
         stopRef.current = true;
         setIsRunning(false);
         setIsPaused(false);
@@ -868,6 +960,32 @@ CRITICAL: Do NOT duplicate the title. Only include the title text once.`;
                 {/* Scrollable Container */}
                 <div className="flex-1 overflow-y-auto bg-slate-900 p-6 relative custom-scrollbar">
                     
+                    {/* Error Pause Overlay */}
+                    {errorPauseReason && (
+                        <div className="absolute inset-0 z-40 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in duration-300">
+                            <div className="bg-slate-800 border border-amber-500/30 rounded-2xl p-8 max-w-md w-full text-center shadow-2xl">
+                                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-amber-500/10 flex items-center justify-center">
+                                    <Pause size={32} className="text-amber-500" />
+                                </div>
+                                <h3 className="text-lg font-bold text-white mb-2">Engine Paused</h3>
+                                <p className="text-sm text-slate-400 mb-6">{errorPauseReason}</p>
+                                <div className="flex gap-3 justify-center">
+                                    <button 
+                                        onClick={handleErrorResume}
+                                        className="px-6 py-3 bg-brand-600 hover:bg-brand-500 text-white rounded-xl font-bold text-sm transition-all hover:scale-[1.02] flex items-center gap-2"
+                                    >
+                                        <Play size={16} /> Resume
+                                    </button>
+                                    <button 
+                                        onClick={handlePause}
+                                        className="px-6 py-3 bg-slate-700 hover:bg-red-900/50 text-slate-300 rounded-xl font-bold text-sm transition-all flex items-center gap-2"
+                                    >
+                                        <Square size={16} /> Stop
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                     {/* VIEW: LIVE STREAM */}
                     {activeTab === 'stream' && (
                         <div className="max-w-2xl mx-auto min-h-full">
