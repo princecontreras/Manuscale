@@ -488,6 +488,14 @@ body.theme-noir .book-content .action-plan li { color: #a7f3d0; }
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
   }
+  /* Ensure interactive elements are easily tappable */
+  button, a, input, select, textarea {
+    min-height: 44px;
+  }
+  /* Prevent double-tap zoom on interactive elements */
+  button, a {
+    touch-action: manipulation;
+  }
 }
 
 /* Responsive book page - scales on mobile */
@@ -497,6 +505,16 @@ body.theme-noir .book-content .action-plan li { color: #a7f3d0; }
     height: auto !important;
     min-height: auto !important;
     padding: 1rem !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
+  }
+  /* Reduce heavy decorative shadows on mobile */
+  .desk-vignette {
+    background: radial-gradient(circle at 50% 45%, transparent 50%, rgba(0,0,0,0.08) 100%) !important;
+  }
+  /* Ensure text-micro is readable */
+  .text-micro {
+    font-size: 0.6875rem !important; /* 11px minimum */
+    line-height: 1.125rem !important;
   }
 }
 
@@ -513,16 +531,43 @@ body.theme-noir .book-content .action-plan li { color: #a7f3d0; }
     min-height: auto !important;
   }
   .p-\[1in\] {
-    padding: 1.5rem !important;
+    padding: 1.25rem !important;
   }
   .m-\[1in\] {
-    margin: 1.5rem !important;
+    margin: 1rem !important;
+  }
+  /* Ensure modals don't overflow the viewport */
+  .fixed {
+    max-height: 100dvh;
+  }
+  /* Scale down blockquotes and editorial components */
+  .book-content blockquote {
+    margin: 1em 0.5em;
+  }
+  .book-content .pull-quote {
+    font-size: 1.1em;
+    margin: 1.5rem 0.5rem;
+  }
+  .book-content .callout-box,
+  .book-content .action-plan {
+    padding: 1rem;
+    margin: 1.25rem 0;
+  }
+  .book-content .data-table {
+    font-size: 0.8em;
   }
 }
 
 /* Smooth scrolling on iOS */
 .overflow-y-auto, .overflow-x-auto {
   -webkit-overflow-scrolling: touch;
+}
+
+/* Improve scroll momentum on mobile */
+@supports (-webkit-touch-callout: none) {
+  .overflow-y-auto {
+    scroll-behavior: smooth;
+  }
 }
 
 /* Scrollbar hide utility that works across browsers */
@@ -532,4 +577,29 @@ body.theme-noir .book-content .action-plan li { color: #a7f3d0; }
 }
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
+}
+
+/* Mobile-first animation performance */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* GPU-accelerated animations for mobile smoothness */
+.animate-in {
+  will-change: opacity, transform;
+}
+
+/* Dynamic viewport height fix for mobile browsers (address bar) */
+@supports (height: 100dvh) {
+  .min-h-screen {
+    min-height: 100dvh;
+  }
+  .h-screen {
+    height: 100dvh;
+  }
 }

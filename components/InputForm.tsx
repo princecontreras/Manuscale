@@ -221,7 +221,7 @@ const AutoPilotModal: React.FC<{
                         </div>
                         <div 
                             ref={terminalRef}
-                            className="h-32 bg-black/50 rounded-lg border border-white/10 p-3 font-mono text-micro overflow-y-auto space-y-1 scrollbar-hide shadow-inner"
+                            className="h-24 sm:h-32 bg-black/50 rounded-lg border border-white/10 p-3 font-mono text-xs sm:text-micro overflow-y-auto space-y-1 scrollbar-hide shadow-inner"
                         >
                             {systemLog.map((log, i) => (
                                 <div key={i} className="text-slate-400 break-words">
@@ -358,9 +358,9 @@ const OutlineItemCard: React.FC<{
                         )}
 
                         <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                            <button onClick={() => moveItem(idx, 'up')} disabled={idx === 0} className="p-2 sm:p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30 transition-colors touch-target"><ChevronUp size={16}/></button>
-                            <button onClick={() => moveItem(idx, 'down')} disabled={idx === total - 1} className="p-2 sm:p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30 transition-colors touch-target"><ChevronDown size={16}/></button>
-                            <button onClick={() => deleteItem(idx)} className="p-2 sm:p-1 text-slate-300 hover:text-red-500 transition-colors ml-1 touch-target"><Trash2 size={16}/></button>
+                            <button onClick={() => moveItem(idx, 'up')} disabled={idx === 0} className="p-2.5 sm:p-2 text-slate-400 hover:text-slate-600 disabled:opacity-30 transition-colors touch-target"><ChevronUp size={16}/></button>
+                            <button onClick={() => moveItem(idx, 'down')} disabled={idx === total - 1} className="p-2.5 sm:p-2 text-slate-400 hover:text-slate-600 disabled:opacity-30 transition-colors touch-target"><ChevronDown size={16}/></button>
+                            <button onClick={() => deleteItem(idx)} className="p-2.5 sm:p-2 text-slate-300 hover:text-red-500 transition-colors ml-1 touch-target"><Trash2 size={16}/></button>
                         </div>
                     </div>
                     

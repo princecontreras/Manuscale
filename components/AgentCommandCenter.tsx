@@ -100,19 +100,19 @@ const AgentOnboarding: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     const current = SLIDES[slide];
 
     return (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col relative">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300 overflow-y-auto">
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl sm:rounded-3xl w-full max-w-lg max-h-[90vh] shadow-2xl overflow-y-auto flex flex-col relative">
                 
                 {/* Visual Area */}
-                <div className={`h-48 ${current.bg} flex items-center justify-center border-b ${current.border} relative overflow-hidden transition-colors duration-500`}>
+                <div className={`h-32 sm:h-48 ${current.bg} flex items-center justify-center border-b ${current.border} relative overflow-hidden transition-colors duration-500`}>
                     <div className={`absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.2),transparent)]`}></div>
                     <current.icon size={80} className={`${current.color} drop-shadow-[0_0_15px_rgba(0,0,0,0.5)] transition-all duration-500 transform scale-110`}/>
                 </div>
 
                 {/* Content Area */}
-                <div className="p-8 text-center">
-                    <h3 className="text-2xl font-bold text-white mb-4 transition-all duration-300">{current.title}</h3>
-                    <p className="text-slate-400 leading-relaxed mb-8 h-20 transition-all duration-300 text-sm">{current.body}</p>
+                <div className="p-5 sm:p-8 text-center">
+                    <h3 className="text-xl sm:text-2xl font-bold text-white mb-3 sm:mb-4 transition-all duration-300">{current.title}</h3>
+                    <p className="text-slate-400 leading-relaxed mb-6 sm:mb-8 min-h-16 sm:h-20 transition-all duration-300 text-sm">{current.body}</p>
                     
                     {/* Dots */}
                     <div className="flex justify-center gap-2 mb-8">
@@ -772,7 +772,7 @@ CRITICAL: Do NOT duplicate the title. Only include the title text once.`;
                         {/* Metadata Inputs */}
                         <div className="space-y-4 mb-6 bg-slate-900/50 p-4 rounded-xl border border-slate-800/50">
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5 ml-1">Author Name</label>
+                                <label className="block text-xs sm:text-[10px] font-bold text-slate-500 uppercase mb-1.5 ml-1">Author Name</label>
                                 <input 
                                     type="text"
                                     value={authorName}
@@ -920,9 +920,9 @@ CRITICAL: Do NOT duplicate the title. Only include the title text once.`;
                                             </div>
                                             <div>
                                                 <div className="font-bold text-slate-200 text-sm">{item.title}</div>
-                                                <div className="text-[10px] text-slate-500 mt-0.5 line-clamp-1">{item.beat}</div>
+                                                <div className="text-xs sm:text-[10px] text-slate-500 mt-0.5 line-clamp-1">{item.beat}</div>
                                                 {item.mode && project.blueprint?.chapterModes && (
-                                                    <div className="text-[10px] text-brand-400 mt-1 flex items-center gap-1">
+                                                    <div className="text-xs sm:text-[10px] text-brand-400 mt-1 flex items-center gap-1">
                                                         <Layers size={10} /> {project.blueprint.chapterModes.find(m => m.id === item.mode)?.name || item.mode}
                                                     </div>
                                                 )}
@@ -930,16 +930,16 @@ CRITICAL: Do NOT duplicate the title. Only include the title text once.`;
                                         </div>
                                         <div className="flex items-center gap-3">
                                             {revisionCountsRef.current[item.id] > 0 && (
-                                                <span className="text-[10px] bg-amber-500/10 text-amber-500 px-2 py-1 rounded border border-amber-500/20">
+                                                <span className="text-xs sm:text-[10px] bg-amber-500/10 text-amber-500 px-2 py-1 rounded border border-amber-500/20">
                                                     Rev {revisionCountsRef.current[item.id]}
                                                 </span>
                                             )}
                                             {item.status === 'completed' ? (
-                                                <div className="flex items-center gap-1.5 text-emerald-500 text-[10px] font-bold bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20">
+                                                <div className="flex items-center gap-1.5 text-emerald-500 text-xs sm:text-[10px] font-bold bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20">
                                                     <CheckCircle2 size={12}/> Done
                                                 </div>
                                             ) : (
-                                                <div className="flex items-center gap-1.5 text-slate-500 text-[10px] font-bold bg-slate-700/50 px-2 py-1 rounded border border-slate-700">
+                                                <div className="flex items-center gap-1.5 text-slate-500 text-xs sm:text-[10px] font-bold bg-slate-700/50 px-2 py-1 rounded border border-slate-700">
                                                     <div className="w-2 h-2 rounded-full bg-slate-500"></div> Pending
                                                 </div>
                                             )}
@@ -1136,7 +1136,7 @@ CRITICAL: Do NOT duplicate the title. Only include the title text once.`;
                             <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-slate-100 flex-shrink-0"><Activity size={20} className={activeAgent ? "animate-pulse text-emerald-500" : "text-slate-400"}/></div>
                             <div><div className="font-bold text-slate-900 text-sm capitalize">{activeAgent || 'Idle'}</div><div className="text-[10px] text-slate-500 uppercase tracking-wider">{agentAction || 'Standby'}</div></div>
                         </div>
-                        {activeAgent && <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 text-xs text-slate-600 italic max-h-40 overflow-y-auto custom-scrollbar">"{agentReasoning}"</div>}
+                        {activeAgent && <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 text-xs text-slate-600 italic max-h-28 sm:max-h-40 overflow-y-auto custom-scrollbar">"{agentReasoning}"</div>}
                     </div>
                 </div>
                 <div className="flex-grow overflow-y-auto p-4 space-y-4 bg-slate-50 custom-scrollbar">

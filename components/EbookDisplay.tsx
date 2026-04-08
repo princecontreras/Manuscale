@@ -217,8 +217,8 @@ const ChapterEditor = React.memo<{
     const paraClass = design.paragraphStyle === 'block' ? 'paragraph-block' : 'paragraph-indent';
 
     return (
-        <div className="w-full max-w-[8.5in] mx-auto bg-white shadow-xl min-h-[auto] sm:min-h-[11in] p-4 sm:p-[1in] mb-10 transition-all relative group">
-             <div className="absolute inset-0 pointer-events-none border border-slate-100 m-4 sm:m-[1in] opacity-0 group-hover:opacity-100 transition-opacity"></div>
+        <div className="w-full max-w-full sm:max-w-[8.5in] mx-auto bg-white shadow-md sm:shadow-xl min-h-[auto] sm:min-h-[11in] p-3 sm:p-6 md:p-[1in] mb-6 sm:mb-10 transition-all relative group">
+             <div className="absolute inset-0 pointer-events-none border border-slate-100 m-3 sm:m-6 md:m-[1in] opacity-0 group-hover:opacity-100 transition-opacity"></div>
              
              {isThinking && (
                  <div className="absolute top-4 right-4 bg-white/90 backdrop-blur border border-primary-100 text-primary-600 px-3 py-1.5 rounded-full shadow-lg flex items-center gap-2 text-xs font-bold animate-pulse z-10">
@@ -251,8 +251,8 @@ const ContextReviewDialog: React.FC<{
     if (totalItems === 0) return null;
     
     return (
-        <div className="fixed bottom-8 right-8 z-[100] animate-in slide-in-from-bottom-10 fade-in duration-500">
-            <div className="bg-slate-900 text-white p-6 rounded-2xl shadow-2xl border border-slate-700 w-80">
+        <div className="fixed bottom-4 right-4 left-4 sm:left-auto sm:bottom-8 sm:right-8 z-[100] animate-in slide-in-from-bottom-10 fade-in duration-500">
+            <div className="bg-slate-900 text-white p-4 sm:p-6 rounded-2xl shadow-2xl border border-slate-700 w-full sm:w-80">
                 <div className="flex justify-between items-start mb-4">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-primary-600 rounded-xl flex items-center justify-center animate-pulse">
@@ -297,7 +297,7 @@ const NavigationSidebar: React.FC<{
     onClose: () => void 
 }> = ({ outline, activeChapterId, onNavigate, onClose }) => {
     return (
-        <div className="fixed top-0 left-0 h-full w-[85vw] max-w-80 bg-white shadow-2xl border-r border-slate-200 z-50 flex flex-col animate-in slide-in-from-left duration-300">
+        <div className="fixed top-0 left-0 h-full w-[85vw] sm:w-80 max-w-80 bg-white shadow-2xl border-r border-slate-200 z-50 flex flex-col animate-in slide-in-from-left duration-300">
             <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
                 <h3 className="font-bold text-slate-800 flex items-center gap-2"><List size={18}/> Contents</h3>
                 <Button variant="ghost" size="sm" onClick={onClose} className="p-1" title="Close Panel"><X size={20} className="text-slate-400 hover:text-slate-600"/></Button>
@@ -475,7 +475,7 @@ const PageView = React.memo<{ html: string, pageNum: number, chapterId?: string,
 
 const FormattingSidebar: React.FC<{ onClose: () => void, settings: DesignSettings, onUpdateSettings: (s: DesignSettings) => void }> = ({ onClose, settings, onUpdateSettings }) => {
     return (
-        <div className="fixed top-0 right-0 h-full w-[85vw] max-w-80 bg-white shadow-2xl border-l border-slate-200 z-50 flex flex-col animate-in slide-in-from-right duration-300">
+        <div className="fixed top-0 right-0 h-full w-[85vw] sm:w-80 max-w-80 bg-white shadow-2xl border-l border-slate-200 z-50 flex flex-col animate-in slide-in-from-right duration-300">
             <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50"> <h3 className="font-bold text-slate-800 flex items-center gap-2"><Palette size={18}/> Formatting</h3> <Button variant="ghost" size="sm" onClick={onClose} className="p-1" title="Close Panel"><X size={20}/></Button> </div>
             <div className="p-6 flex-grow overflow-y-auto space-y-8"> 
                 <section> 
@@ -1007,7 +1007,7 @@ export const EbookDisplay: React.FC<EbookDisplayProps> = ({
                     {viewMode === 'write' && <EditorToolbar activeFormats={activeFormats} onUndo={undo} onRedo={redo} canUndo={canUndo} canRedo={canRedo} />}
 
                     <div className="p-4 sm:p-8 flex-grow">
-                        <div className="max-w-[8.5in] mx-auto pb-20 sm:pb-40">
+                        <div className="max-w-full sm:max-w-[8.5in] mx-auto pb-20 sm:pb-40">
                             {manuscript.outline.map((item, idx) => (
                                 <div key={item.id} id={`chapter-${item.id}`} className="mb-20">
                                     {item.status === 'completed' && item.content ? (

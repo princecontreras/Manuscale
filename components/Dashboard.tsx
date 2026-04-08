@@ -26,7 +26,7 @@ type SortOption = 'newest' | 'oldest' | 'az' | 'za';
 type FilterOption = 'all' | 'draft' | 'published';
 
 const ProjectSkeleton = () => (
-    <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm h-[320px] flex flex-col animate-pulse">
+    <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm h-[280px] sm:h-[320px] flex flex-col animate-pulse">
         <div className="aspect-[2/3] bg-slate-100 rounded-lg mb-4"></div>
         <div className="h-4 bg-slate-100 rounded w-3/4 mb-2"></div>
         <div className="h-3 bg-slate-100 rounded w-1/2"></div>
@@ -465,7 +465,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, onCreateNew, onOpe
                             </button>
 
                             {showKnowledgeOptions && (
-                                <div className="grid grid-cols-2 gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
                                     <button 
                                         onClick={() => {
                                             console.log('[Dashboard] Clicked Research Studio button', { hasCallback: !!onOpenResearchStudio });
@@ -577,15 +577,15 @@ const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, onCreateNew, onOpe
                                         <div className="fallback-cover hidden w-full h-full flex flex-col items-center justify-center text-slate-300 p-6 text-center bg-slate-50 absolute inset-0"><BookOpen size={48} className="mb-4 opacity-50" /><span className="text-label opacity-50">Image Error</span></div>
                                     </>
                                 ) : (<div className="w-full h-full flex flex-col items-center justify-center text-slate-300 p-6 text-center bg-slate-50"><BookOpen size={48} className="mb-4 opacity-50" /><span className="text-label opacity-50">No Cover</span></div>)}
-                                <div className="absolute top-3 right-3 z-10">{project.status === 'published' ? (<span className="bg-emerald-500 text-white text-micro font-bold px-2 py-1 rounded-full shadow-md flex items-center gap-1 animate-in fade-in zoom-in"><CheckCircle2 size={10} /> Published</span>) : (<span className="bg-slate-900/50 backdrop-blur-sm text-white text-micro font-bold px-2 py-1 rounded-full shadow-md">Draft</span>)}</div>
+                                <div className="absolute top-3 right-3 z-10">{project.status === 'published' ? (<span className="bg-emerald-500 text-white text-xs sm:text-micro font-bold px-2.5 py-1 rounded-full shadow-md flex items-center gap-1 animate-in fade-in zoom-in"><CheckCircle2 size={12} /> Published</span>) : (<span className="bg-slate-900/50 backdrop-blur-sm text-white text-xs sm:text-micro font-bold px-2.5 py-1 rounded-full shadow-md">Draft</span>)}</div>
                                 <div className="absolute inset-0 bg-slate-900/0 group-hover:bg-slate-900/10 transition-colors flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 gap-2"><button className="bg-white text-primary-600 px-4 py-2 rounded-full text-heading transform translate-y-4 group-hover:translate-y-0 transition-all shadow-lg flex items-center gap-2"><PenTool size={14} /> Open Studio</button></div>
                             </div>
                             <div className="p-5 flex-grow flex flex-col">
                                 <h3 className="text-title text-slate-900 line-clamp-2 leading-tight mb-2 group-hover:text-primary-600 transition-colors" title={project.title}>{project.title}</h3>
                                 {project.author && <p className="text-body text-slate-500 mb-4">by {project.author}</p>}
                                 <div className="mt-auto space-y-3 pt-4 border-t border-slate-50">
-                                    <div className="flex items-center gap-2 text-micro text-slate-400"><Clock size={12} /><span>Edited {formatDate(project.lastModified)}</span></div>
-                                    <div className="flex items-center justify-between"><div className="flex items-center gap-2 text-micro font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-md"><FileText size={12} /><span>{project.wordCount ? project.wordCount.toLocaleString() : 0} words</span></div><div className="flex items-center gap-1">{project.status === 'published' && (<button onClick={(e) => handleOpenMarketing(e, project.id)} className="text-primary-600 hover:text-primary-700 hover:bg-primary-50 p-1.5 rounded transition-colors"><Share2 size={16} /></button>)}<button type="button" onClick={(e) => confirmDelete(e, project.id)} className="text-slate-300 hover:text-red-500 p-1.5 hover:bg-red-50 rounded transition-colors"><Trash2 size={16} /></button></div></div>
+                                    <div className="flex items-center gap-2 text-xs sm:text-micro text-slate-400"><Clock size={14} /><span>Edited {formatDate(project.lastModified)}</span></div>
+                                    <div className="flex items-center justify-between"><div className="flex items-center gap-2 text-xs sm:text-micro font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-md"><FileText size={14} /><span>{project.wordCount ? project.wordCount.toLocaleString() : 0} words</span></div><div className="flex items-center gap-1">{project.status === 'published' && (<button onClick={(e) => handleOpenMarketing(e, project.id)} className="text-primary-600 hover:text-primary-700 hover:bg-primary-50 p-1.5 rounded transition-colors"><Share2 size={16} /></button>)}<button type="button" onClick={(e) => confirmDelete(e, project.id)} className="text-slate-300 hover:text-red-500 p-1.5 hover:bg-red-50 rounded transition-colors"><Trash2 size={16} /></button></div></div>
                                 </div>
                             </div>
                         </div>

@@ -373,14 +373,14 @@ const ImageStudio: React.FC<ImageStudioProps> = ({
       <div className="flex-grow flex flex-col lg:flex-row overflow-hidden">
           
           {/* LEFT PANEL: RECIPE BUILDER */}
-          <div className="w-full lg:w-[360px] bg-slate-900/80 backdrop-blur border-b lg:border-b-0 lg:border-r border-slate-800 flex flex-col z-10 overflow-y-auto scrollbar-hide max-h-[40vh] lg:max-h-none">
+          <div className="w-full lg:w-[360px] bg-slate-900/80 backdrop-blur border-b lg:border-b-0 lg:border-r border-slate-800 flex flex-col z-10 overflow-y-auto scrollbar-hide max-h-[50vh] sm:max-h-[40vh] lg:max-h-none">
              <div className="p-6 space-y-8">
                  
                  {/* Subject */}
                  <div className="space-y-3">
                      <div className="flex justify-between items-center">
                         <label className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2"><Type size={12}/> Subject</label>
-                        {autoPrompt && <span className="text-[10px] text-amber-400 bg-amber-900/30 px-2 py-0.5 rounded border border-amber-500/30">Auto-Filled from Blueprint</span>}
+                        {autoPrompt && <span className="text-xs sm:text-[10px] text-amber-400 bg-amber-900/30 px-2 py-0.5 rounded border border-amber-500/30">Auto-Filled from Blueprint</span>}
                      </div>
                      <textarea 
                         value={subject}
@@ -393,17 +393,17 @@ const ImageStudio: React.FC<ImageStudioProps> = ({
                  {/* Visual Style Cards */}
                  <div className="space-y-3">
                      <label className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2"><Palette size={12}/> Art Style</label>
-                     <div className="grid grid-cols-2 gap-2">
+                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                          {STYLE_PRESETS.map(style => (
                              <button
                                 key={style.id}
                                 onClick={() => setSelectedStyle(style.id)}
-                                className={`relative h-20 rounded-lg overflow-hidden border-2 transition-all group text-left p-3 flex flex-col justify-end ${selectedStyle === style.id ? 'border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.4)]' : 'border-transparent opacity-60 hover:opacity-100 hover:border-slate-600'}`}
+                                className={`relative h-24 sm:h-20 rounded-lg overflow-hidden border-2 transition-all group text-left p-3 flex flex-col justify-end ${selectedStyle === style.id ? 'border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.4)]' : 'border-transparent opacity-60 hover:opacity-100 hover:border-slate-600'}`}
                              >
                                  <div className={`absolute inset-0 ${style.gradient} opacity-80 group-hover:opacity-100 transition-opacity`}></div>
                                  <div className="relative z-10">
                                      <span className="text-xl mb-1 block">{style.emoji}</span>
-                                     <span className="text-[10px] font-bold text-white uppercase tracking-wider">{style.name}</span>
+                                     <span className="text-xs sm:text-[10px] font-bold text-white uppercase tracking-wider">{style.name}</span>
                                  </div>
                              </button>
                          ))}
@@ -419,7 +419,7 @@ const ImageStudio: React.FC<ImageStudioProps> = ({
                                 <button 
                                     key={m} 
                                     onClick={() => setSelectedMood(selectedMood === m ? '' : m)}
-                                    className={`px-3 py-1 rounded-full text-[10px] font-bold border transition-all ${selectedMood === m ? 'bg-amber-500/20 border-amber-500 text-amber-300' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}
+                                    className={`px-3 py-1.5 sm:py-1 rounded-full text-xs sm:text-[10px] font-bold border transition-all ${selectedMood === m ? 'bg-amber-500/20 border-amber-500 text-amber-300' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}
                                 >
                                     {m}
                                 </button>
@@ -433,7 +433,7 @@ const ImageStudio: React.FC<ImageStudioProps> = ({
                                 <button 
                                     key={l} 
                                     onClick={() => setSelectedLighting(selectedLighting === l ? '' : l)}
-                                    className={`px-3 py-1 rounded-full text-[10px] font-bold border transition-all ${selectedLighting === l ? 'bg-slate-700 border-slate-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}
+                                    className={`px-3 py-1.5 sm:py-1 rounded-full text-xs sm:text-[10px] font-bold border transition-all ${selectedLighting === l ? 'bg-slate-700 border-slate-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}
                                 >
                                     {l}
                                 </button>

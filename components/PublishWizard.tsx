@@ -600,11 +600,11 @@ ${assets.adCopyExamples ? assets.adCopyExamples.map(ad => `[${ad.platform}]\n${a
                             <div className="flex items-center gap-2">
                                 <span className="text-sm font-bold text-slate-700">Include Reference Page</span>
                                 {totalSources > 0 ? (
-                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">
+                                    <span className="text-xs sm:text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">
                                         {totalSources} Citations Found
                                     </span>
                                 ) : (
-                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-500">
+                                    <span className="text-xs sm:text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-500">
                                         No Citations Found
                                     </span>
                                 )}
@@ -702,10 +702,10 @@ ${assets.adCopyExamples ? assets.adCopyExamples.map(ad => `[${ad.platform}]\n${a
                         <p className="text-slate-500">Your book is ready for the world.</p>
                     </div>
 
-                    <div className="flex justify-center gap-2 mb-6 border-b border-slate-100 pb-1">
-                        <button onClick={() => setSuccessTab('downloads')} className={`px-4 py-2 text-sm font-bold rounded-lg transition-colors ${successTab === 'downloads' ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}>Downloads</button>
-                        <button onClick={() => setSuccessTab('store')} className={`px-4 py-2 text-sm font-bold rounded-lg transition-colors ${successTab === 'store' ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}>Marketing Kit</button>
-                        <button onClick={() => setSuccessTab('audio')} className={`px-4 py-2 text-sm font-bold rounded-lg transition-colors flex items-center gap-1 ${successTab === 'audio' ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}><Headphones size={14}/> Audiobook</button>
+                    <div className="flex justify-center gap-1 sm:gap-2 mb-6 border-b border-slate-100 pb-1 overflow-x-auto">
+                        <button onClick={() => setSuccessTab('downloads')} className={`flex-1 sm:flex-none px-2 sm:px-4 py-2 text-xs sm:text-sm font-bold rounded-lg transition-colors whitespace-nowrap ${successTab === 'downloads' ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}>Downloads</button>
+                        <button onClick={() => setSuccessTab('store')} className={`flex-1 sm:flex-none px-2 sm:px-4 py-2 text-xs sm:text-sm font-bold rounded-lg transition-colors whitespace-nowrap ${successTab === 'store' ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}>Marketing Kit</button>
+                        <button onClick={() => setSuccessTab('audio')} className={`flex-1 sm:flex-none px-2 sm:px-4 py-2 text-xs sm:text-sm font-bold rounded-lg transition-colors flex items-center justify-center gap-1 whitespace-nowrap ${successTab === 'audio' ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}><Headphones size={14}/> Audiobook</button>
                     </div>
 
                     <div className="flex-grow overflow-y-auto px-4">
@@ -851,8 +851,8 @@ ${assets.adCopyExamples ? assets.adCopyExamples.map(ad => `[${ad.platform}]\n${a
                                                 <div className="bg-white p-4 rounded-xl border border-slate-200">
                                                     <div className="text-xs font-bold text-slate-400 uppercase mb-2">Keywords</div>
                                                     <div className="flex flex-wrap gap-1">
-                                                        {assets?.keywords && assets.keywords.slice(0,5).map(k => <span key={k} className="px-1.5 py-0.5 bg-slate-100 rounded text-[10px] text-slate-600">{k}</span>)}
-                                                        {assets?.keywords && assets.keywords.length > 5 && <span className="px-1.5 py-0.5 bg-slate-100 rounded text-[10px] text-slate-600">+{assets.keywords.length - 5} more</span>}
+                                                        {assets?.keywords && assets.keywords.slice(0,5).map(k => <span key={k} className="px-2 sm:px-1.5 py-0.5 bg-slate-100 rounded text-xs sm:text-[10px] text-slate-600">{k}</span>)}
+                                                        {assets?.keywords && assets.keywords.length > 5 && <span className="px-2 sm:px-1.5 py-0.5 bg-slate-100 rounded text-xs sm:text-[10px] text-slate-600">+{assets.keywords.length - 5} more</span>}
                                                     </div>
                                                 </div>
                                             </div>
@@ -864,19 +864,19 @@ ${assets.adCopyExamples ? assets.adCopyExamples.map(ad => `[${ad.platform}]\n${a
                                                     {assets.facebookAdCreatives?.[0]?.image && (
                                                         <div className="space-y-2">
                                                             <img src={assets.facebookAdCreatives[0].image} className="w-full aspect-square object-cover rounded-lg border border-slate-100" alt="Facebook Ad" />
-                                                            <div className="text-[10px] font-bold text-slate-500 uppercase text-center">Facebook Ad</div>
+                                                            <div className="text-xs sm:text-[10px] font-bold text-slate-500 uppercase text-center">Facebook Ad</div>
                                                         </div>
                                                     )}
                                                     {assets.socialMediaGraphics?.[0]?.image && (
                                                         <div className="space-y-2">
                                                             <img src={assets.socialMediaGraphics[0].image} className="w-full aspect-square object-cover rounded-lg border border-slate-100" alt="Social Media Graphic" />
-                                                            <div className="text-[10px] font-bold text-slate-500 uppercase text-center">Social Graphic</div>
+                                                            <div className="text-xs sm:text-[10px] font-bold text-slate-500 uppercase text-center">Social Graphic</div>
                                                         </div>
                                                     )}
                                                     {assets.quoteGraphics?.[0]?.image && (
                                                         <div className="space-y-2">
                                                             <img src={assets.quoteGraphics[0].image} className="w-full aspect-square object-cover rounded-lg border border-slate-100" alt="Quote Graphic" />
-                                                            <div className="text-[10px] font-bold text-slate-500 uppercase text-center">Quote Graphic</div>
+                                                            <div className="text-xs sm:text-[10px] font-bold text-slate-500 uppercase text-center">Quote Graphic</div>
                                                         </div>
                                                     )}
                                                 </div>

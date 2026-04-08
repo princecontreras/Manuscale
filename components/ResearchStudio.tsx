@@ -333,13 +333,13 @@ const ResearchStudio: React.FC<ResearchStudioProps> = ({
 
             {/* Mobile sidebar toggle */}
             <div className="md:hidden flex items-center justify-between p-3 border-b border-slate-200 bg-slate-50">
-                <button onClick={onBack || onClose} className="text-slate-400 hover:text-slate-900 p-2 rounded hover:bg-slate-100">
+                <button onClick={onBack || onClose} className="text-slate-400 hover:text-slate-900 p-2.5 rounded hover:bg-slate-100">
                     <ArrowLeft size={18}/>
                 </button>
                 <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
                     <Database size={12}/> Knowledge Vault
                 </span>
-                <button onClick={() => setShowMobileSidebar(!showMobileSidebar)} className="text-slate-500 p-2 rounded hover:bg-slate-100">
+                <button onClick={() => setShowMobileSidebar(!showMobileSidebar)} className="text-slate-500 p-2.5 rounded hover:bg-slate-100">
                     {showMobileSidebar ? <X size={18}/> : <Search size={18}/>}
                 </button>
             </div>
@@ -356,9 +356,9 @@ const ResearchStudio: React.FC<ResearchStudioProps> = ({
                 </div>
 
                 <div className="flex gap-1 p-2 border-b border-slate-100">
-                    <button onClick={() => { setActiveTab('knowledge'); setActiveEntityId(null); }} className={`flex-1 py-1.5 text-[10px] font-bold uppercase rounded transition-all ${activeTab === 'knowledge' ? 'bg-white text-amber-700 shadow-sm' : 'text-slate-400'}`}>Knowledge</button>
-                    <button onClick={() => { setActiveTab('entities'); setActiveEntityId(null); }} className={`flex-1 py-1.5 text-[10px] font-bold uppercase rounded transition-all ${activeTab === 'entities' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-400'}`}>Entities</button>
-                    <button onClick={() => { setActiveTab('glossary'); setActiveEntityId(null); }} className={`flex-1 py-1.5 text-[10px] font-bold uppercase rounded transition-all ${activeTab === 'glossary' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-400'}`}>Glossary</button>
+                    <button onClick={() => { setActiveTab('knowledge'); setActiveEntityId(null); }} className={`flex-1 py-2 sm:py-1.5 text-xs sm:text-[10px] font-bold uppercase rounded transition-all ${activeTab === 'knowledge' ? 'bg-white text-amber-700 shadow-sm' : 'text-slate-400'}`}>Knowledge</button>
+                    <button onClick={() => { setActiveTab('entities'); setActiveEntityId(null); }} className={`flex-1 py-2 sm:py-1.5 text-xs sm:text-[10px] font-bold uppercase rounded transition-all ${activeTab === 'entities' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-400'}`}>Entities</button>
+                    <button onClick={() => { setActiveTab('glossary'); setActiveEntityId(null); }} className={`flex-1 py-2 sm:py-1.5 text-xs sm:text-[10px] font-bold uppercase rounded transition-all ${activeTab === 'glossary' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-400'}`}>Glossary</button>
                 </div>
 
                 <div className="flex-grow overflow-y-auto p-2 space-y-1">
@@ -371,9 +371,9 @@ const ResearchStudio: React.FC<ResearchStudioProps> = ({
                             <span className="truncate flex-grow">{item.name}</span>
                             <button 
                                 onClick={(e) => { e.stopPropagation(); deleteEntity(item.id); }} 
-                                className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 p-1"
+                                className="opacity-100 md:opacity-0 md:group-hover:opacity-100 text-slate-400 hover:text-red-500 p-1.5"
                             >
-                                <Trash2 size={12}/>
+                                <Trash2 size={14}/>
                             </button>
                         </div>
                     ))}
@@ -418,8 +418,8 @@ const ResearchStudio: React.FC<ResearchStudioProps> = ({
                             
                             {/* LEFT: EDITOR */}
                             <div className="flex-grow flex flex-col h-full relative group">
-                                <div className="absolute top-2 right-4 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <span className="text-[10px] uppercase font-bold text-slate-300 bg-white px-2 py-1 rounded border border-slate-100">Content</span>
+                                <div className="absolute top-2 right-4 z-10 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                                    <span className="text-xs sm:text-[10px] uppercase font-bold text-slate-300 bg-white px-2 py-1 rounded border border-slate-100">Content</span>
                                 </div>
                                 <textarea 
                                     value={activeItem.description}
@@ -457,9 +457,9 @@ const ResearchStudio: React.FC<ResearchStudioProps> = ({
                                                 <div className="flex justify-between items-center border-t border-slate-50 pt-2 mt-2">
                                                     <span className="text-[9px] font-bold text-slate-400 uppercase truncate max-w-[120px]" title={card.source}>{card.source}</span>
                                                     {card.isPinned ? (
-                                                        <span className="text-emerald-600 text-[10px] font-bold flex items-center gap-1"><CheckCircle2 size={10}/> Pinned</span>
+                                                        <span className="text-emerald-600 text-xs sm:text-[10px] font-bold flex items-center gap-1"><CheckCircle2 size={10}/> Pinned</span>
                                                     ) : (
-                                                        <button onClick={() => pinFact(card)} className="text-slate-500 hover:text-amber-600 bg-slate-50 hover:bg-amber-50 px-2 py-1 rounded text-[10px] font-bold transition-colors flex items-center gap-1">
+                                                        <button onClick={() => pinFact(card)} className="text-slate-500 hover:text-amber-600 bg-slate-50 hover:bg-amber-50 px-2 py-1 rounded text-xs sm:text-[10px] font-bold transition-colors flex items-center gap-1">
                                                             <Copy size={10}/> Pin
                                                         </button>
                                                     )}

@@ -100,10 +100,10 @@ export const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onGoToLogin, o
     };
 
     return (
-        <div className="min-h-screen bg-neutral-50 flex items-center justify-center p-6 font-sans">
-            <div className="w-full max-w-5xl bg-white rounded-3xl shadow-sm border border-neutral-100 overflow-hidden flex flex-col md:flex-row">
+        <div className="min-h-screen bg-neutral-50 flex items-center justify-center p-4 sm:p-6 font-sans">
+            <div className="w-full max-w-5xl bg-white rounded-2xl sm:rounded-3xl shadow-sm border border-neutral-100 overflow-hidden flex flex-col md:flex-row">
                 {/* Left Side: Form */}
-                <div className="p-12 md:w-1/2 flex flex-col justify-center">
+                <div className="p-6 sm:p-8 md:p-12 md:w-1/2 flex flex-col justify-center">
                     <div className="mb-8 cursor-pointer" onClick={onBack}>
                         <Logo />
                     </div>
@@ -174,9 +174,9 @@ export const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onGoToLogin, o
                 </div>
 
                 {/* Right Side: Benefits */}
-                <div className="bg-neutral-900 p-12 text-white flex flex-col justify-center md:w-1/2">
-                    <h2 className="text-3xl font-bold mb-12">Why join Typoscale?</h2>
-                    <div className="space-y-8">
+                <div className="bg-neutral-900 p-6 sm:p-8 md:p-12 text-white flex flex-col justify-center md:w-1/2">
+                    <h2 className="text-xl sm:text-2xl md:text-3xl font-bold mb-8 sm:mb-12">Why join Typoscale?</h2>
+                    <div className="space-y-6 sm:space-y-8">
                         <div className="flex gap-4">
                             <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center text-primary-400 shrink-0"><Zap size={20}/></div>
                             <div>

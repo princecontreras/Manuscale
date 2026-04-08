@@ -23,8 +23,8 @@ export const FeaturesPage: React.FC<FeaturesPageProps> = ({ onGoToAuth, onBack }
                 </button>
             </header>
 
-            <main className="pt-32 pb-24">
-                <section className="px-4 sm:px-6 max-w-5xl mx-auto text-center mb-24">
+            <main className="pt-24 sm:pt-32 pb-16 sm:pb-24">
+                <section className="px-4 sm:px-6 max-w-5xl mx-auto text-center mb-16 sm:mb-24">
                     <motion.div 
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -41,14 +41,14 @@ export const FeaturesPage: React.FC<FeaturesPageProps> = ({ onGoToAuth, onBack }
                 </section>
 
                 {/* Workflow 1: Manuscript Workshop */}
-                <section className="bg-white py-24 border-y border-slate-100">
-                    <div className="max-w-6xl mx-auto px-4 sm:px-6 grid lg:grid-cols-2 gap-16 items-start">
+                <section className="bg-white py-16 sm:py-24 border-y border-slate-100">
+                    <div className="max-w-6xl mx-auto px-4 sm:px-6 grid lg:grid-cols-2 gap-8 sm:gap-16 items-start">
                         <motion.div 
-                            initial={{ opacity: 0, x: -20 }}
+                            initial={{ opacity: 0, x: -15 }}
                             whileInView={{ opacity: 1, x: 0 }}
-                            viewport={{ once: true }}
-                            transition={{ duration: 0.5 }}
-                            className="sticky top-32"
+                            viewport={{ once: true, amount: 0.2 }}
+                            transition={{ duration: 0.4 }}
+                            className="lg:sticky lg:top-24"
                         >
                             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-50 text-primary-700 text-sm font-bold tracking-wide mb-6 uppercase">
                                 <BrainCircuit size={18} /> Deep Control Workflow
@@ -65,13 +65,13 @@ export const FeaturesPage: React.FC<FeaturesPageProps> = ({ onGoToAuth, onBack }
                             </Button>
                         </motion.div>
 
-                        <div className="space-y-12">
+                        <div className="space-y-8 sm:space-y-12">
                             <motion.div 
-                                initial={{ opacity: 0, y: 20 }}
+                                initial={{ opacity: 0, y: 15 }}
                                 whileInView={{ opacity: 1, y: 0 }}
-                                viewport={{ once: true }}
-                                transition={{ duration: 0.5 }}
-                                className="bg-slate-50 p-8 rounded-2xl border border-slate-200 group hover:border-primary-200 transition-colors"
+                                viewport={{ once: true, amount: 0.2 }}
+                                transition={{ duration: 0.4 }}
+                                className="bg-slate-50 p-5 sm:p-8 rounded-2xl border border-slate-200 group hover:border-primary-200 transition-colors"
                             >
                                 <div className="w-12 h-12 bg-white rounded-xl shadow-sm border border-slate-200 flex items-center justify-center text-primary-600 mb-6 font-bold text-xl">1</div>
                                 <h3 className="font-heading text-2xl font-bold text-slate-900 mb-3">Topic & Syllabus Phase</h3>
@@ -85,10 +85,10 @@ export const FeaturesPage: React.FC<FeaturesPageProps> = ({ onGoToAuth, onBack }
                                 whileInView={{ opacity: 1, y: 0 }}
                                 viewport={{ once: true }}
                                 transition={{ duration: 0.5, delay: 0.1 }}
-                                className="bg-slate-50 p-8 rounded-2xl border border-slate-200 group hover:border-primary-200 transition-colors"
+                                className="bg-slate-50 p-5 sm:p-8 rounded-2xl border border-slate-200 group hover:border-primary-200 transition-colors"
                             >
                                 <div className="w-12 h-12 bg-white rounded-xl shadow-sm border border-slate-200 flex items-center justify-center text-primary-600 mb-6 font-bold text-xl">2</div>
-                                <h3 className="font-heading text-2xl font-bold text-slate-900 mb-3">Manuscript Board</h3>
+                                <h3 className="font-heading text-xl sm:text-2xl font-bold text-slate-900 mb-3">Manuscript Board</h3>
                                 <p className="text-slate-600 leading-relaxed">
                                     Once the AI finishes auto-generating your entire manuscript, it lands in the editable Manuscript Board. Here you can read your full book, edit any chapter, reorder sections, adjust tone and voice, add citations, and refine every sentence. Full creative control, anytime.
                                 </p>
@@ -99,10 +99,10 @@ export const FeaturesPage: React.FC<FeaturesPageProps> = ({ onGoToAuth, onBack }
                                 whileInView={{ opacity: 1, y: 0 }}
                                 viewport={{ once: true }}
                                 transition={{ duration: 0.5, delay: 0.2 }}
-                                className="bg-slate-50 p-8 rounded-2xl border border-slate-200 group hover:border-primary-200 transition-colors"
+                                className="bg-slate-50 p-5 sm:p-8 rounded-2xl border border-slate-200 group hover:border-primary-200 transition-colors"
                             >
                                 <div className="w-12 h-12 bg-white rounded-xl shadow-sm border border-slate-200 flex items-center justify-center text-primary-600 mb-6 font-bold text-xl">3</div>
-                                <h3 className="font-heading text-2xl font-bold text-slate-900 mb-3">Publish Wizard</h3>
+                                <h3 className="font-heading text-xl sm:text-2xl font-bold text-slate-900 mb-3">Publish Wizard</h3>
                                 <p className="text-slate-600 leading-relaxed">
                                     Launch the Publish Wizard to auto-generate a professional cover, dedication page, and author bio. Download your finished book as EPUB or DOCX for immediate distribution. Bonus: Generate marketing hero images and order audiobook narration—all built-in.
                                 </p>
@@ -112,49 +112,49 @@ export const FeaturesPage: React.FC<FeaturesPageProps> = ({ onGoToAuth, onBack }
                 </section>
 
                 {/* Workflow 2: Autonomous Engine */}
-                <section className="py-24 bg-slate-900 text-slate-300">
-                    <div className="max-w-6xl mx-auto px-4 sm:px-6 grid lg:grid-cols-2 gap-16 items-start">
-                        <div className="space-y-12 order-2 lg:order-1">
+                <section className="py-16 sm:py-24 bg-slate-900 text-slate-300">
+                    <div className="max-w-6xl mx-auto px-4 sm:px-6 grid lg:grid-cols-2 gap-8 sm:gap-16 items-start">
+                        <div className="space-y-8 sm:space-y-12 order-2 lg:order-1">
                             <motion.div 
-                                initial={{ opacity: 0, y: 20 }}
+                                initial={{ opacity: 0, y: 15 }}
                                 whileInView={{ opacity: 1, y: 0 }}
-                                viewport={{ once: true }}
-                                transition={{ duration: 0.5 }}
-                                className="bg-slate-800 p-8 rounded-2xl border border-slate-700 group hover:border-blue-500/30 transition-colors relative overflow-hidden"
+                                viewport={{ once: true, amount: 0.2 }}
+                                transition={{ duration: 0.4 }}
+                                className="bg-slate-800 p-5 sm:p-8 rounded-2xl border border-slate-700 group hover:border-blue-500/30 transition-colors relative overflow-hidden"
                             >
-                                <Layers className="absolute -bottom-4 -right-4 w-32 h-32 text-slate-700/50 group-hover:text-blue-500/10 transition-colors" />
+                                <Layers className="absolute -bottom-4 -right-4 w-24 sm:w-32 h-24 sm:h-32 text-slate-700/50 group-hover:text-blue-500/10 transition-colors" />
                                 <div className="w-12 h-12 bg-slate-900 rounded-xl border border-slate-600 flex items-center justify-center text-blue-400 mb-6 font-bold text-xl relative z-10">1</div>
-                                <h3 className="font-heading text-2xl font-bold text-white mb-3 relative z-10">Swarm Initialization</h3>
+                                <h3 className="font-heading text-xl sm:text-2xl font-bold text-white mb-3 relative z-10">Swarm Initialization</h3>
                                 <p className="text-slate-400 leading-relaxed relative z-10">
                                     You simply write the prompt. Need a 20-chapter book about the history of earth? Or a 5-chapter business guide? The engine assigns multiple AI agents that immediately begin negotiating an outline.
                                 </p>
                             </motion.div>
                             
                             <motion.div 
-                                initial={{ opacity: 0, y: 20 }}
+                                initial={{ opacity: 0, y: 15 }}
                                 whileInView={{ opacity: 1, y: 0 }}
-                                viewport={{ once: true }}
-                                transition={{ duration: 0.5, delay: 0.1 }}
-                                className="bg-slate-800 p-8 rounded-2xl border border-slate-700 group hover:border-blue-500/30 transition-colors relative overflow-hidden"
+                                viewport={{ once: true, amount: 0.2 }}
+                                transition={{ duration: 0.4, delay: 0.1 }}
+                                className="bg-slate-800 p-5 sm:p-8 rounded-2xl border border-slate-700 group hover:border-blue-500/30 transition-colors relative overflow-hidden"
                             >
-                                <Activity className="absolute -bottom-4 -right-4 w-32 h-32 text-slate-700/50 group-hover:text-blue-500/10 transition-colors" />
+                                <Activity className="absolute -bottom-4 -right-4 w-24 sm:w-32 h-24 sm:h-32 text-slate-700/50 group-hover:text-blue-500/10 transition-colors" />
                                 <div className="w-12 h-12 bg-slate-900 rounded-xl border border-slate-600 flex items-center justify-center text-blue-400 mb-6 font-bold text-xl relative z-10">2</div>
-                                <h3 className="font-heading text-2xl font-bold text-white mb-3 relative z-10">Live Execution Log</h3>
+                                <h3 className="font-heading text-xl sm:text-2xl font-bold text-white mb-3 relative z-10">Live Execution Log</h3>
                                 <p className="text-slate-400 leading-relaxed relative z-10">
                                     Sit back and watch the code fly. You gain visibility into a raw developer-style terminal showing precisely what the agents are researching, drafting, correcting, and formatting in real-time.
                                 </p>
                             </motion.div>
 
                             <motion.div 
-                                initial={{ opacity: 0, y: 20 }}
+                                initial={{ opacity: 0, y: 15 }}
                                 whileInView={{ opacity: 1, y: 0 }}
-                                viewport={{ once: true }}
-                                transition={{ duration: 0.5, delay: 0.2 }}
-                                className="bg-slate-800 p-8 rounded-2xl border border-slate-700 group hover:border-blue-500/30 transition-colors relative overflow-hidden"
+                                viewport={{ once: true, amount: 0.2 }}
+                                transition={{ duration: 0.4, delay: 0.2 }}
+                                className="bg-slate-800 p-5 sm:p-8 rounded-2xl border border-slate-700 group hover:border-blue-500/30 transition-colors relative overflow-hidden"
                             >
-                                <Download className="absolute -bottom-4 -right-4 w-32 h-32 text-slate-700/50 group-hover:text-blue-500/10 transition-colors" />
+                                <Download className="absolute -bottom-4 -right-4 w-24 sm:w-32 h-24 sm:h-32 text-slate-700/50 group-hover:text-blue-500/10 transition-colors" />
                                 <div className="w-12 h-12 bg-slate-900 rounded-xl border border-slate-600 flex items-center justify-center text-blue-400 mb-6 font-bold text-xl relative z-10">3</div>
-                                <h3 className="font-heading text-2xl font-bold text-white mb-3 relative z-10">Instant Delivery</h3>
+                                <h3 className="font-heading text-xl sm:text-2xl font-bold text-white mb-3 relative z-10">Instant Delivery</h3>
                                 <p className="text-slate-400 leading-relaxed relative z-10">
                                     As soon as the book is completed, the publisher agent automatically downloads it directly to your device—ready for instant access, with no extra steps required.
                                 </p>
@@ -166,7 +166,7 @@ export const FeaturesPage: React.FC<FeaturesPageProps> = ({ onGoToAuth, onBack }
                             whileInView={{ opacity: 1, x: 0 }}
                             viewport={{ once: true }}
                             transition={{ duration: 0.5 }}
-                            className="sticky top-32 order-1 lg:order-2"
+                            className="lg:sticky lg:top-24 order-1 lg:order-2"
                         >
                             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-900/50 border border-blue-800 text-blue-400 text-sm font-bold tracking-wide mb-6 uppercase">
                                 <Activity size={18} /> Fully Automated

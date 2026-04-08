@@ -440,8 +440,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ user, onBack }) => {
                 <div className="text-xs text-slate-500">Automatically save your work periodically</div>
               </div>
               <button onClick={() => updatePref('autosaveEnabled', !preferences.autosaveEnabled)}
-                className={`w-11 h-6 rounded-full transition-colors relative ${preferences.autosaveEnabled ? 'bg-primary-500' : 'bg-slate-300'}`}>
-                <span className={`block w-5 h-5 bg-white rounded-full shadow absolute top-0.5 transition-transform ${preferences.autosaveEnabled ? 'translate-x-[22px]' : 'translate-x-0.5'}`}/>
+                className={`w-12 h-7 sm:w-11 sm:h-6 rounded-full transition-colors relative flex-shrink-0 ${preferences.autosaveEnabled ? 'bg-primary-500' : 'bg-slate-300'}`}>
+                <span className={`block w-6 h-6 sm:w-5 sm:h-5 bg-white rounded-full shadow absolute top-0.5 transition-transform ${preferences.autosaveEnabled ? 'translate-x-[22px]' : 'translate-x-0.5'}`}/>
               </button>
             </div>
 
@@ -465,8 +465,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ user, onBack }) => {
                 <div className="text-xs text-slate-500">Display word counts in the project dashboard</div>
               </div>
               <button onClick={() => updatePref('showWordCount', !preferences.showWordCount)}
-                className={`w-11 h-6 rounded-full transition-colors relative ${preferences.showWordCount ? 'bg-primary-500' : 'bg-slate-300'}`}>
-                <span className={`block w-5 h-5 bg-white rounded-full shadow absolute top-0.5 transition-transform ${preferences.showWordCount ? 'translate-x-[22px]' : 'translate-x-0.5'}`}/>
+                className={`w-12 h-7 sm:w-11 sm:h-6 rounded-full transition-colors relative flex-shrink-0 ${preferences.showWordCount ? 'bg-primary-500' : 'bg-slate-300'}`}>
+                <span className={`block w-6 h-6 sm:w-5 sm:h-5 bg-white rounded-full shadow absolute top-0.5 transition-transform ${preferences.showWordCount ? 'translate-x-[22px]' : 'translate-x-0.5'}`}/>
               </button>
             </div>
 
@@ -477,8 +477,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ user, onBack }) => {
                 <div className="text-xs text-slate-500">Show a confirmation dialog before deleting projects</div>
               </div>
               <button onClick={() => updatePref('confirmBeforeDelete', !preferences.confirmBeforeDelete)}
-                className={`w-11 h-6 rounded-full transition-colors relative ${preferences.confirmBeforeDelete ? 'bg-primary-500' : 'bg-slate-300'}`}>
-                <span className={`block w-5 h-5 bg-white rounded-full shadow absolute top-0.5 transition-transform ${preferences.confirmBeforeDelete ? 'translate-x-[22px]' : 'translate-x-0.5'}`}/>
+                className={`w-12 h-7 sm:w-11 sm:h-6 rounded-full transition-colors relative flex-shrink-0 ${preferences.confirmBeforeDelete ? 'bg-primary-500' : 'bg-slate-300'}`}>
+                <span className={`block w-6 h-6 sm:w-5 sm:h-5 bg-white rounded-full shadow absolute top-0.5 transition-transform ${preferences.confirmBeforeDelete ? 'translate-x-[22px]' : 'translate-x-0.5'}`}/>
               </button>
             </div>
 
@@ -489,8 +489,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ user, onBack }) => {
                 <div className="text-xs text-slate-500">Use a narrower sidebar in the editor</div>
               </div>
               <button onClick={() => updatePref('compactSidebar', !preferences.compactSidebar)}
-                className={`w-11 h-6 rounded-full transition-colors relative ${preferences.compactSidebar ? 'bg-primary-500' : 'bg-slate-300'}`}>
-                <span className={`block w-5 h-5 bg-white rounded-full shadow absolute top-0.5 transition-transform ${preferences.compactSidebar ? 'translate-x-[22px]' : 'translate-x-0.5'}`}/>
+                className={`w-12 h-7 sm:w-11 sm:h-6 rounded-full transition-colors relative flex-shrink-0 ${preferences.compactSidebar ? 'bg-primary-500' : 'bg-slate-300'}`}>
+                <span className={`block w-6 h-6 sm:w-5 sm:h-5 bg-white rounded-full shadow absolute top-0.5 transition-transform ${preferences.compactSidebar ? 'translate-x-[22px]' : 'translate-x-0.5'}`}/>
               </button>
             </div>
 
