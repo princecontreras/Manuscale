@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from 'react';
-import { signInWithPopup, signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithPopup, signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { auth, googleProvider } from '../services/firebase';
 import { ArrowRight, Chrome } from 'lucide-react';
 import { Button } from './Button';
@@ -64,6 +64,24 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onGoToSignup, onB
             onLogin();
         } catch (error: any) {
             console.error("Google login failed:", error);
+            const errorMessage = getFirebaseErrorMessage(error);
+            showToast(errorMessage, "error");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleForgotPassword = async () => {
+        if (!email) {
+            showToast("Please enter your email address first.", "warning");
+            return;
+        }
+        setLoading(true);
+        try {
+            await sendPasswordResetEmail(auth, email);
+            showToast("Password reset email sent! Check your inbox.", "success");
+        } catch (error: any) {
+            console.error("Password reset failed:", error);
             const errorMessage = getFirebaseErrorMessage(error);
             showToast(errorMessage, "error");
         } finally {
@@ -141,6 +159,16 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onGoToSignup, onB
                             className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 focus:bg-white focus:border-primary-500 rounded-xl outline-none text-sm transition-all" 
                             required 
                         />
+                        <div className="flex justify-end">
+                            <button
+                                type="button"
+                                onClick={handleForgotPassword}
+                                disabled={loading}
+                                className="text-xs text-primary-600 hover:text-primary-700 font-medium transition-colors"
+                            >
+                                Forgot password?
+                            </button>
+                        </div>
                         
                         <Button type="submit" variant="primary" size="lg" className="w-full gap-2" disabled={loading}>
                             {loading ? "Signing in..." : "Sign In"} <ArrowRight size={16} />
