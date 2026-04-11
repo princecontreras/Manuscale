@@ -1,5 +1,5 @@
 import { NextResponse, NextRequest } from 'next/server';
-import { verifyIdToken } from '../../../services/firebaseAdmin';
+import { verifyIdToken, verifySubscription } from '../../../services/firebaseAdmin';
 import {
   analyzeTopicAndConfigure,
   generateProjectOutline,
@@ -31,10 +31,18 @@ export const maxDuration = 120; // seconds (Vercel function timeout)
 
 export async function POST(req: NextRequest) {
   // Verify Firebase ID token — rejects unauthenticated requests before any AI call.
+  let decodedToken;
   try {
-    await verifyIdToken(req.headers.get('Authorization'));
+    decodedToken = await verifyIdToken(req.headers.get('Authorization'));
   } catch (authErr: any) {
     return NextResponse.json({ error: authErr.message || 'Unauthorized' }, { status: authErr.status || 401 });
+  }
+
+  // Verify active subscription — rejects users without a valid subscription.
+  try {
+    await verifySubscription(decodedToken.uid);
+  } catch (subErr: any) {
+    return NextResponse.json({ error: subErr.message || 'Subscription required' }, { status: subErr.status || 403 });
   }
 
   const { action, params } = await req.json();

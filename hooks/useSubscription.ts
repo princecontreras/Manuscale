@@ -9,8 +9,10 @@ export const useSubscription = () => {
   const { user: userProfile } = useUser();
   const [isPortalLoading, setIsPortalLoading] = useState(false);
 
-  // Direct checks instead of callbacks for proper reactivity
-  const isSubscribed = userProfile?.subscriptionStatus === 'active';
+  // Allow both 'active' and 'past_due' (grace period while Stripe retries payment)
+  const isSubscribed = userProfile?.subscriptionStatus === 'active' || userProfile?.subscriptionStatus === 'past_due';
+  const isPastDue = userProfile?.subscriptionStatus === 'past_due';
+  const isCanceling = userProfile?.subscriptionStatus === 'active' && userProfile?.cancelAtPeriodEnd === true;
   const isMonthly = userProfile?.plan?.includes('monthly');
   const isYearly = userProfile?.plan?.includes('yearly');
 
@@ -60,6 +62,8 @@ export const useSubscription = () => {
 
   return {
     isSubscribed,
+    isPastDue,
+    isCanceling,
     isMonthly,
     isYearly,
     isPortalLoading,
@@ -67,5 +71,6 @@ export const useSubscription = () => {
     switchPlan,
     subscriptionStatus: userProfile?.subscriptionStatus,
     currentPeriodEnd: userProfile?.currentPeriodEnd,
+    cancelAtPeriodEnd: userProfile?.cancelAtPeriodEnd,
   };
 };

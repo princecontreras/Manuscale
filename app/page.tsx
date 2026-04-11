@@ -149,7 +149,7 @@ const App: React.FC = () => {
     if (isJustLoggedIn) {
       setIsJustLoggedIn(false);
       
-      if (!userProfile?.subscriptionStatus || userProfile.subscriptionStatus !== 'active') {
+      if (!userProfile?.subscriptionStatus || (userProfile.subscriptionStatus !== 'active' && userProfile.subscriptionStatus !== 'past_due')) {
         // New account or expired subscription → pricing page
         console.log('[Routing] Login: no active subscription → /pricing');
         window.location.href = '/pricing?from=login';
@@ -166,7 +166,7 @@ const App: React.FC = () => {
     // CASE C: Returning user (page reload / re-mount) - restore session
     const savedView = sessionStorage.getItem(SESSION_VIEW_KEY) as ViewState | null;
     const savedProjectId = sessionStorage.getItem(SESSION_PROJECT_KEY);
-    const isSubscribed = userProfile?.subscriptionStatus === 'active';
+    const isSubscribed = userProfile?.subscriptionStatus === 'active' || userProfile?.subscriptionStatus === 'past_due';
     
     // Check for direct=dashboard URL param (from pricing page after subscription)
     if (typeof window !== 'undefined') {

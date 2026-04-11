@@ -153,6 +153,8 @@ export async function POST(req: NextRequest) {
               subscriptionId: subscription.id,
               subscriptionStatus: subscription.status,
               currentPeriodEnd,
+              cancelAtPeriodEnd: subscription.cancel_at_period_end || false,
+              cancelAt: subscription.cancel_at ? new Date(subscription.cancel_at * 1000) : null,
               plan,
               updatedAt: new Date(),
             };
@@ -176,7 +178,12 @@ export async function POST(req: NextRequest) {
             });
           }
         } else {
-          console.warn(`✗ [checkout.session.completed] Could not resolve Firebase user or subscription - UID: ${firebaseUid}, hasSubscription: ${!!session.subscription}`);
+          console.error(`✗ [checkout.session.completed] CRITICAL: Could not resolve Firebase user or subscription - UID: ${firebaseUid}, hasSubscription: ${!!session.subscription}`);
+          // Return 500 so Stripe retries the webhook
+          return NextResponse.json(
+            { error: 'Could not resolve user for checkout session' },
+            { status: 500 }
+          );
         }
         break;
       }
@@ -205,6 +212,8 @@ export async function POST(req: NextRequest) {
               subscriptionId: subscription.id,
               subscriptionStatus: subscription.status,
               currentPeriodEnd,
+              cancelAtPeriodEnd: subscription.cancel_at_period_end || false,
+              cancelAt: subscription.cancel_at ? new Date(subscription.cancel_at * 1000) : null,
               plan,
               updatedAt: new Date(),
             };
@@ -226,7 +235,12 @@ export async function POST(req: NextRequest) {
             });
           }
         } else {
-          console.warn(`✗ [${event.type}] Could not find Firebase user for Stripe subscription`);
+          console.error(`✗ [${event.type}] CRITICAL: Could not find Firebase user for Stripe subscription`);
+          // Return 500 so Stripe retries the webhook for subscription events
+          return NextResponse.json(
+            { error: 'Could not resolve user for subscription event' },
+            { status: 500 }
+          );
         }
         break;
       }
@@ -244,6 +258,8 @@ export async function POST(req: NextRequest) {
             await adminDb.collection('users').doc(firebaseUid).set({
               subscriptionStatus: 'canceled',
               subscriptionId: null,
+              cancelAtPeriodEnd: false,
+              cancelAt: null,
               updatedAt: new Date(),
             }, { merge: true });
             console.log(`✓ [customer.subscription.deleted] SUCCESS — subscription canceled for user ${firebaseUid}`);

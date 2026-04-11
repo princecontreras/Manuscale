@@ -67,6 +67,8 @@ export const useUser = () => {
                 subscriptionId: userData.subscriptionId,
                 subscriptionStatus: userData.subscriptionStatus,
                 currentPeriodEnd: userData.currentPeriodEnd?.toDate?.() || userData.currentPeriodEnd,
+                cancelAtPeriodEnd: userData.cancelAtPeriodEnd ?? false,
+                cancelAt: userData.cancelAt?.toDate?.() || userData.cancelAt,
                 plan: userData.plan,
                 createdAt: userData.createdAt?.toDate?.() || userData.createdAt,
                 updatedAt: userData.updatedAt?.toDate?.() || userData.updatedAt,

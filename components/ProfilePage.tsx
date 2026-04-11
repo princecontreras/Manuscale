@@ -66,7 +66,7 @@ const formatRelativeTime = (timestamp: number): string => {
 
 // Billing Section Component
 const BillingSection: React.FC = () => {
-  const { isSubscribed, subscriptionStatus, currentPeriodEnd, openBillingPortal, isMonthly, isYearly, isPortalLoading, switchPlan } = useSubscription();
+  const { isSubscribed, isPastDue, isCanceling, subscriptionStatus, currentPeriodEnd, cancelAtPeriodEnd, openBillingPortal, isMonthly, isYearly, isPortalLoading, switchPlan } = useSubscription();
   const { showToast } = useToast();
   const [isSwitching, setIsSwitching] = useState(false);
   const [showSwitchConfirm, setShowSwitchConfirm] = useState(false);
@@ -116,21 +116,42 @@ const BillingSection: React.FC = () => {
           <h2 className="text-xl font-bold text-slate-900">Billing & Subscription</h2>
         </div>
         <div className="space-y-4">
-          <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-200">
+          <div className={`${isCanceling ? 'bg-amber-50 border-amber-200' : isPastDue ? 'bg-orange-50 border-orange-200' : 'bg-emerald-50 border-emerald-200'} p-4 rounded-xl border`}>
             <div className="flex items-center gap-2 mb-3">
-              <Check size={18} className="text-emerald-600" />
-              <span className="font-semibold text-emerald-900">Active Subscription</span>
+              <Check size={18} className={isCanceling ? 'text-amber-600' : isPastDue ? 'text-orange-600' : 'text-emerald-600'} />
+              <span className={`font-semibold ${isCanceling ? 'text-amber-900' : isPastDue ? 'text-orange-900' : 'text-emerald-900'}`}>
+                {isCanceling ? 'Subscription Ending' : isPastDue ? 'Payment Issue' : 'Active Subscription'}
+              </span>
             </div>
+            {isCanceling && (
+              <div className="mb-3 p-3 bg-amber-100 rounded-lg">
+                <p className="text-sm text-amber-800 font-medium">
+                  Your subscription will end on {formatDate(currentPeriodEnd)}. You have full access until then.
+                </p>
+                <p className="text-xs text-amber-600 mt-1">
+                  To keep your subscription, click &quot;Manage Subscription&quot; below and reactivate.
+                </p>
+              </div>
+            )}
+            {isPastDue && (
+              <div className="mb-3 p-3 bg-orange-100 rounded-lg">
+                <p className="text-sm text-orange-800 font-medium">
+                  Your last payment failed. Please update your payment method to avoid losing access.
+                </p>
+              </div>
+            )}
             <div className="space-y-2 text-sm text-slate-600">
               <p>
                 <strong>Plan:</strong> Typoscale {isMonthly ? '(Monthly — $19/mo)' : isYearly ? '(Yearly — $169/yr)' : ''}
               </p>
               <p>
                 <strong>Status:</strong>{' '}
-                <span className="text-emerald-600 font-semibold capitalize">{subscriptionStatus}</span>
+                <span className={`font-semibold capitalize ${isCanceling ? 'text-amber-600' : isPastDue ? 'text-orange-600' : 'text-emerald-600'}`}>
+                  {isCanceling ? 'Canceling' : subscriptionStatus}
+                </span>
               </p>
               <p>
-                <strong>Next Billing Date:</strong> {formatDate(currentPeriodEnd)}
+                <strong>{isCanceling ? 'Access Until:' : 'Next Billing Date:'}</strong> {formatDate(currentPeriodEnd)}
               </p>
             </div>
           </div>

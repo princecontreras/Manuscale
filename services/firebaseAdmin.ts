@@ -1,4 +1,5 @@
 import * as admin from 'firebase-admin';
+import { getFirestore } from 'firebase-admin/firestore';
 
 // Initialize the Firebase Admin SDK once (singleton pattern for serverless environments)
 function initAdmin(): admin.app.App {
@@ -167,4 +168,29 @@ export async function verifyIdToken(authHeader: string | null): Promise<admin.au
     
     throw Object.assign(new Error('Token verification failed. Please try signing out and back in.'), { status: 401 });
   }
+}
+
+/**
+ * Verify that a user has an active subscription by checking Firestore.
+ * Returns the user's subscription data. Throws with status 403 if not subscribed.
+ */
+export async function verifySubscription(uid: string): Promise<{ subscriptionStatus: string; plan?: string }> {
+  const app = getAdminApp();
+  const databaseId = process.env.NEXT_PUBLIC_FIREBASE_FIRESTORE_DB_ID || '(default)';
+  const adminDb = getFirestore(app, databaseId);
+
+  const userDoc = await adminDb.collection('users').doc(uid).get();
+  if (!userDoc.exists) {
+    throw Object.assign(new Error('No subscription found. Please subscribe to use this feature.'), { status: 403 });
+  }
+
+  const data = userDoc.data()!;
+  const status = data.subscriptionStatus;
+
+  // Allow 'active' and 'past_due' (grace period while Stripe retries payment)
+  if (status !== 'active' && status !== 'past_due') {
+    throw Object.assign(new Error('Your subscription is not active. Please subscribe to use this feature.'), { status: 403 });
+  }
+
+  return { subscriptionStatus: status, plan: data.plan };
 }

@@ -203,6 +203,8 @@ export interface UserSubscription {
   subscriptionId?: string;
   subscriptionStatus?: 'active' | 'canceled' | 'past_due' | 'unpaid' | 'trialing';
   currentPeriodEnd?: Date;
+  cancelAtPeriodEnd?: boolean;
+  cancelAt?: Date;
   plan?: 'monthly' | 'yearly' | string; // price ID
   updatedAt?: Date;
 }

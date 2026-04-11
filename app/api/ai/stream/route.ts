@@ -1,16 +1,27 @@
 import { NextRequest } from 'next/server';
-import { verifyIdToken } from '../../../../services/firebaseAdmin';
+import { verifyIdToken, verifySubscription } from '../../../../services/firebaseAdmin';
 import { streamChapterContent } from '../../../../services/geminiService';
 
 export const maxDuration = 180; // 3 minutes for chapter generation
 
 export async function POST(req: NextRequest) {
   // Verify Firebase ID token before streaming.
+  let decodedToken;
   try {
-    await verifyIdToken(req.headers.get('Authorization'));
+    decodedToken = await verifyIdToken(req.headers.get('Authorization'));
   } catch (authErr: any) {
     return new Response(JSON.stringify({ error: authErr.message || 'Unauthorized' }), {
       status: authErr.status || 401,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  // Verify active subscription before streaming.
+  try {
+    await verifySubscription(decodedToken.uid);
+  } catch (subErr: any) {
+    return new Response(JSON.stringify({ error: subErr.message || 'Subscription required' }), {
+      status: (subErr as any).status || 403,
       headers: { 'Content-Type': 'application/json' },
     });
   }
