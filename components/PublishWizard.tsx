@@ -354,7 +354,9 @@ ${assets.adCopyExamples ? assets.adCopyExamples.map(ad => `[${ad.platform}]\n${a
                           // Update content in processed outline
                           const newContent = doc.body.innerHTML;
                           item.content = newContent;
-                          item.generatedPages = paginateContent(newContent);
+                          // DEFER: Don't paginate on publish - it's heavy DOM manipulation
+                          // Pagination will happen on demand in the reader/renderer
+                          // item.generatedPages = paginateContent(newContent);
                       }
                   }
               });
@@ -363,8 +365,20 @@ ${assets.adCopyExamples ? assets.adCopyExamples.map(ad => `[${ad.platform}]\n${a
               const uniqueSources = Array.from(new Map(allSources.map(s => [s.uri, s])).values());
 
               if (uniqueSources.length > 0) {
-                  // Use Agentic Bibliography Generation
-                  bibliographyHtml = await generateBibliography(uniqueSources);
+                  // Use Agentic Bibliography Generation with timeout protection
+                  try {
+                      const timeoutPromise = new Promise<string>((_, reject) =>
+                          setTimeout(() => reject(new Error('Bibliography generation timed out')), 30000)
+                      );
+                      bibliographyHtml = await Promise.race([
+                          generateBibliography(uniqueSources),
+                          timeoutPromise
+                      ]);
+                  } catch (bibError: any) {
+                      console.warn('Bibliography generation failed, continuing without bibliography:', bibError.message);
+                      showToast('Bibliography generation took too long and was skipped. Your book will be published without it.', 'warning');
+                      bibliographyHtml = '';
+                  }
               }
           }
 
@@ -392,12 +406,19 @@ ${assets.adCopyExamples ? assets.adCopyExamples.map(ad => `[${ad.platform}]\n${a
               genre: data.blueprint?.genre,
               word_count: data.wordCount
           });
-          logActivity('publish_book', metadata.title || 'Untitled');
+          // Properly await the async logActivity function
+          try {
+              await logActivity('publish_book', metadata.title || 'Untitled');
+          } catch (activityErr) {
+              console.warn('Failed to log activity:', activityErr);
+              // Don't fail the publish for activity logging
+          }
 
           setStep(5); 
       } catch (e) {
-          console.error(e);
-          showToast("Publishing failed. Please try again.", 'error');
+          const errorMsg = e instanceof Error ? e.message : 'Unknown error';
+          console.error('Publish failed:', errorMsg, e);
+          showToast(`Publishing failed: ${errorMsg}. Please try again.`, 'error');
       } finally {
           setLoading(false);
       }
