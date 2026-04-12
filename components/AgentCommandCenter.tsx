@@ -12,7 +12,7 @@ import {
     Layout, Image as ImageIcon, BookOpen, FileText,
     Brain, PenTool, CheckCircle2, Crown, Printer,
     ArrowLeft, Send, Terminal, Grid, Layers, Eye, List,
-    BrainCircuit, HelpCircle, Bot, X
+    BrainCircuit, HelpCircle, Bot, X, Sparkles
 } from 'lucide-react';
 
 import { Database, MessageSquare } from 'lucide-react';
@@ -52,7 +52,7 @@ const AGENTS: {id: AgentRole, name: string, icon: any, color: string, ring: stri
     { id: 'user', name: 'User Input', icon: MessageSquare, color: 'text-slate-500', ring: 'ring-slate-500', desc: 'Human Intervention' },
 ];
 
-const AgentOnboarding: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+const AgentOnboarding: React.FC<{ onClose: () => void; isDemoMode?: boolean }> = ({ onClose, isDemoMode }) => {
     const [slide, setSlide] = useState(0);
 
     const SLIDES = [
@@ -80,14 +80,25 @@ const AgentOnboarding: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             bg: "bg-purple-500/10",
             border: "border-purple-500/20"
         },
-        {
-            title: "Phase 3: Publication",
-            body: "The Publisher (Emerald) compiles the final manuscript. It generates professional EPUB and DOCX files and automatically downloads them straight to your device.",
-            icon: Printer,
-            color: "text-emerald-400",
-            bg: "bg-emerald-500/10",
-            border: "border-emerald-500/20"
-        },
+        ...(isDemoMode ? [
+            {
+                title: "Demo Mode",
+                body: "This is a demonstration of how the Autonomous Publishing Engine works. To generate the final EPUB, DOCX, and marketing assets files, sign up for a paid account.",
+                icon: Sparkles,
+                color: "text-blue-400",
+                bg: "bg-blue-500/10",
+                border: "border-blue-500/20"
+            }
+        ] : [
+            {
+                title: "Phase 3: Publication",
+                body: "The Publisher (Emerald) compiles the final manuscript. It generates professional EPUB and DOCX files and automatically downloads them straight to your device.",
+                icon: Printer,
+                color: "text-emerald-400",
+                bg: "bg-emerald-500/10",
+                border: "border-emerald-500/20"
+            }
+        ]),
         {
             title: "Your Command Role",
             body: "You are the Human-in-the-Loop. Define the mission objective clearly. Monitor the budget. If agents get stuck, use the 'Inject Command' box to steer them.",
@@ -197,6 +208,7 @@ const AgentCommandCenter: React.FC<AgentCommandCenterProps> = ({ onBack, isDemoM
     const stopRef = useRef(false);
     const logsEndRef = useRef<HTMLDivElement>(null);
     const streamEndRef = useRef<HTMLDivElement>(null);
+    const contentContainerRef = useRef<HTMLDivElement>(null);
     const lastStateHash = useRef<string>("");
     const stagnationCount = useRef(0);
 
@@ -247,12 +259,16 @@ const AgentCommandCenter: React.FC<AgentCommandCenterProps> = ({ onBack, isDemoM
         logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [logs, agentReasoning]);
 
-    // Auto-scroll stream if active
+    // Auto-scroll stream if active - follows live content generation
     useEffect(() => {
         if (activeTab === 'stream') {
             streamEndRef.current?.scrollIntoView({ behavior: "smooth" });
+            // Also scroll the main container to keep focus on the live content
+            if (contentContainerRef.current) {
+                contentContainerRef.current.scrollTop = contentContainerRef.current.scrollHeight;
+            }
         }
-    }, [project.outline, activeTab]);
+    }, [project.outline, activeTab, liveStreamContent]);
 
     const handleCloseOnboarding = async () => {
         await saveToDB(STORAGE_KEYS.ONBOARDING_SEEN, true);
@@ -584,7 +600,14 @@ CRITICAL: Do NOT duplicate the title. Only include the title text once.`;
                     }
                     break;
                 case 'publisher':
-                    if (newState.id && newState.title) {
+                    // DEMO MODE: Publisher is not available in demo - show demo limitation
+                    if (isDemoMode) {
+                        addLog('publisher', 'Publishing is disabled in demo mode.', 'error');
+                        showToast('Publishing is only available after you sign up. The demo shows how the engine works, not the final product.', 'info');
+                        output = "Demo limitation: Publishing not available. Sign up to use the Publisher agent.";
+                        setIsRunning(false); // Stop the engine
+                        stopRef.current = true;
+                    } else if (newState.id && newState.title) {
                         if (!newState.marketing && newState.blueprint) {
                             addLog('publisher', 'Generating Marketing Assets...', 'action');
                             try {
@@ -840,7 +863,7 @@ CRITICAL: Do NOT duplicate the title. Only include the title text once.`;
 
     return (
         <div className="flex flex-col lg:grid lg:grid-cols-12 h-screen w-full font-sans overflow-hidden bg-slate-900">
-            {showOnboarding && <AgentOnboarding onClose={handleCloseOnboarding} />}
+            {showOnboarding && <AgentOnboarding onClose={handleCloseOnboarding} isDemoMode={isDemoMode} />}
 
             {/* LEFT: Controls & Monitor (3 Cols) */}
             <div className="lg:col-span-3 min-h-[40vh] lg:min-h-0 lg:h-full lg:border-r border-slate-800 bg-slate-950 text-slate-300 flex flex-col z-20 shadow-xl overflow-y-auto lg:overflow-hidden">
@@ -959,7 +982,7 @@ CRITICAL: Do NOT duplicate the title. Only include the title text once.`;
                 </div>
                 
                 {/* Scrollable Container */}
-                <div className="flex-1 overflow-y-auto bg-slate-900 p-6 relative custom-scrollbar">
+                <div ref={contentContainerRef} className="flex-1 overflow-y-auto bg-slate-900 p-6 relative custom-scrollbar">
                     
                     {/* Error Pause Overlay */}
                     {errorPauseReason && (
