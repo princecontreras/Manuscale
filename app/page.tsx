@@ -20,6 +20,8 @@ import { Bot, Layout, Image as ImageIcon, ArrowLeft, Loader2 } from 'lucide-reac
 import { ToastProvider } from '../components/ToastContext';
 import { useAuth } from '../components/AuthProvider';
 import { useUser } from '../hooks/useUser';
+import { useDemo } from '../components/DemoContext';
+import DemoBanner from '../components/DemoBanner';
 import { signOut } from 'firebase/auth';
 import { auth } from '../services/firebase';
 
@@ -34,7 +36,11 @@ enum ViewState {
   AGENT_COMMAND = 'AGENT_COMMAND',
   AUTH = 'AUTH',
   FEATURES = 'FEATURES',
-  PROFILE = 'PROFILE'
+  PROFILE = 'PROFILE',
+  DEMO_DASHBOARD = 'DEMO_DASHBOARD',
+  DEMO_WIZARD = 'DEMO_WIZARD',
+  DEMO_EDITOR = 'DEMO_EDITOR',
+  DEMO_AGENT = 'DEMO_AGENT',
 }
 
 const EditorSkeleton = () => (
@@ -132,8 +138,9 @@ const App: React.FC = () => {
         sessionStorage.removeItem(SESSION_VIEW_KEY);
         sessionStorage.removeItem(SESSION_PROJECT_KEY);
       }
-      // Only set LANDING if we're not already on a public page (AUTH, FEATURES)
-      if (viewState !== ViewState.AUTH && viewState !== ViewState.FEATURES) {
+      // Only set LANDING if we're not already on a public page (AUTH, FEATURES) or in demo mode
+      const isDemoView = viewState === ViewState.DEMO_DASHBOARD || viewState === ViewState.DEMO_WIZARD || viewState === ViewState.DEMO_EDITOR || viewState === ViewState.DEMO_AGENT;
+      if (viewState !== ViewState.AUTH && viewState !== ViewState.FEATURES && !isDemoView) {
         setViewState(ViewState.LANDING);
       }
       setIsAppReady(true);
@@ -242,6 +249,81 @@ const App: React.FC = () => {
     // Always update the stored user ID for future comparisons
     sessionStorage.setItem('_current_user_session_id', currentUserId);
   }, [user?.uid]);
+
+  // --- DEMO MODE ---
+  const { isDemoMode, startDemo, exitDemo, canUseWorkshop, canUseAgent, markWorkshopUsed, markAgentUsed, hasUsedDemoBefore } = useDemo();
+
+  const handleStartDemo = () => {
+    if (user) {
+      setViewState(ViewState.DASHBOARD);
+      return;
+    }
+    if (hasUsedDemoBefore && !isDemoMode) {
+      // Check if they can start again (startDemo returns false if already used)
+      const started = startDemo();
+      if (!started) {
+        // Already used demo before — cannot restart
+        return;
+      }
+    } else if (!isDemoMode) {
+      startDemo();
+    }
+    setViewState(ViewState.DEMO_DASHBOARD);
+    setIsAppReady(true);
+    trackEvent('demo_start');
+  };
+
+  const handleExitDemo = () => {
+    exitDemo();
+    setEbookData(null);
+    setCrystallizedBlueprint(undefined);
+    setCrystallizedMemory(undefined);
+    setViewState(ViewState.LANDING);
+    trackEvent('demo_exit');
+  };
+
+  const handleDemoCreateNew = (mode?: string) => {
+    if (mode === 'agent') {
+      if (!canUseAgent) {
+        return;
+      }
+      markAgentUsed();
+    } else {
+      if (!canUseWorkshop) {
+        return;
+      }
+      markWorkshopUsed();
+    }
+    setEbookData(null);
+    setInitialWizardTopic('');
+    setCrystallizedBlueprint(undefined);
+    setCrystallizedMemory(undefined);
+    if (mode === 'agent') {
+      setViewState(ViewState.DEMO_AGENT);
+    } else {
+      setViewState(ViewState.DEMO_WIZARD);
+    }
+    trackEvent('demo_create_new', { mode });
+  };
+
+  const handleDemoWizardComplete = (data: EbookData) => {
+    // In demo mode, store in memory only (no saveProject / no Firestore)
+    setEbookData({ ...data, isDemoMode: true });
+    setViewState(ViewState.DEMO_EDITOR);
+    trackEvent('demo_project_created');
+  };
+
+  const handleDemoBackToDashboard = () => {
+    setViewState(ViewState.DEMO_DASHBOARD);
+    setEbookData(null);
+    setReturnToWizard(false);
+  };
+
+  const handleDemoGoToAuth = (isLogin = false) => {
+    exitDemo();
+    setAuthIsLogin(isLogin);
+    setViewState(ViewState.AUTH);
+  };
 
   const handleEnterApp = async (topic?: string) => {
       proceedToApp(topic);
@@ -431,6 +513,7 @@ const App: React.FC = () => {
               setViewState(ViewState.AUTH);
             }} 
             onGoToFeatures={() => setViewState(ViewState.FEATURES)}
+            onTryDemo={handleStartDemo}
             isLoggedIn={false} 
           />
         );
@@ -573,6 +656,88 @@ const App: React.FC = () => {
                   onBack={() => setViewState(ViewState.DASHBOARD)}
               />
           );
+
+      // ═══════════════════════════════════════
+      // DEMO MODE VIEW STATES
+      // ═══════════════════════════════════════
+      case ViewState.DEMO_DASHBOARD:
+        return (
+          <>
+            <DemoBanner onSignUp={() => handleDemoGoToAuth(false)} onExitDemo={handleExitDemo} />
+            <div className="pt-10">
+              <Dashboard 
+                onOpenProject={() => {}} 
+                onCreateNew={handleDemoCreateNew}
+                onOpenRemixEngine={() => {}}
+                onOpenResearchStudio={() => {}}
+                onOpenAgent={() => handleDemoCreateNew('agent')}
+                onViewProfile={() => {}}
+                onExit={handleExitDemo}
+                isDemoMode={true}
+              />
+            </div>
+          </>
+        );
+
+      case ViewState.DEMO_WIZARD:
+        return (
+          <>
+            <DemoBanner onSignUp={() => handleDemoGoToAuth(false)} onExitDemo={handleExitDemo} />
+            <div className="min-h-screen bg-slate-50 pt-10">
+               <div className="p-4">
+                  <button onClick={handleDemoBackToDashboard} className="flex items-center gap-2 text-slate-500 hover:text-slate-900 font-bold mb-4">
+                    <ArrowLeft size={16}/> Back to Library
+                  </button>
+               </div>
+               <InputForm 
+                  onGenerate={handleDemoWizardComplete} 
+                  initialTopic={initialWizardTopic}
+                  initialBlueprint={crystallizedBlueprint}
+                  initialMemory={crystallizedMemory}
+                  isDemoMode={true}
+               />
+            </div>
+          </>
+        );
+
+      case ViewState.DEMO_EDITOR:
+        if (!ebookData) return <div className="p-10 text-center">No project loaded.</div>;
+        return (
+          <>
+            <DemoBanner onSignUp={() => handleDemoGoToAuth(false)} onExitDemo={handleExitDemo} />
+            <div className="min-h-screen bg-[#f8f9fa] pt-10">
+               <div className="fixed top-14 left-4 z-50">
+                  <button onClick={handleDemoBackToDashboard} className="p-2 bg-white rounded-full shadow-md text-slate-400 hover:text-slate-900 border border-slate-200 transition-colors" title="Back to Dashboard">
+                    <Layout size={20}/>
+                  </button>
+               </div>
+               <EbookDisplay 
+                 data={ebookData} 
+                 onUpdate={handleUpdateEbook}
+                 onSetCover={handleSetCoverImage}
+                 onBackToDashboard={handleDemoBackToDashboard}
+                 onOpenCoverStudio={() => {}}
+                 onOpenCoAuthor={() => {}}
+                 initialWizardState={false}
+                 onResetWizardState={() => {}}
+                 isDemoMode={true}
+               />
+            </div>
+          </>
+        );
+
+      case ViewState.DEMO_AGENT:
+        return (
+          <>
+            <DemoBanner onSignUp={() => handleDemoGoToAuth(false)} onExitDemo={handleExitDemo} />
+            <div className="pt-10">
+              <AgentCommandCenter 
+                  onBack={handleDemoBackToDashboard}
+                  isDemoMode={true}
+              />
+            </div>
+          </>
+        );
 
       case ViewState.DASHBOARD:
       default:

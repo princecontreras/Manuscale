@@ -7,11 +7,14 @@ import {
 } from 'lucide-react';
 import { Logo } from './Logo';
 import { Button } from './Button';
+import { useDemo } from './DemoContext';
+import { useToast } from './ToastContext';
 
 interface LandingPageProps {
     onEnterApp: (topic?: string) => void;
     onGoToAuth: (isLogin?: boolean) => void;
     onGoToFeatures: () => void;
+    onTryDemo: () => void;
     isLoggedIn?: boolean;
 }
 
@@ -39,9 +42,20 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     onEnterApp,
     onGoToAuth,
     onGoToFeatures,
+    onTryDemo,
     isLoggedIn
 }) => {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const { hasUsedDemoBefore, isDemoMode } = useDemo();
+    const { showToast } = useToast();
+
+    const handleTryDemo = () => {
+        if (hasUsedDemoBefore && !isDemoMode) {
+            showToast('You\'ve already used your free demo. Sign up to continue!', 'info');
+            return;
+        }
+        onTryDemo();
+    };
 
     return (
         <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-primary-100 selection:text-primary-900">
@@ -65,6 +79,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                             </Button>
                         ) : (
                             <div className="flex gap-3">
+                                <Button variant="ghost" size="sm" onClick={handleTryDemo}>Try Demo</Button>
                                 <Button variant="ghost" size="sm" onClick={() => onGoToAuth(true)}>Log in</Button>
                                 <Button variant="primary" size="sm" onClick={() => onGoToAuth(false)} className="shadow-sm">Sign up</Button>
                             </div>
@@ -97,6 +112,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                             <div className="flex flex-col gap-4">
                                 <Button variant="ghost" onClick={() => { setMobileMenuOpen(false); onGoToAuth(true); }}>Log in</Button>
                                 <Button variant="primary" onClick={() => { setMobileMenuOpen(false); onGoToAuth(false); }}>Sign up</Button>
+                                <Button variant="ghost" onClick={() => { setMobileMenuOpen(false); handleTryDemo(); }} className="border border-slate-300">Try Free Demo</Button>
                             </div>
                         )}
                     </nav>
@@ -136,14 +152,24 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                                     Open Dashboard <ArrowRight size={20} className="ml-2 group-hover:translate-x-1 transition-transform" />
                                 </Button>
                             ) : (
-                                <Button 
-                                    size="lg" 
-                                    variant="primary" 
-                                    onClick={() => onGoToAuth(false)} 
-                                    className="w-full sm:w-auto text-lg px-8 py-4 h-auto rounded-full shadow-lg shadow-primary-600/20"
-                                >
-                                    Start Writing Now <ArrowRight size={20} className="ml-2 group-hover:translate-x-1 transition-transform" />
-                                </Button>
+                                <>
+                                    <Button 
+                                        size="lg" 
+                                        variant="primary" 
+                                        onClick={() => onGoToAuth(false)} 
+                                        className="w-full sm:w-auto text-lg px-8 py-4 h-auto rounded-full shadow-lg shadow-primary-600/20"
+                                    >
+                                        Start Writing Now <ArrowRight size={20} className="ml-2 group-hover:translate-x-1 transition-transform" />
+                                    </Button>
+                                    <Button 
+                                        size="lg" 
+                                        variant="ghost" 
+                                        onClick={handleTryDemo} 
+                                        className="w-full sm:w-auto text-lg px-8 py-4 h-auto rounded-full border border-slate-300 hover:border-primary-300 hover:bg-primary-50"
+                                    >
+                                        Try Free Demo
+                                    </Button>
+                                </>
                             )}
                         </div>
                     </motion.div>

@@ -1,7 +1,7 @@
 
 "use client";
 import React, { useEffect, useState, useRef } from 'react';
-import { Plus, BookOpen, Trash2, FileText, ChevronRight, PenTool, AlertTriangle, CheckCircle2, Search, Share2, X, Download, Copy, Check, Image as ImageIcon, Twitter, Linkedin, Sparkles, Wand2, Bot, GraduationCap, ChevronDown, ChevronUp, Loader2, Upload, Settings, ShoppingCart, List, FileUp, Package, Database, RefreshCw, Zap, Clock } from 'lucide-react';
+import { Plus, BookOpen, Trash2, FileText, ChevronRight, PenTool, AlertTriangle, CheckCircle2, Search, Share2, X, Download, Copy, Check, Image as ImageIcon, Twitter, Linkedin, Sparkles, Wand2, Bot, GraduationCap, ChevronDown, ChevronUp, Loader2, Upload, Settings, ShoppingCart, List, FileUp, Package, Database, RefreshCw, Zap, Clock, Lock } from 'lucide-react';
 import { Logo } from './Logo';
 import { Button } from './Button';
 import { useToast } from './ToastContext';
@@ -11,6 +11,7 @@ import { ConfirmationModal } from './ConfirmationModal';
 import { ProjectMetadata, EbookData } from '../types';
 import { deleteProject, syncProjectIndex, loadProject, saveProject, logActivity } from '../services/storage';
 import { ProfileDropdown } from './ProfileDropdown';
+import { useDemo } from './DemoContext';
 
 export interface DashboardProps {
   onOpenProject: (id: string) => void;
@@ -20,6 +21,7 @@ export interface DashboardProps {
   onOpenAgent: () => void;
   onExit: () => void;
   onViewProfile: () => void;
+  isDemoMode?: boolean;
 }
 
 type SortOption = 'newest' | 'oldest' | 'az' | 'za';
@@ -174,9 +176,10 @@ const ApiSettingsModal: React.FC<{ onClose: () => void, onExit: () => void }> = 
     );
 };
 
-const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, onCreateNew, onOpenRemixEngine, onOpenResearchStudio, onOpenAgent, onExit, onViewProfile }) => {
+const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, onCreateNew, onOpenRemixEngine, onOpenResearchStudio, onOpenAgent, onExit, onViewProfile, isDemoMode }) => {
     const { user } = useAuth();
     const { showToast } = useToast();
+    const { canUseWorkshop, canUseAgent } = useDemo();
     const [projects, setProjects] = useState<ProjectMetadata[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -197,6 +200,14 @@ const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, onCreateNew, onOpe
         let isMounted = true;
         
         const initDashboard = async () => {
+            // In demo mode, skip loading projects from storage
+            if (isDemoMode) {
+                if (isMounted) {
+                    setProjects([]);
+                    setIsLoading(false);
+                }
+                return;
+            }
             // CRITICAL SECURITY: Verify user is authenticated before loading projects
             if (!user) {
                 console.warn('[Security] Attempted to load dashboard projects without authentication');
@@ -327,12 +338,12 @@ const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, onCreateNew, onOpe
                                 Projects
                             </span>
                             <ProfileDropdown onViewProfile={onViewProfile} onLogout={() => setShowLogoutConfirm(true)} />
-                            <button 
+                            {!isDemoMode && <button 
                                 onClick={() => setShowSettings(true)}
                                 className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 transition-all"
                             >
                                 <Settings size={14}/> Settings
-                            </button>
+                            </button>}
 
                             <button 
                                 onClick={() => setShowGuide(!showGuide)}
@@ -439,11 +450,17 @@ const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, onCreateNew, onOpe
                     {showStudioOptions && (
                         <div className="grid grid-cols-1 gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
                             <button 
-                                onClick={() => onCreateNew('WIZARD')}
-                                className="flex items-center gap-4 p-4 bg-white border border-slate-200 rounded-2xl hover:border-slate-900 hover:bg-slate-50 transition-all text-left group"
+                                onClick={() => {
+                                    if (isDemoMode && !canUseWorkshop) {
+                                        showToast('You\'ve already used your free Workshop demo. Sign up for full access!', 'info');
+                                        return;
+                                    }
+                                    onCreateNew('WIZARD');
+                                }}
+                                className={`flex items-center gap-4 p-4 bg-white border border-slate-200 rounded-2xl transition-all text-left group ${isDemoMode && !canUseWorkshop ? 'opacity-60 cursor-not-allowed' : 'hover:border-slate-900 hover:bg-slate-50'}`}
                             >
                                 <div className="w-10 h-10 bg-slate-100 text-slate-600 rounded-xl flex items-center justify-center group-hover:bg-slate-900 group-hover:text-white transition-colors">
-                                    <Sparkles size={20} />
+                                    {isDemoMode && !canUseWorkshop ? <Lock size={20} /> : <Sparkles size={20} />}
                                 </div>
                                 <div>
                                     <div className="text-sm font-bold text-slate-900">Topic or Idea</div>
@@ -451,23 +468,33 @@ const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, onCreateNew, onOpe
                                 </div>
                             </button>
                             <button 
-                                onClick={() => setShowKnowledgeOptions(!showKnowledgeOptions)}
-                                className={`flex items-center gap-4 p-4 bg-white border rounded-2xl transition-all text-left group ${showKnowledgeOptions ? 'border-slate-900 bg-slate-50' : 'border-slate-200 hover:border-slate-900 hover:bg-slate-50'}`}
+                                onClick={() => {
+                                    if (isDemoMode) {
+                                        showToast('The Knowledge Engine requires a subscription. Sign up for full access!', 'info');
+                                        return;
+                                    }
+                                    setShowKnowledgeOptions(!showKnowledgeOptions);
+                                }}
+                                className={`flex items-center gap-4 p-4 bg-white border rounded-2xl transition-all text-left group ${isDemoMode ? 'border-slate-200 opacity-60 cursor-not-allowed' : showKnowledgeOptions ? 'border-slate-900 bg-slate-50' : 'border-slate-200 hover:border-slate-900 hover:bg-slate-50'}`}
                             >
-                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${showKnowledgeOptions ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 group-hover:bg-slate-900 group-hover:text-white'}`}>
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${showKnowledgeOptions && !isDemoMode ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 group-hover:bg-slate-900 group-hover:text-white'}`}>
                                     <Database size={20} />
                                 </div>
                                 <div className="flex-grow">
                                     <div className="text-sm font-bold text-slate-900">The Knowledge Engine</div>
-                                    <div className="text-xs text-slate-500">Grounded Studio: Build from proprietary data or existing content.</div>
+                                    <div className="text-xs text-slate-500">{isDemoMode ? 'Requires subscription' : 'Grounded Studio: Build from proprietary data or existing content.'}</div>
                                 </div>
-                                {showKnowledgeOptions ? <ChevronUp size={16} className="text-slate-400"/> : <ChevronDown size={16} className="text-slate-400"/>}
+                                {!isDemoMode && (showKnowledgeOptions ? <ChevronUp size={16} className="text-slate-400"/> : <ChevronDown size={16} className="text-slate-400"/>)}
                             </button>
 
                             {showKnowledgeOptions && (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
                                     <button 
                                         onClick={() => {
+                                            if (isDemoMode) {
+                                                showToast('Research Studio requires a subscription. Sign up for full access!', 'info');
+                                                return;
+                                            }
                                             console.log('[Dashboard] Clicked Research Studio button', { hasCallback: !!onOpenResearchStudio });
                                             onOpenResearchStudio();
                                         }}
@@ -483,6 +510,10 @@ const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, onCreateNew, onOpe
                                     </button>
                                     <button 
                                         onClick={() => {
+                                            if (isDemoMode) {
+                                                showToast('Remix Engine requires a subscription. Sign up for full access!', 'info');
+                                                return;
+                                            }
                                             console.log('[Dashboard] Clicked Remix Engine button', { hasCallback: !!onOpenRemixEngine });
                                             onOpenRemixEngine();
                                         }}
@@ -504,10 +535,14 @@ const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, onCreateNew, onOpe
 
                 <button
                     onClick={() => {
+                        if (isDemoMode && !canUseAgent) {
+                            showToast('You\'ve already used your free Agent demo. Sign up for full access!', 'info');
+                            return;
+                        }
                         console.log('[Dashboard] Clicked Agent button', { hasCallback: !!onOpenAgent });
                         onOpenAgent();
                     }}
-                    className="group relative overflow-hidden bg-primary-600 p-8 rounded-3xl border border-primary-700 shadow-xl text-left hover:border-white/50 hover:shadow-primary-900/20 transition-all h-full"
+                    className={`group relative overflow-hidden bg-primary-600 p-8 rounded-3xl border border-primary-700 shadow-xl text-left transition-all h-full ${isDemoMode && !canUseAgent ? 'opacity-60 cursor-not-allowed' : 'hover:border-white/50 hover:shadow-primary-900/20'}`}
                 >
                     <div className="absolute top-0 right-0 p-8 opacity-5 text-white group-hover:opacity-10 transition-opacity">
                         <Bot size={120} />

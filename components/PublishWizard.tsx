@@ -18,6 +18,7 @@ interface PublishWizardProps {
   onClose: () => void;
   onOpenCoverStudio: (returnToWizard: boolean) => void;
   initialStep?: number;
+  isDemoMode?: boolean;
 }
 
 // Helper to extract numeric price from potential AI chatter
@@ -70,7 +71,7 @@ const createWavBlob = (base64PCM: string): Blob => {
     return new Blob([header, bytes], { type: 'audio/wav' });
 };
 
-const PublishWizard: React.FC<PublishWizardProps> = ({ data, onUpdateData, onClose, onOpenCoverStudio, initialStep }) => {
+const PublishWizard: React.FC<PublishWizardProps> = ({ data, onUpdateData, onClose, onOpenCoverStudio, initialStep, isDemoMode }) => {
   const { showToast } = useToast();
   const [step, setStep] = useState(initialStep || 1);
   const [loading, setLoading] = useState(false);
@@ -89,7 +90,9 @@ const PublishWizard: React.FC<PublishWizardProps> = ({ data, onUpdateData, onClo
   const [frontMatter, setFrontMatter] = useState<FrontMatter>(data.frontMatter || {});
   const [backMatter, setBackMatter] = useState<BackMatter>(data.backMatter || { includeBibliography: true });
 
-  const [assets, setAssets] = useState<MarketingAssets | null>(data.marketing || null);
+  const [assets, setAssets] = useState<MarketingAssets | null>(
+    data.marketing || null
+  );
   const [mockup, setMockup] = useState<string | null>(data.marketing?.mockupImage || null);
   
   const [finalDownloadableData, setFinalDownloadableData] = useState<EbookData | null>(null);
@@ -319,6 +322,10 @@ ${assets.adCopyExamples ? assets.adCopyExamples.map(ad => `[${ad.platform}]\n${a
   };
 
   const performPublish = async () => {
+      if (isDemoMode) {
+          showToast('Downloads are not available in demo mode. Sign up to download your book!', 'info');
+          return;
+      }
       setLoading(true);
       try {
           let processedOutline = data.outline ? [...data.outline] : [];
@@ -934,6 +941,18 @@ ${assets.adCopyExamples ? assets.adCopyExamples.map(ad => `[${ad.platform}]\n${a
                             Next Step <ArrowRight size={16}/>
                         </button>
                     ) : (
+                        isDemoMode ? (
+                            <div className="flex flex-col items-end gap-2">
+                                <button 
+                                    disabled
+                                    className="bg-slate-400 text-white px-8 py-3 rounded-xl font-bold text-sm shadow-lg flex items-center gap-2 opacity-70 cursor-not-allowed"
+                                >
+                                    <CheckCircle2 size={16}/>
+                                    Publish Now
+                                </button>
+                                <p className="text-xs text-slate-500">Sign up for a subscription to publish your book</p>
+                            </div>
+                        ) : (
                         <button 
                             onClick={performPublish} 
                             disabled={loading}
@@ -942,6 +961,7 @@ ${assets.adCopyExamples ? assets.adCopyExamples.map(ad => `[${ad.platform}]\n${a
                             {loading ? <Loader2 size={16} className="animate-spin"/> : <CheckCircle2 size={16}/>}
                             {loading ? 'Publishing...' : 'Publish Now'}
                         </button>
+                        )
                     )}
                 </div>
             </div>

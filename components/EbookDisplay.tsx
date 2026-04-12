@@ -36,6 +36,7 @@ interface EbookDisplayProps {
 
   initialWizardState?: boolean;
   onResetWizardState?: () => void;
+  isDemoMode?: boolean;
 }
 
 const FICTION_DESIGN: DesignSettings = {
@@ -130,8 +131,9 @@ const SelectionMenu: React.FC<{
 const ChapterEditor = React.memo<{ 
     html: string, 
     onChange: (html: string) => void, 
-    design: DesignSettings 
-}>(({ html, onChange, design }) => {
+    design: DesignSettings,
+    isDemoMode?: boolean 
+}>(({ html, onChange, design, isDemoMode }) => {
     const editorRef = useRef<HTMLDivElement>(null);
     const isTyping = useRef(false);
     const [menuPos, setMenuPos] = useState<{ top: number, left: number } | null>(null);
@@ -698,7 +700,7 @@ const DevicePreview: React.FC<{ html: string, device: 'mobile' | 'tablet' | 'des
 };
 
 export const EbookDisplay: React.FC<EbookDisplayProps> = ({ 
-    data, onUpdate, onSetCover, onOpenCoverStudio, onOpenCoAuthor, onBackToDashboard, initialWizardState, onResetWizardState 
+    data, onUpdate, onSetCover, onOpenCoverStudio, onOpenCoAuthor, onBackToDashboard, initialWizardState, onResetWizardState, isDemoMode 
 }) => {
     const { showToast } = useToast();
     const [activeChapterId, setActiveChapterId] = useState<string | null>(null);
@@ -997,7 +999,7 @@ export const EbookDisplay: React.FC<EbookDisplayProps> = ({
                             {isProofreading ? <Loader2 size={14} className="animate-spin" /> : <CheckCheck size={14} />}
                             <span className="hidden sm:inline">{isProofreading ? `Proofreading... ${proofreadProgress}%` : 'Proofread'}</span>
                         </Button>
-                        <Button variant="ghost" size="sm" onClick={() => onOpenCoAuthor()} className="gap-1 sm:gap-2 flex-shrink-0 hidden md:flex"><Database size={14}/> <span className="hidden lg:inline">Vault</span></Button>
+                        <Button variant="ghost" size="sm" onClick={() => { if (!isDemoMode) onOpenCoAuthor(); }} disabled={isDemoMode} className="gap-1 sm:gap-2 flex-shrink-0 hidden md:flex"><Database size={14}/> <span className="hidden lg:inline">Vault</span></Button>
                         <Button variant="ghost" size="sm" onClick={() => setActiveTool(activeTool === 'formatting' ? null : 'formatting')} className="p-2 flex-shrink-0"><Palette size={20}/></Button>
                         <Button variant="primary" size="sm" onClick={() => setActiveTool('publish')} className="flex-shrink-0">Publish</Button>
                     </div>
@@ -1022,6 +1024,7 @@ export const EbookDisplay: React.FC<EbookDisplayProps> = ({
                                                 html={item.content} 
                                                 onChange={(newHtml) => handleFullContentChange(item.id, newHtml)}
                                                 design={manuscript.design}
+                                                isDemoMode={isDemoMode}
                                             />
                                         )
                                     ) : (
@@ -1058,6 +1061,7 @@ export const EbookDisplay: React.FC<EbookDisplayProps> = ({
                     }}
                     onOpenCoverStudio={onOpenCoverStudio}
                     initialStep={initialWizardState ? 3 : 1}
+                    isDemoMode={isDemoMode}
                 />
             )}
 

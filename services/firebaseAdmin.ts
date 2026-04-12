@@ -75,9 +75,18 @@ function initAdmin(): admin.app.App {
       }
 
       // Validate the private key exists and is properly formatted
-      const privateKey = (serviceAccount as any).private_key || (serviceAccount as any).privateKey;
+      const privateKeyField = 'private_key' in (serviceAccount as any) ? 'private_key' : 'privateKey';
+      let privateKey: string = (serviceAccount as any)[privateKeyField];
       if (!privateKey) {
         throw new Error('No private_key found in service account');
+      }
+
+      // Fix literal "\n" (backslash + n) that should be actual newlines in the PEM key.
+      // This happens when the JSON in .env has \\n which JSON.parse decodes to literal \n.
+      if (!privateKey.includes('\n') && privateKey.includes('\\n')) {
+        privateKey = privateKey.replace(/\\n/g, '\n');
+        (serviceAccount as any)[privateKeyField] = privateKey;
+        console.log('[Firebase] Fixed literal \\n in private key to actual newlines');
       }
 
       if (!privateKey.includes('BEGIN PRIVATE KEY') || !privateKey.includes('END PRIVATE KEY')) {

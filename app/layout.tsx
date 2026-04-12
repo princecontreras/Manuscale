@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Space_Grotesk } from 'next/font/google';
 import { AuthProvider } from '../components/AuthProvider';
+import { DemoProvider } from '../components/DemoContext';
 import "./globals.css";
 
 const inter = Inter({
@@ -35,7 +36,9 @@ export default function RootLayout({
       </head>
       <body className="font-sans">
         <AuthProvider>
-          {children}
+          <DemoProvider>
+            {children}
+          </DemoProvider>
         </AuthProvider>
       </body>
     </html>

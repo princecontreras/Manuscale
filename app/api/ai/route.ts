@@ -29,23 +29,72 @@ import {
 // Increase body size limit for image payloads
 export const maxDuration = 120; // seconds (Vercel function timeout)
 
+// --- Demo rate limiting ---
+const DEMO_RATE_LIMIT = new Map<string, { count: number; resetAt: number }>();
+const DEMO_MAX_REQUESTS_PER_IP = 50; // generous per-session limit
+const DEMO_RATE_WINDOW = 24 * 60 * 60 * 1000;
+const MAX_RATE_ENTRIES = 10000;
+
+// Actions blocked in demo mode (Knowledge Engine)
+const DEMO_BLOCKED_ACTIONS = new Set([
+  'performResearch',
+  'analyzeRemixContent',
+  'synthesizeBlueprintFromMemory',
+]);
+
+function getClientIp(req: NextRequest): string {
+  return req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    || req.headers.get('x-real-ip')
+    || 'unknown';
+}
+
+function checkDemoRateLimit(ip: string): boolean {
+  const now = Date.now();
+  // Evict expired entries if map grows too large
+  if (DEMO_RATE_LIMIT.size > MAX_RATE_ENTRIES) {
+    for (const [key, val] of DEMO_RATE_LIMIT) {
+      if (now > val.resetAt) DEMO_RATE_LIMIT.delete(key);
+    }
+  }
+  const entry = DEMO_RATE_LIMIT.get(ip);
+  if (!entry || now > entry.resetAt) {
+    DEMO_RATE_LIMIT.set(ip, { count: 1, resetAt: now + DEMO_RATE_WINDOW });
+    return true;
+  }
+  if (entry.count >= DEMO_MAX_REQUESTS_PER_IP) return false;
+  entry.count++;
+  return true;
+}
+
 export async function POST(req: NextRequest) {
-  // Verify Firebase ID token — rejects unauthenticated requests before any AI call.
-  let decodedToken;
-  try {
-    decodedToken = await verifyIdToken(req.headers.get('Authorization'));
-  } catch (authErr: any) {
-    return NextResponse.json({ error: authErr.message || 'Unauthorized' }, { status: authErr.status || 401 });
-  }
+  const body = await req.json();
+  const { action, params, demoMode } = body;
 
-  // Verify active subscription — rejects users without a valid subscription.
-  try {
-    await verifySubscription(decodedToken.uid);
-  } catch (subErr: any) {
-    return NextResponse.json({ error: subErr.message || 'Subscription required' }, { status: subErr.status || 403 });
-  }
+  if (demoMode) {
+    // Demo mode: rate limit by IP, block Knowledge Engine actions
+    const ip = getClientIp(req);
+    if (!checkDemoRateLimit(ip)) {
+      return NextResponse.json({ error: 'Demo limit reached. Sign up for full access!' }, { status: 429 });
+    }
+    if (DEMO_BLOCKED_ACTIONS.has(action)) {
+      return NextResponse.json({ error: 'This feature requires a subscription.' }, { status: 403 });
+    }
+  } else {
+    // Verify Firebase ID token — rejects unauthenticated requests before any AI call.
+    let decodedToken;
+    try {
+      decodedToken = await verifyIdToken(req.headers.get('Authorization'));
+    } catch (authErr: any) {
+      return NextResponse.json({ error: authErr.message || 'Unauthorized' }, { status: authErr.status || 401 });
+    }
 
-  const { action, params } = await req.json();
+    // Verify active subscription — rejects users without a valid subscription.
+    try {
+      await verifySubscription(decodedToken.uid);
+    } catch (subErr: any) {
+      return NextResponse.json({ error: subErr.message || 'Subscription required' }, { status: subErr.status || 403 });
+    }
+  }
   const signal = req.signal; // Use the request's abort signal
 
   try {

@@ -24,6 +24,7 @@ export interface EbookData {
   priceTiers?: { ebook: string; print: string };
   publishDate?: number;
   audiobookGenerated?: boolean;
+  isDemoMode?: boolean;
 }
 
 export interface Annotation {
@@ -277,4 +278,11 @@ export interface DirectorDirective {
     targetAgent: AgentRole;
     instruction: string;
     reasoning: string;
+}
+
+// --- DEMO MODE TYPES ---
+export interface DemoSession {
+  workshopUsed: boolean;
+  agentUsed: boolean;
+  createdAt: number;
 }

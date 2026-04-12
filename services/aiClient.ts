@@ -42,6 +42,10 @@ export const getRelevantContext = async (
 
 // --- Core API call helper ---
 
+// Module-level demo mode flag — set by DemoContext
+let _isDemoMode = false;
+export function setDemoMode(value: boolean) { _isDemoMode = value; }
+
 async function getIdToken(): Promise<string | null> {
   try {
     const user = getAuth().currentUser;
@@ -58,14 +62,14 @@ async function callAI(action: string, params: Record<string, any>, signal?: Abor
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     if (signal?.aborted) throw new Error('Request cancelled.');
 
-    const token = await getIdToken();
+    const token = _isDemoMode ? null : await getIdToken();
     const res = await fetch('/api/ai', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: JSON.stringify({ action, params }),
+      body: JSON.stringify({ action, params, ...(_isDemoMode ? { demoMode: true } : {}) }),
       signal,
     });
 
@@ -138,7 +142,7 @@ export const streamChapterContent = async (
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     if (signal?.aborted) throw new Error('Request cancelled.');
 
-    const token = await getIdToken();
+    const token = _isDemoMode ? null : await getIdToken();
     const res = await fetch('/api/ai/stream', {
       method: 'POST',
       headers: {
@@ -157,6 +161,7 @@ export const streamChapterContent = async (
           globalSummary,
           additionalContext,
         },
+        ...(_isDemoMode ? { demoMode: true } : {}),
       }),
       signal,
     });

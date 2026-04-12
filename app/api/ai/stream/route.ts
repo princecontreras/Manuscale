@@ -4,29 +4,68 @@ import { streamChapterContent } from '../../../../services/geminiService';
 
 export const maxDuration = 180; // 3 minutes for chapter generation
 
+// --- Demo rate limiting (shared in-memory) ---
+const DEMO_STREAM_RATE_LIMIT = new Map<string, { count: number; resetAt: number }>();
+const DEMO_MAX_STREAMS_PER_IP = 20;
+const DEMO_RATE_WINDOW = 24 * 60 * 60 * 1000;
+
+function getClientIp(req: NextRequest): string {
+  return req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    || req.headers.get('x-real-ip')
+    || 'unknown';
+}
+
+function checkDemoStreamRateLimit(ip: string): boolean {
+  const now = Date.now();
+  if (DEMO_STREAM_RATE_LIMIT.size > 10000) {
+    for (const [key, val] of DEMO_STREAM_RATE_LIMIT) {
+      if (now > val.resetAt) DEMO_STREAM_RATE_LIMIT.delete(key);
+    }
+  }
+  const entry = DEMO_STREAM_RATE_LIMIT.get(ip);
+  if (!entry || now > entry.resetAt) {
+    DEMO_STREAM_RATE_LIMIT.set(ip, { count: 1, resetAt: now + DEMO_RATE_WINDOW });
+    return true;
+  }
+  if (entry.count >= DEMO_MAX_STREAMS_PER_IP) return false;
+  entry.count++;
+  return true;
+}
+
 export async function POST(req: NextRequest) {
-  // Verify Firebase ID token before streaming.
-  let decodedToken;
-  try {
-    decodedToken = await verifyIdToken(req.headers.get('Authorization'));
-  } catch (authErr: any) {
-    return new Response(JSON.stringify({ error: authErr.message || 'Unauthorized' }), {
-      status: authErr.status || 401,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
+  const body = await req.json();
+  const { params, demoMode } = body;
 
-  // Verify active subscription before streaming.
-  try {
-    await verifySubscription(decodedToken.uid);
-  } catch (subErr: any) {
-    return new Response(JSON.stringify({ error: subErr.message || 'Subscription required' }), {
-      status: (subErr as any).status || 403,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
+  if (demoMode) {
+    const ip = getClientIp(req);
+    if (!checkDemoStreamRateLimit(ip)) {
+      return new Response(JSON.stringify({ error: 'Demo limit reached. Sign up for full access!' }), {
+        status: 429,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+  } else {
+    // Verify Firebase ID token before streaming.
+    let decodedToken;
+    try {
+      decodedToken = await verifyIdToken(req.headers.get('Authorization'));
+    } catch (authErr: any) {
+      return new Response(JSON.stringify({ error: authErr.message || 'Unauthorized' }), {
+        status: authErr.status || 401,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
 
-  const { params } = await req.json();
+    // Verify active subscription before streaming.
+    try {
+      await verifySubscription(decodedToken.uid);
+    } catch (subErr: any) {
+      return new Response(JSON.stringify({ error: subErr.message || 'Subscription required' }), {
+        status: (subErr as any).status || 403,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+  }
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({

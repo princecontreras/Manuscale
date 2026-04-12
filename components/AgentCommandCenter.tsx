@@ -33,6 +33,7 @@ const DOMPURIFY_CONFIG = {
 
 interface AgentCommandCenterProps {
     onBack: () => void;
+    isDemoMode?: boolean;
 }
 
 const SESSION_KEY = 'manuscript_agent_session';
@@ -149,7 +150,7 @@ const AgentOnboarding: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     );
 };
 
-const AgentCommandCenter: React.FC<AgentCommandCenterProps> = ({ onBack }) => {
+const AgentCommandCenter: React.FC<AgentCommandCenterProps> = ({ onBack, isDemoMode }) => {
     const { showToast } = useToast();
     // --- STATE: CORE ---
     const [project, setProject] = useState<Partial<EbookData>>({});
@@ -914,7 +915,7 @@ CRITICAL: Do NOT duplicate the title. Only include the title text once.`;
                             ) : (
                                 <button onClick={handlePause} className="col-span-2 bg-amber-500 hover:bg-amber-400 text-slate-900 py-3 rounded-lg font-bold text-sm flex items-center justify-center gap-2"><Pause size={16}/> Pause</button>
                             )}
-                            <button onClick={() => runStep()} disabled={isRunning && !isPaused} className="bg-slate-800 hover:bg-slate-700 text-white py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-2 disabled:opacity-50"><StepForward size={14}/> Step</button>
+                            <button onClick={() => runStep()} disabled={(isRunning && !isPaused)} className="bg-slate-800 hover:bg-slate-700 text-white py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-2 disabled:opacity-50"><StepForward size={14}/> Step</button>
                             <button onClick={handleReset} className="bg-slate-800 hover:bg-red-900/50 text-slate-400 py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-2"><Zap size={14}/> Reset</button>
                         </div>
                     </div>

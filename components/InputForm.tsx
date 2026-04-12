@@ -34,6 +34,7 @@ export interface InputFormProps {
   initialTopic?: string;
   initialBlueprint?: ProjectBlueprint;
   initialMemory?: ProjectMemory;
+  isDemoMode?: boolean;
 }
 
 const ANALYSIS_STEPS = [
@@ -502,7 +503,7 @@ const OutlineItemCard: React.FC<{
     );
 };
 
-export const InputForm: React.FC<InputFormProps> = ({ onGenerate, initialTopic, initialBlueprint, initialMemory }) => {
+export const InputForm: React.FC<InputFormProps> = ({ onGenerate, initialTopic, initialBlueprint, initialMemory, isDemoMode }) => {
   const { showToast } = useToast();
   const [step, setStep] = useState<'IDEA' | 'BLUEPRINT' | 'OUTLINE'>(initialBlueprint ? 'BLUEPRINT' : 'IDEA');
   const [topic, setTopic] = useState(initialTopic || '');
@@ -1075,10 +1076,12 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, initialTopic, 
       setIsFinalizing(true);
       const newId = crypto.randomUUID();
       let memory = projectMemory;
-      if ((!memory.research || memory.research.length === 0)) {
+      if (!isDemoMode && (!memory.research || memory.research.length === 0)) {
           memory = await generateAuthorityBible(blueprint, outline, initialMemory);
       }
-      saveLocal(getProjectMemoryKey(newId), memory);
+      if (!isDemoMode) {
+          saveLocal(getProjectMemoryKey(newId), memory);
+      }
       const finalData = constructEbookData(newId, memory, outline);
       if (finalData && isMounted.current) {
           setIsFinalizing(false);
