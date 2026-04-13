@@ -9,6 +9,8 @@ import { Logo } from './Logo';
 import { Button } from './Button';
 import { useDemo } from './DemoContext';
 import { useToast } from './ToastContext';
+import { BookCarousel } from './BookCarousel';
+import { sampleBooks } from '@/data/sampleBooks';
 
 interface LandingPageProps {
     onEnterApp: (topic?: string) => void;
@@ -128,13 +130,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.6 }}
                     >
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary-50 border border-primary-100 text-xs font-semibold text-primary-700 mb-8 tracking-wide uppercase">
-                            <Sparkles size={14} /> The Publishing Engine for Creators
-                        </div>
+                
                         <h1 className="font-heading text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black text-slate-900 leading-[1.05] tracking-tight mb-8">
                             Write entire books <br className="hidden sm:block"/>
                             <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary-600 to-indigo-600">
-                                in hours, not months.
+                                in minutes, not months.
                             </span>
                         </h1>
                         <p className="text-base sm:text-xl md:text-2xl text-slate-600 max-w-3xl mx-auto leading-relaxed mb-8 sm:mb-12">
@@ -366,7 +366,39 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                     </div>
                 </section>
 
-                {/* 4. FAQS SECTION */}
+                {/* 4. CAROUSEL SECTION - See What's Possible */}
+                <section className="py-16 sm:py-24 md:py-32 bg-gradient-to-b from-slate-50 to-white">
+                    <div className="max-w-6xl mx-auto px-4 sm:px-6">
+                        <motion.div 
+                            initial={{ opacity: 0, y: 15 }}
+                            whileInView={{ opacity: 1, y: 0 }}
+                            viewport={{ once: true, amount: 0.3 }}
+                            transition={{ duration: 0.5 }}
+                            className="text-center mb-12 sm:mb-16"
+                        >
+                            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-xs font-semibold text-indigo-700 mb-6 uppercase tracking-wide">
+                                <Sparkles size={14} /> Success Stories
+                            </div>
+                            <h2 className="font-heading text-3xl sm:text-4xl md:text-5xl font-bold text-slate-900 mb-6">
+                                See What's Possible
+                            </h2>
+                            <p className="text-lg sm:text-xl text-slate-600 max-w-2xl mx-auto">
+                                Explore beautiful books created by Typoscale users. Each one started as an idea, and became a published work in minutes.
+                            </p>
+                        </motion.div>
+                        
+                        <motion.div 
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            whileInView={{ opacity: 1, scale: 1 }}
+                            viewport={{ once: true, amount: 0.2 }}
+                            transition={{ duration: 0.6 }}
+                        >
+                            <BookCarousel books={sampleBooks} autoRotate={true} autoRotateInterval={6000} />
+                        </motion.div>
+                    </div>
+                </section>
+
+                {/* 5. FAQS SECTION */}
                 <section className="py-16 sm:py-24 md:py-32 bg-white border-t border-slate-100">
                     <div className="max-w-3xl mx-auto px-4 sm:px-6">
                         <div className="text-center mb-10 sm:mb-16">
@@ -399,7 +431,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
             </main>
 
-            {/* 5. FOOTER */}
+            {/* 6. FOOTER */}
             <footer className="bg-slate-900 text-slate-300 py-10 sm:py-16 border-t border-slate-800">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6">
                     <div className="flex flex-col md:flex-row justify-between items-center gap-4 sm:gap-6">
