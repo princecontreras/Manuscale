@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { CheckCircle2, ArrowRight, AlertCircle } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import { Button } from '@/components/Button';
@@ -92,12 +91,6 @@ export default function SubscriptionConfirmationPage() {
     return (
       <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 font-sans">
         <div className="w-full max-w-sm text-center">
-          <div className="mb-16">
-            <Link href="/">
-              <Logo />
-            </Link>
-          </div>
-
           <div className="flex justify-center mb-8">
             <div className="w-12 h-12 border-4 border-slate-200 border-t-primary-600 rounded-full animate-spin"></div>
           </div>
@@ -119,12 +112,6 @@ export default function SubscriptionConfirmationPage() {
     return (
       <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 font-sans">
         <div className="w-full max-w-sm text-center">
-          <div className="mb-16">
-            <Link href="/">
-              <Logo />
-            </Link>
-          </div>
-
           <div className="flex justify-center mb-8">
             <AlertCircle size={48} className="text-orange-500" strokeWidth={1.5} />
           </div>
