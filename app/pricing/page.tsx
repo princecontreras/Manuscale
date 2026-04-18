@@ -6,7 +6,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { useUser } from '../../hooks/useUser';
 import { useSubscription } from '../../hooks/useSubscription';
 import { Button } from '../../components/Button';
-import { Logo } from '../../components/Logo';
+import PageHeader from '../../components/PageHeader';
 import { ArrowRight, Check, X } from 'lucide-react';
 
 const PricingPage: React.FC = () => {
@@ -102,43 +102,15 @@ const PricingPage: React.FC = () => {
 
   return (
     <div className="bg-white text-slate-900 font-sans min-h-screen overflow-x-hidden">
-      {/* STICKY HEADER */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between">
-          <Link href="/">
-            <Logo className="scale-75 sm:scale-90" />
-          </Link>
-          <nav className="hidden md:flex items-center gap-8">
-            <Link href="/#features" className="text-slate-600 hover:text-slate-900 font-medium transition-colors">
-              Features
-            </Link>
-            <Link href="/pricing" className="text-primary-600 font-bold">
-              Pricing
-            </Link>
-            <div className="h-4 w-px bg-slate-200"></div>
-            <Button 
-              variant="ghost"
-              size="sm"
-              onClick={() => window.location.href = '/'}
-            >
-              Back to Home
-            </Button>
-          </nav>
-        </div>
-      </header>
+      <PageHeader 
+        title="Pricing"
+        description="Choose the perfect plan to power your writing."
+        breadcrumbs={[{ label: 'Pricing', href: '/pricing' }]}
+      />
 
       {/* HERO SECTION */}
-      <section className="pt-32 sm:pt-40 pb-16 px-4 sm:px-6">
+      <section className="pt-12 sm:pt-16 pb-16 px-4 sm:px-6">
         <div className="max-w-4xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-50 border border-slate-200 text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-8">
-            <span>Simple Pricing</span>
-          </div>
-          
-          <h1 className="font-heading text-4xl sm:text-5xl md:text-6xl text-slate-900 leading-[1.1] tracking-tight mb-6">
-            Scale your writing,<br/>
-            <span className="text-primary-600">not your costs.</span>
-          </h1>
-          
           <p className="text-lg sm:text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed mb-2">
             One simple plan. All the tools you need to write, publish, and grow.
           </p>
@@ -333,7 +305,7 @@ const PricingPage: React.FC = () => {
             </h3>
             <Button
               onClick={() => subscription.openBillingPortal()}
-              variant="action"
+              variant="secondary"
             >
               Open Billing Portal
             </Button>

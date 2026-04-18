@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { CheckCircle2, ArrowRight, AlertCircle } from 'lucide-react';
-import { Logo } from '@/components/Logo';
+import PageHeader from '@/components/PageHeader';
 import { Button } from '@/components/Button';
 import { useAuth } from '@/components/AuthProvider';
 import { useSubscription } from '@/hooks/useSubscription';
@@ -161,44 +161,45 @@ export default function SubscriptionConfirmationPage() {
 
   // Success - subscription verified
   return (
-    <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 font-sans">
-      <div className="w-full max-w-sm text-center">
-        {/* Logo */}
-        <div className="mb-16">
-          <Link href="/">
-            <Logo />
-          </Link>
+    <div className="min-h-screen bg-white">
+      <PageHeader 
+        title="Subscription Confirmed"
+        description="Your subscription is active and ready to use."
+        breadcrumbs={[{ label: 'Subscription Confirmation', href: '/subscription-confirmation' }]}
+      />
+      
+      <div className="flex flex-col items-center justify-center p-6 font-sans py-12">
+        <div className="w-full max-w-sm text-center">
+          {/* Success Icon */}
+          <div className="flex justify-center mb-8">
+            <CheckCircle2 size={48} className="text-primary-600" strokeWidth={1.5} />
+          </div>
+
+          {/* Headline */}
+          <h1 className="font-heading text-2xl font-bold text-slate-900 tracking-tight mb-3">
+            You're all set.
+          </h1>
+          <p className="text-slate-500 text-sm leading-relaxed mb-10">
+            Welcome to <span className="font-bold text-primary-600">Typoscale</span> ({planLabel}).
+            Your subscription is active and all features are unlocked.
+          </p>
+
+          {/* CTA */}
+          <Button
+            onClick={() => router.push('/?direct=dashboard')}
+            variant="primary"
+            size="lg"
+            className="w-full gap-2"
+          >
+            Go to Dashboard
+            <ArrowRight size={18} />
+          </Button>
+
+          {/* Footer */}
+          <p className="text-xs text-slate-400 mt-8">
+            Manage billing anytime from your profile.
+          </p>
         </div>
-
-        {/* Success Icon */}
-        <div className="flex justify-center mb-8">
-          <CheckCircle2 size={48} className="text-primary-600" strokeWidth={1.5} />
-        </div>
-
-        {/* Headline */}
-        <h1 className="font-heading text-2xl font-bold text-slate-900 tracking-tight mb-3">
-          You're all set.
-        </h1>
-        <p className="text-slate-500 text-sm leading-relaxed mb-10">
-          Welcome to <span className="font-bold text-primary-600">Typoscale</span> ({planLabel}).
-          Your subscription is active and all features are unlocked.
-        </p>
-
-        {/* CTA */}
-        <Button
-          onClick={() => router.push('/?direct=dashboard')}
-          variant="primary"
-          size="lg"
-          className="w-full gap-2"
-        >
-          Go to Dashboard
-          <ArrowRight size={18} />
-        </Button>
-
-        {/* Footer */}
-        <p className="text-xs text-slate-400 mt-8">
-          Manage billing anytime from your profile.
-        </p>
       </div>
     </div>
   );

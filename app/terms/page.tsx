@@ -1,15 +1,15 @@
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import PageHeader from '@/components/PageHeader';
 
 export default function TermsOfService() {
   return (
     <div className="min-h-screen bg-slate-50 selection:bg-primary-100 selection:text-primary-900">
-      <div className="max-w-3xl mx-auto px-6 py-20">
-        <Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-slate-400 hover:text-slate-900 transition-colors mb-12 uppercase tracking-widest">
-          <ArrowLeft size={16} />
-          Back to Home
-        </Link>
-        
+      <PageHeader 
+        title="Terms of Service"
+        breadcrumbs={[{ label: 'Terms', href: '/terms' }]}
+      />
+
+      <div className="max-w-3xl mx-auto px-6 py-12">
         <div className="bg-white rounded-[40px] p-12 shadow-sm border border-slate-100">
           <h1 className="text-4xl font-serif font-bold text-slate-900 mb-4 tracking-tight">Terms of Service</h1>
           <p className="text-slate-500 mb-12">Last updated: March 12, 2026</p>

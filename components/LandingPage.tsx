@@ -74,6 +74,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                         <Link href="/pricing" className="text-sm font-bold text-primary-600 hover:text-primary-700 transition-colors">
                             Pricing
                         </Link>
+                        <Link href="/contact" className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">
+                            Contact
+                        </Link>
                         <div className="h-4 w-px bg-slate-300"></div>
                         {isLoggedIn ? (
                             <Button variant="primary" size="sm" onClick={() => onEnterApp()} className="shadow-sm">
@@ -106,6 +109,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                         </button>
                         <Link href="/pricing" onClick={() => setMobileMenuOpen(false)} className="text-left font-semibold text-slate-800">
                             Pricing
+                        </Link>
+                        <Link href="/contact" onClick={() => setMobileMenuOpen(false)} className="text-left font-semibold text-slate-800">
+                            Contact
                         </Link>
                         <hr className="border-slate-200" />
                         {isLoggedIn ? (
