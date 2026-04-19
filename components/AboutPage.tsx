@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, memo, useMemo } from 'react';
+import Image from 'next/image';
 import { motion } from 'motion/react';
 import { ArrowRight, Sparkles, Users, Target, Heart } from 'lucide-react';
 import Link from 'next/link';
@@ -85,33 +86,63 @@ BrandStorySection.displayName = 'BrandStorySection';
 
 // Memoized Our Story Section
 const OurStorySection = memo(() => (
-    <section className="py-16 sm:py-24">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6">
+    <section className="bg-white py-16 sm:py-24 border-y border-slate-100">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6">
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, amount: 0.3 }}
                 transition={{ duration: 0.5 }}
             >
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-50 text-primary-700 text-sm font-bold tracking-wide mb-6 uppercase">
-                    <Heart size={18} /> Meet the Founder
-                </div>
-                <h2 className="font-heading text-3xl sm:text-4xl font-bold text-slate-900 mb-8 tracking-tight leading-[1.2]">
-                    Prince Contreras
-                </h2>
-                
-                <div className="space-y-6 text-lg text-slate-600 leading-relaxed">
-                    <p>
-                        I'm the founder and creator of Typoscale. My vision is to help people create ebooks easily—whether for selling or personal use.
-                    </p>
+                <div className="grid lg:grid-cols-2 gap-12 items-center">
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        whileInView={{ opacity: 1, scale: 1 }}
+                        viewport={{ once: true }}
+                        transition={{ duration: 0.5 }}
+                    >
+                        <div className="w-full aspect-square rounded-3xl overflow-hidden border-2 border-slate-200 shadow-xl">
+                            <Image
+                                src="/covers/IMG_8626.png"
+                                alt="Prince Contreras - Founder of Typoscale"
+                                width={600}
+                                height={600}
+                                className="w-full h-full object-cover"
+                                priority
+                            />
+                        </div>
+                    </motion.div>
 
-                    <p>
-                        Before Typoscale, I founded several businesses including <strong>Bead Lighting</strong>, an online store for home lighting products, and <strong>Digitale Internationale</strong>, a digital product store on Gumroad. Through those experiences, I realized creators needed a simple way to turn their knowledge into published books without the complexity and cost of traditional publishing.
-                    </p>
+                    <motion.div
+                        initial={{ opacity: 0, x: 20 }}
+                        whileInView={{ opacity: 1, x: 0 }}
+                        viewport={{ once: true }}
+                        transition={{ duration: 0.5 }}
+                        className="space-y-6"
+                    >
+                        <div>
+                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-50 text-primary-700 text-sm font-bold tracking-wide mb-4 uppercase">
+                                <Heart size={18} /> Meet the Founder
+                            </div>
+                            <h2 className="font-heading text-3xl sm:text-4xl font-bold text-slate-900 mb-2 tracking-tight leading-[1.2]">
+                                Prince Contreras
+                            </h2>
+                        </div>
+                        
+                        <div className="space-y-4 text-lg text-slate-600 leading-relaxed">
+                            <p>
+                                I'm the founder and creator of Typoscale. My vision is to help people create ebooks easily—whether for selling or personal use.
+                            </p>
 
-                    <p>
-                        That's why I built Typoscale—to democratize book creation for everyone.
-                    </p>
+                            <p>
+                                Before Typoscale, I founded several businesses including <strong>Bead Lighting</strong>, an online store for home lighting products, and <strong>Digitale Internationale</strong>, a digital product store on Gumroad. Through those experiences, I realized creators needed a simple way to turn their knowledge into published books without the complexity and cost of traditional publishing.
+                            </p>
+
+                            <p>
+                                That's why I built Typoscale—to democratize book creation for everyone.
+                            </p>
+                        </div>
+                    </motion.div>
                 </div>
             </motion.div>
         </div>
