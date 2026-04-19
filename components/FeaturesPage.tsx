@@ -1,27 +1,73 @@
 "use client";
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { BrainCircuit, Activity, CheckCircle2, ArrowRight, Layers, FileText, Download } from 'lucide-react';
 import { Button } from './Button';
+import { NavigationHeader } from './NavigationHeader';
+import { AuthPage } from './AuthPage';
+import { ToastProvider } from './ToastContext';
+import { useAuth } from './AuthProvider';
 
 interface FeaturesPageProps {
-    onGoToAuth: (isLogin?: boolean) => void;
-    onBack: () => void;
+    onEnterApp?: () => void;
+    onBack?: () => void;
+    onGoToAuth?: (isLogin?: boolean) => void;
+    onLogin?: () => void;
+    onSignup?: () => void;
+    onTryDemo?: () => void;
+    onShowFeatures?: () => void;
+    onGoToAbout?: () => void;
+    onGoToPricing?: () => void;
+    onGoToContact?: () => void;
 }
 
-export const FeaturesPage: React.FC<FeaturesPageProps> = ({ onGoToAuth, onBack }) => {
+export const FeaturesPage: React.FC<FeaturesPageProps> = ({ onEnterApp, onBack, onGoToAuth, onLogin, onSignup, onTryDemo, onShowFeatures, onGoToAbout, onGoToPricing, onGoToContact }) => {
+    const [showAuth, setShowAuth] = useState(false);
+    const [authIsLogin, setAuthIsLogin] = useState(true);
+    const { user: firebaseUser } = useAuth();
+
+    const handleLocalLogin = () => {
+        setAuthIsLogin(true);
+        setShowAuth(true);
+        if (onLogin) onLogin();
+    };
+
+    const handleLocalSignup = () => {
+        setAuthIsLogin(false);
+        setShowAuth(true);
+        if (onSignup) onSignup();
+    };
+
+    const handleAuthSuccess = () => {
+        setShowAuth(false);
+    };
+
+    if (showAuth && !firebaseUser) {
+        return (
+            <ToastProvider>
+                <AuthPage 
+                    defaultIsLogin={authIsLogin}
+                    onLogin={handleAuthSuccess}
+                    onBack={() => setShowAuth(false)}
+                />
+            </ToastProvider>
+        );
+    }
+
     return (
-        <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-primary-100 selection:text-primary-900">
-            
-            {/* Minimalist Header */}
-            <header className="fixed top-0 left-0 right-0 z-50 bg-slate-50/80 backdrop-blur-md border-b border-slate-200/50 h-16 sm:h-20 flex items-center px-4 sm:px-8">
-                <button 
-                    onClick={onBack}
-                    className="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors"
-                >
-                    <ArrowRight className="rotate-180" size={16} /> Back to Home
-                </button>
-            </header>
+        <ToastProvider>
+            <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-primary-100 selection:text-primary-900">
+            <NavigationHeader 
+                onEnterApp={onEnterApp} 
+                showFeatures={true}
+                onLogin={handleLocalLogin}
+                onSignup={handleLocalSignup}
+                onTryDemo={onTryDemo}
+                onShowFeatures={onShowFeatures}
+                onGoToAbout={onGoToAbout}
+                onGoToPricing={onGoToPricing}
+                onGoToContact={onGoToContact}
+            />
 
             <main className="pt-24 sm:pt-32 pb-16 sm:pb-24">
                 <section className="px-4 sm:px-6 max-w-5xl mx-auto text-center mb-16 sm:mb-24">
@@ -60,7 +106,7 @@ export const FeaturesPage: React.FC<FeaturesPageProps> = ({ onGoToAuth, onBack }
                                 Perfect for thought-leaders, domain experts, and authors who want tight editorial control over their work while leveraging AI to skip the burnout.
                             </p>
                             
-                            <Button variant="primary" size="lg" onClick={() => onGoToAuth(false)} className="rounded-full shadow-lg shadow-primary-600/20 px-8 py-4">
+                            <Button variant="primary" size="lg" onClick={handleLocalSignup} className="rounded-full shadow-lg shadow-primary-600/20 px-8 py-4">
                                 Start a Manuscript Workshop
                             </Button>
                         </motion.div>
@@ -178,13 +224,14 @@ export const FeaturesPage: React.FC<FeaturesPageProps> = ({ onGoToAuth, onBack }
                                 For those who just want to hit run and get a book out. Command the multi-agent system and watch it generate content autonomously right in front of your eyes.
                             </p>
                             
-                            <Button variant="ghost" size="lg" onClick={() => onGoToAuth(false)} className="rounded-full text-blue-400 hover:bg-blue-900/20 hover:text-blue-300 px-8 py-4 border border-blue-600">
+                            <Button variant="ghost" size="lg" onClick={handleLocalSignup} className="rounded-full text-blue-400 hover:bg-blue-900/20 hover:text-blue-300 px-8 py-4 border border-blue-600">
                                 Experience the Engine
                             </Button>
                         </motion.div>
                     </div>
                 </section>
             </main>
-        </div>
+            </div>
+        </ToastProvider>
     );
 };

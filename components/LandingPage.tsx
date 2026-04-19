@@ -69,13 +69,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                     
                     <nav className="hidden md:flex items-center gap-8">
                         <button onClick={onGoToFeatures} className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">
-                            Features & Workflows
+                            Features
                         </button>
+                        <Link href="/about" className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">
+                            About
+                        </Link>
                         <Link href="/pricing" className="text-sm font-bold text-primary-600 hover:text-primary-700 transition-colors">
                             Pricing
                         </Link>
                         <Link href="/contact" className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">
-                            Contact
+                            Contact Us
                         </Link>
                         <div className="h-4 w-px bg-slate-300"></div>
                         {isLoggedIn ? (
@@ -105,13 +108,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                     </button>
                     <nav className="flex flex-col gap-6 text-lg">
                         <button onClick={() => { setMobileMenuOpen(false); onGoToFeatures(); }} className="text-left font-semibold text-slate-800">
-                            Features & Workflows
+                            Features
                         </button>
+                        <Link href="/about" onClick={() => setMobileMenuOpen(false)} className="text-left font-semibold text-slate-800">
+                            About
+                        </Link>
                         <Link href="/pricing" onClick={() => setMobileMenuOpen(false)} className="text-left font-semibold text-slate-800">
                             Pricing
                         </Link>
                         <Link href="/contact" onClick={() => setMobileMenuOpen(false)} className="text-left font-semibold text-slate-800">
-                            Contact
+                            Contact Us
                         </Link>
                         <hr className="border-slate-200" />
                         {isLoggedIn ? (

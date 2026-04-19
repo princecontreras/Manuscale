@@ -1,12 +1,15 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/components/AuthProvider';
 import { useUser } from '../../hooks/useUser';
 import { useSubscription } from '../../hooks/useSubscription';
 import { Button } from '../../components/Button';
-import PageHeader from '../../components/PageHeader';
+import { NavigationHeader } from '../../components/NavigationHeader';
+import { FeaturesPage } from '../../components/FeaturesPage';
+import { AuthPage } from '../../components/AuthPage';
+import { ToastProvider } from '../../components/ToastContext';
 import { ArrowRight, Check, X } from 'lucide-react';
 
 const PricingPage: React.FC = () => {
@@ -15,9 +18,34 @@ const PricingPage: React.FC = () => {
   const subscription = useSubscription();
   const [error, setError] = useState<string | null>(null);
   const [isCheckingOut, setIsCheckingOut] = useState<boolean>(false);
+  const [showAuth, setShowAuth] = useState(false);
+  const [authIsLogin, setAuthIsLogin] = useState(true);
+  const [showFeatures, setShowFeatures] = useState(false);
+
+  const handleEnterApp = () => {
+    window.location.href = '/?direct=dashboard';
+  };
+
+  const handleLogin = () => {
+    setAuthIsLogin(true);
+    setShowAuth(true);
+  };
+
+  const handleSignup = () => {
+    setAuthIsLogin(false);
+    setShowAuth(true);
+  };
+
+  const handleTryDemo = () => {
+    window.location.href = '/?demo=true';
+  };
+
+  const handleAuthSuccess = () => {
+    setShowAuth(false);
+  };
 
   // Redirect already-subscribed users to dashboard
-  React.useEffect(() => {
+  useEffect(() => {
     if (!isLoading && !authLoading && firebaseUser && subscription.isSubscribed) {
       window.location.href = '/?direct=dashboard';
     }
@@ -100,38 +128,79 @@ const PricingPage: React.FC = () => {
   const isSubscribed = subscription.isSubscribed;
   const yearlyDiscount = Math.round(((19 * 12 - 169) / (19 * 12)) * 100);
 
+  if (showFeatures) {
+    return (
+      <ToastProvider>
+        <FeaturesPage 
+          onEnterApp={handleEnterApp}
+          onLogin={handleLogin}
+          onSignup={handleSignup}
+          onTryDemo={handleTryDemo}
+          onBack={() => setShowFeatures(false)}
+          onGoToAbout={() => window.location.href = '/about'}
+          onGoToPricing={() => setShowFeatures(false)}
+          onGoToContact={() => window.location.href = '/contact'}
+        />
+      </ToastProvider>
+    );
+  }
+
   return (
-    <div className="bg-white text-slate-900 font-sans min-h-screen overflow-x-hidden">
-      <PageHeader 
-        title="Pricing"
-        description="Choose the perfect plan to power your writing."
-        breadcrumbs={[{ label: 'Pricing', href: '/pricing' }]}
-      />
+    <ToastProvider>
+      {showAuth && !firebaseUser && (
+        <AuthPage 
+          defaultIsLogin={authIsLogin}
+          onLogin={handleAuthSuccess}
+          onBack={() => setShowAuth(false)}
+        />
+      )}
+      {(!showAuth || firebaseUser) && (
+        <div className="bg-white text-slate-900 font-sans min-h-screen overflow-x-hidden">
+          <NavigationHeader 
+            onEnterApp={handleEnterApp} 
+            showFeatures={true}
+            onLogin={handleLogin}
+            onSignup={handleSignup}
+            onTryDemo={handleTryDemo}
+            onShowFeatures={() => setShowFeatures(true)}
+          />
 
-      {/* HERO SECTION */}
-      <section className="pt-12 sm:pt-16 pb-16 px-4 sm:px-6">
-        <div className="max-w-4xl mx-auto text-center">
-          <p className="text-lg sm:text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed mb-2">
-            One simple plan. All the tools you need to write, publish, and grow.
-          </p>
-          
-          {isSubscribed && (
-            <p className="text-sm text-green-600 font-semibold mb-8">
-              ✓ You currently have an active subscription
-            </p>
-          )}
-        </div>
-      </section>
-
-      {/* PRICING CARDS */}
-      <section className="pb-16 px-4 sm:px-6">
-        {error && (
-          <div className="max-w-2xl mx-auto mb-8 bg-red-50 border border-red-200 rounded-xl p-4 text-red-700 text-sm">
-            {error}
+          {/* Page Title Section */}
+          <div className="pt-24 sm:pt-32 px-4 sm:px-6 pb-8 sm:pb-12">
+            <div className="max-w-4xl mx-auto">
+              <h1 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-3">
+                Pricing
+              </h1>
+              <p className="text-lg text-slate-600">
+                Choose the perfect plan to power your writing.
+              </p>
+            </div>
           </div>
-        )}
 
-        <div className="max-w-2xl mx-auto grid md:grid-cols-2 gap-8">
+          {/* HERO SECTION */}
+          <section className="pt-0 sm:pt-0 pb-16 px-4 sm:px-6">
+            <div className="max-w-4xl mx-auto text-center">
+              <p className="text-lg sm:text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed mb-2">
+                One simple plan. All the tools you need to write, publish, and grow.
+              </p>
+              
+              {isSubscribed && (
+                <p className="text-sm text-green-600 font-semibold mb-8">
+                  ✓ You currently have an active subscription
+                </p>
+              )}
+            </div>
+          </section>
+
+          {/* PRICING CARDS */}
+          <section className="pb-16 px-4 sm:px-6">
+            {error && (
+              <div className="max-w-2xl mx-auto mb-8 bg-red-50 border border-red-200 rounded-xl p-4 text-red-700 text-sm">
+                {error}
+              </div>
+            )}
+
+            <div className="max-w-2xl mx-auto grid md:grid-cols-2 gap-8">
           {/* Monthly Plan */}
           <div className="border-2 border-slate-200 rounded-2xl p-8 hover:border-primary-300 transition-colors duration-300 hover:shadow-lg">
             <h3 className="font-heading text-xl font-bold text-slate-900 mb-2">Monthly</h3>
@@ -253,66 +322,68 @@ const PricingPage: React.FC = () => {
                 <>Subscribe</>
               )}
             </Button>
-          </div>
-        </div>
-      </section>
-
-      {/* FAQ SECTION */}
-      <section className="py-16 px-4 sm:px-6 border-t border-slate-100">
-        <div className="max-w-3xl mx-auto">
-          <h2 className="font-heading text-3xl font-bold text-center text-slate-900 mb-12">
-            Questions?
-          </h2>
-
-          <div className="grid md:grid-cols-2 gap-8">
-            <div className="space-y-4">
-              <h4 className="font-heading font-bold text-slate-900">Can I change plans?</h4>
-              <p className="text-slate-600 text-sm">
-                Absolutely. Upgrade or downgrade anytime. Changes take effect on your next billing date.
-              </p>
             </div>
-
-            <div className="space-y-4">
-              <h4 className="font-heading font-bold text-slate-900">What if I want to cancel?</h4>
-              <p className="text-slate-600 text-sm">
-                Cancel with one click. Your access continues until the end of your current billing period.
-              </p>
             </div>
+          </section>
 
-            <div className="space-y-4">
-              <h4 className="font-heading font-bold text-slate-900">What payment methods do you accept?</h4>
-              <p className="text-slate-600 text-sm">
-                All major credit and debit cards through Stripe's secure payment processing.
-              </p>
+        {/* FAQ SECTION */}
+        <section className="py-16 px-4 sm:px-6 border-t border-slate-100">
+          <div className="max-w-3xl mx-auto">
+            <h2 className="font-heading text-3xl font-bold text-center text-slate-900 mb-12">
+              Questions?
+            </h2>
+
+            <div className="grid md:grid-cols-2 gap-8">
+              <div className="space-y-4">
+                <h4 className="font-heading font-bold text-slate-900">Can I change plans?</h4>
+                <p className="text-slate-600 text-sm">
+                  Absolutely. Upgrade or downgrade anytime. Changes take effect on your next billing date.
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <h4 className="font-heading font-bold text-slate-900">What if I want to cancel?</h4>
+                <p className="text-slate-600 text-sm">
+                  Cancel with one click. Your access continues until the end of your current billing period.
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <h4 className="font-heading font-bold text-slate-900">What payment methods do you accept?</h4>
+                <p className="text-slate-600 text-sm">
+                  All major credit and debit cards through Stripe's secure payment processing.
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <h4 className="font-heading font-bold text-slate-900">Do you offer a free trial?</h4>
+                <p className="text-slate-600 text-sm">
+                  Contact our support team to discuss trial options for your needs.
+                </p>
+              </div>
             </div>
-
-            <div className="space-y-4">
-              <h4 className="font-heading font-bold text-slate-900">Do you offer a free trial?</h4>
-              <p className="text-slate-600 text-sm">
-                Contact our support team to discuss trial options for your needs.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* MANAGE SUBSCRIPTION CTA */}
-      {isSubscribed && (
-        <section className="py-12 px-4 sm:px-6 bg-slate-50 border-t border-slate-100">
-          <div className="max-w-3xl mx-auto text-center">
-            <h3 className="font-heading text-lg font-bold text-slate-900 mb-4">
-              Manage your subscription
-            </h3>
-            <Button
-              onClick={() => subscription.openBillingPortal()}
-              variant="secondary"
-            >
-              Open Billing Portal
-            </Button>
           </div>
         </section>
+
+        {/* MANAGE SUBSCRIPTION CTA */}
+        {isSubscribed && (
+          <section className="py-12 px-4 sm:px-6 bg-slate-50 border-t border-slate-100">
+            <div className="max-w-3xl mx-auto text-center">
+              <h3 className="font-heading text-lg font-bold text-slate-900 mb-4">
+                Manage your subscription
+              </h3>
+              <Button
+                onClick={() => subscription.openBillingPortal()}
+                variant="secondary"
+              >
+                Open Billing Portal
+              </Button>
+            </div>
+          </section>
+        )}
+        </div>
       )}
-    </div>
+    </ToastProvider>
   );
 };
 
