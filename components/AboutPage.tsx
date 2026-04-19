@@ -100,15 +100,16 @@ const OurStorySection = memo(() => (
                         whileInView={{ opacity: 1, scale: 1 }}
                         viewport={{ once: true }}
                         transition={{ duration: 0.5 }}
+                        className="flex justify-center"
                     >
-                        <div className="w-full aspect-square rounded-3xl overflow-hidden border-2 border-slate-200 shadow-xl">
+                        <div className="relative w-full max-w-md aspect-square rounded-3xl overflow-hidden border-2 border-slate-200 shadow-xl">
                             <Image
                                 src="/covers/IMG_8626.png"
                                 alt="Prince Contreras - Founder of Typoscale"
-                                width={600}
-                                height={600}
-                                className="w-full h-full object-cover"
+                                fill
+                                className="object-cover"
                                 priority
+                                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 600px"
                             />
                         </div>
                     </motion.div>
