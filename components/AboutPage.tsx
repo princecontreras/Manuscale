@@ -261,6 +261,7 @@ const AboutPageContent = memo(({
 AboutPageContent.displayName = 'AboutPageContent';
 
 export const AboutPage: React.FC<AboutPageProps> = ({ onEnterApp, onBack }) => {
+    const router = useRouter();
     const [showAuth, setShowAuth] = useState(false);
     const [authIsLogin, setAuthIsLogin] = useState(true);
     const [showFeatures, setShowFeatures] = useState(false);
@@ -281,6 +282,8 @@ export const AboutPage: React.FC<AboutPageProps> = ({ onEnterApp, onBack }) => {
 
     const handleAuthSuccess = () => {
         setShowAuth(false);
+        // Auto-redirect to dashboard after successful login
+        router.push('/?direct=dashboard');
     };
 
     // Features view takes priority

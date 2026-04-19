@@ -1,5 +1,6 @@
 "use client";
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion } from 'motion/react';
 import { BrainCircuit, Activity, CheckCircle2, ArrowRight, Layers, FileText, Download } from 'lucide-react';
 import { Button } from './Button';
@@ -22,6 +23,7 @@ interface FeaturesPageProps {
 }
 
 export const FeaturesPage: React.FC<FeaturesPageProps> = ({ onEnterApp, onBack, onGoToAuth, onLogin, onSignup, onTryDemo, onShowFeatures, onGoToAbout, onGoToPricing, onGoToContact }) => {
+    const router = useRouter();
     const [showAuth, setShowAuth] = useState(false);
     const [authIsLogin, setAuthIsLogin] = useState(true);
     const { user: firebaseUser } = useAuth();
@@ -40,6 +42,8 @@ export const FeaturesPage: React.FC<FeaturesPageProps> = ({ onEnterApp, onBack, 
 
     const handleAuthSuccess = () => {
         setShowAuth(false);
+        // Auto-redirect to dashboard after successful login
+        router.push('/?direct=dashboard');
     };
 
     if (showAuth && !firebaseUser) {

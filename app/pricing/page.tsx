@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/components/AuthProvider';
 import { useUser } from '../../hooks/useUser';
@@ -13,6 +14,7 @@ import { ToastProvider } from '../../components/ToastContext';
 import { ArrowRight, Check, X } from 'lucide-react';
 
 const PricingPage: React.FC = () => {
+  const router = useRouter();
   const { user: firebaseUser, loading: authLoading } = useAuth();
   const { user: userProfile, isLoading } = useUser();
   const subscription = useSubscription();
@@ -42,6 +44,8 @@ const PricingPage: React.FC = () => {
 
   const handleAuthSuccess = () => {
     setShowAuth(false);
+    // Auto-redirect to dashboard after successful login
+    router.push('/?direct=dashboard');
   };
 
   // Redirect already-subscribed users to dashboard

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, memo } from 'react';
+import { useRouter } from 'next/navigation';
 import ContactForm from './ContactForm';
 import { NavigationHeader } from './NavigationHeader';
 import { FeaturesPage } from './FeaturesPage';
@@ -119,6 +120,7 @@ const ContactPageContentWrapper = memo(({
 ContactPageContentWrapper.displayName = 'ContactPageContentWrapper';
 
 export default memo(function ContactPageContent() {
+  const router = useRouter();
   const [showAuth, setShowAuth] = useState(false);
   const [authIsLogin, setAuthIsLogin] = useState(true);
   const [showFeatures, setShowFeatures] = useState(false);
@@ -139,6 +141,8 @@ export default memo(function ContactPageContent() {
 
   const handleAuthSuccess = () => {
     setShowAuth(false);
+    // Auto-redirect to dashboard after successful login
+    router.push('/?direct=dashboard');
   };
 
   // Features view takes priority
