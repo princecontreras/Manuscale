@@ -47,10 +47,10 @@ const HeroSection = memo(() => (
 ));
 HeroSection.displayName = 'HeroSection';
 
-// Memoized What is Typoscale Section with optimized animations
-const WhatIsTyposcaleSection = memo(() => (
+// Memoized Brand Story Section
+const BrandStorySection = memo(() => (
     <section className="bg-white py-16 sm:py-24 border-y border-slate-100">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6">
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
@@ -58,65 +58,35 @@ const WhatIsTyposcaleSection = memo(() => (
                 transition={{ duration: 0.5 }}
             >
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-50 text-primary-700 text-sm font-bold tracking-wide mb-6 uppercase">
-                    <Sparkles size={18} /> What is Typoscale
+                    <Sparkles size={18} /> Our Story
                 </div>
                 <h2 className="font-heading text-4xl sm:text-5xl font-bold text-slate-900 mb-8 tracking-tight leading-[1.2]">
-                    The Writing Platform Built for Creators
+                    What is Typoscale?
                 </h2>
                 
                 <div className="space-y-6 text-lg text-slate-600 leading-relaxed">
                     <p>
-                        Typoscale is an AI-powered writing platform designed specifically for content creators and digital product entrepreneurs who have valuable knowledge to share but lack traditional writing experience. You don't need to be a writer to create a book—you need Typoscale.
+                        Typoscale is an AI-powered platform built to make book creation simple for content creators and digital product entrepreneurs—even if you don't have writing skills or resources.
                     </p>
+                    
                     <p>
-                        We built Typoscale because too many experts, course creators, and thought leaders have life-changing knowledge trapped in their heads, courses, or content, but never make it into a published book. Whether you have an email list, YouTube audience, or just a powerful idea, Typoscale helps you transform your expertise into a professional book—the ultimate credibility builder.
+                        <strong>Who is it for?</strong> Anyone with knowledge to share: YouTubers, course creators, coaches, thought leaders, and digital entrepreneurs who want to turn their expertise into professional ebooks.
                     </p>
+                    
                     <p>
-                        With tools like Manuscript Workshop, Image Studio, Research Studio, and our intelligent Agent Command Center, Typoscale is the only writing ecosystem creators need to go from knowledge to published book.
+                        <strong>What problem does it solve?</strong> Creating books is hard, expensive, and time-consuming. Typoscale removes the barriers—no writing skills needed, no ghostwriters required. Just your knowledge and ideas.
                     </p>
-                </div>
-
-                <div className="mt-12 grid sm:grid-cols-3 gap-8">
-                    <div className="bg-slate-50 p-8 rounded-2xl border border-slate-200 opacity-0 animate-fadeIn" style={{ animationDelay: '0ms' }}>
-                        <div className="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center text-primary-600 mb-4">
-                            <Sparkles size={24} />
-                        </div>
-                        <h3 className="font-heading text-xl font-bold text-slate-900 mb-3">AI-Powered</h3>
-                        <p className="text-slate-600">
-                            Harness the power of advanced AI to generate, refine, and enhance your writing instantly.
-                        </p>
-                    </div>
-
-                    <div className="bg-slate-50 p-8 rounded-2xl border border-slate-200 opacity-0 animate-fadeIn" style={{ animationDelay: '100ms' }}>
-                        <div className="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center text-primary-600 mb-4">
-                            <Target size={24} />
-                        </div>
-                        <h3 className="font-heading text-xl font-bold text-slate-900 mb-3">Flexible</h3>
-                        <p className="text-slate-600">
-                            Choose between hands-on control or full automation. Your workflow, your way.
-                        </p>
-                    </div>
-
-                    <div className="bg-slate-50 p-8 rounded-2xl border border-slate-200 opacity-0 animate-fadeIn" style={{ animationDelay: '200ms' }}>
-                        <div className="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center text-primary-600 mb-4">
-                            <Users size={24} />
-                        </div>
-                        <h3 className="font-heading text-xl font-bold text-slate-900 mb-3">For Everyone</h3>
-                        <p className="text-slate-600">
-                            From first-time authors to seasoned professionals, we've got you covered.
-                        </p>
-                    </div>
                 </div>
             </motion.div>
         </div>
     </section>
 ));
-WhatIsTyposcaleSection.displayName = 'WhatIsTyposcaleSection';
+BrandStorySection.displayName = 'BrandStorySection';
 
 // Memoized Our Story Section
 const OurStorySection = memo(() => (
     <section className="py-16 sm:py-24">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6">
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
@@ -124,31 +94,23 @@ const OurStorySection = memo(() => (
                 transition={{ duration: 0.5 }}
             >
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-50 text-primary-700 text-sm font-bold tracking-wide mb-6 uppercase">
-                    <Heart size={18} /> The Founder's Story
+                    <Heart size={18} /> Meet the Founder
                 </div>
-                <h2 className="font-heading text-4xl sm:text-5xl font-bold text-slate-900 mb-12 tracking-tight leading-[1.2]">
-                    Why I Built Typoscale
+                <h2 className="font-heading text-3xl sm:text-4xl font-bold text-slate-900 mb-8 tracking-tight leading-[1.2]">
+                    Prince Contreras
                 </h2>
                 
-                <div className="space-y-8 text-lg text-slate-600 leading-relaxed">
+                <div className="space-y-6 text-lg text-slate-600 leading-relaxed">
                     <p>
-                        My name is <strong>Prince Contreras</strong>, and I'm a content creator and entrepreneur. Throughout my career, I've watched hundreds of incredibly talented creators—course creators, YouTubers, coaches, and digital entrepreneurs—build massive audiences and generate life-changing income from their content. But most of them never wrote a book, even though they could have.
+                        I'm the founder and creator of Typoscale. My vision is to help people create ebooks easily—whether for selling or personal use.
                     </p>
 
                     <p>
-                        I noticed the pattern: these creators had the expertise, the audience, and the credibility. What they lacked was a simple way to turn their knowledge into a book without becoming a "writer." They didn't want to hire ghostwriters or spend months at a desk. They wanted a tool that understood them—creators, not authors.
+                        Before Typoscale, I founded several businesses including <strong>Bead Lighting</strong>, an online store for home lighting products, and <strong>Digitale Internationale</strong>, a digital product store on Gumroad. Through those experiences, I realized creators needed a simple way to turn their knowledge into published books without the complexity and cost of traditional publishing.
                     </p>
 
                     <p>
-                        That frustration led to Typoscale. I set out to build something simple: <strong>a platform that lets creators with zero writing experience publish professional books in weeks, not years.</strong> It needed to be AI-powered enough to handle the heavy lifting, but intelligent enough to respect their voice and vision.
-                    </p>
-
-                    <p>
-                        Today, Typoscale helps content creators, digital product entrepreneurs, coaches, and educators transform their knowledge into published books. Each book published through Typoscale represents a creator's expertise made permanent—a new revenue stream, a credibility multiplier, and a legacy.
-                    </p>
-
-                    <p>
-                        If you're a creator with knowledge to share, Typoscale is built for you. Let's turn your expertise into a book.
+                        That's why I built Typoscale—to democratize book creation for everyone.
                     </p>
                 </div>
             </motion.div>
@@ -156,69 +118,6 @@ const OurStorySection = memo(() => (
     </section>
 ));
 OurStorySection.displayName = 'OurStorySection';
-
-// Memoized Meet the Founder Section
-const MeetTheFounderSection = memo(() => (
-    <section className="bg-white py-16 sm:py-24 border-y border-slate-100">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6">
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, amount: 0.3 }}
-                transition={{ duration: 0.5 }}
-            >
-                <h2 className="font-heading text-4xl sm:text-5xl font-bold text-slate-900 mb-12 tracking-tight leading-[1.2]">
-                    Meet the Founder
-                </h2>
-                
-                <div className="grid lg:grid-cols-2 gap-12 items-center">
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        whileInView={{ opacity: 1, scale: 1 }}
-                        viewport={{ once: true }}
-                        transition={{ duration: 0.5 }}
-                    >
-                        <div className="w-full aspect-square bg-gradient-to-br from-primary-100 to-primary-50 rounded-3xl border-2 border-primary-200 flex items-center justify-center">
-                            <div className="text-center">
-                                <div className="text-6xl mb-4">📸</div>
-                                <p className="text-slate-500 font-medium">Prince Contreras Portrait</p>
-                                <p className="text-slate-400 text-sm mt-2">Coming soon</p>
-                            </div>
-                        </div>
-                    </motion.div>
-
-                    <motion.div
-                        initial={{ opacity: 0, x: 20 }}
-                        whileInView={{ opacity: 1, x: 0 }}
-                        viewport={{ once: true }}
-                        transition={{ duration: 0.5 }}
-                        className="space-y-6"
-                    >
-                        <div>
-                            <h3 className="font-heading text-3xl font-bold text-slate-900 mb-2">Prince Contreras</h3>
-                            <p className="text-primary-600 font-semibold text-lg">Founder & Creator</p>
-                        </div>
-
-                        <div className="space-y-4 text-lg text-slate-600 leading-relaxed">
-                            <p>
-                                Prince is a content creator and digital entrepreneur with a passion for helping others amplify their voice. After watching countless talented creators struggle to transition their knowledge into books, he decided to solve the problem once and for all.
-                            </p>
-
-                            <p>
-                                Typoscale is the result of years of experience building content, understanding creator needs, and pioneering AI tools that actually work for real people. Prince's mission is simple: <strong>democratize book publishing for the creator economy.</strong>
-                            </p>
-
-                            <p>
-                                When he's not building Typoscale, Prince is creating content, mentoring other entrepreneurs, and dreaming up the next way to empower creators.
-                            </p>
-                        </div>
-                    </motion.div>
-                </div>
-            </motion.div>
-        </div>
-    </section>
-));
-MeetTheFounderSection.displayName = 'MeetTheFounderSection';
 
 // Memoized CTA Section
 const CTASection = memo(() => (
@@ -311,9 +210,8 @@ const AboutPageContent = memo(({
 
                     <main className="pt-24 sm:pt-32">
                         <HeroSection />
-                        <WhatIsTyposcaleSection />
+                        <BrandStorySection />
                         <OurStorySection />
-                        <MeetTheFounderSection />
                         <CTASection />
                     </main>
 
