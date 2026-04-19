@@ -648,7 +648,7 @@ CRITICAL: Do NOT duplicate the title. Only include the title text once.`;
 
                         if (includeBibliography && !newState.backMatter?.bibliography) {
                             addLog('publisher', 'Generating Bibliography...', 'action');
-                            if (!newState.backMatter) newState.backMatter = { includeBibliography: true };
+                            if (!newState.backMatter) newState.backMatter = { includeBibliography: includeBibliography };
                             try {
                                 let bibliographyHtml = '';
                                 const allSources: {title: string, uri: string}[] = [];
@@ -861,6 +861,24 @@ CRITICAL: Do NOT duplicate the title. Only include the title text once.`;
         setMission('');
     };
 
+    const handleInjectCommand = async () => {
+        if (!manualOverride.trim()) return;
+        
+        // Add the injection to logs immediately
+        addLog('user', `INJECTION: ${manualOverride}`, 'action');
+        
+        // If engine is paused, trigger the next step immediately
+        if (isPaused) {
+            setIsPaused(false);
+            // The next iteration of the while loop will pick up manualOverride
+            return;
+        }
+        
+        // If engine is running, the next runStep will pick up the manualOverride
+        // and it will be added to the currentInstruction for the Director
+        // Note: manualOverride will be cleared in runStep() after being used (line 398)
+    };
+
     return (
         <div className="flex flex-col lg:grid lg:grid-cols-12 h-screen w-full font-sans overflow-hidden bg-slate-900">
             {showOnboarding && <AgentOnboarding onClose={handleCloseOnboarding} isDemoMode={isDemoMode} />}
@@ -955,8 +973,25 @@ CRITICAL: Do NOT duplicate the title. Only include the title text once.`;
                 </div>
                 <div className="p-4 border-t border-slate-800 bg-slate-900/50">
                     <div className="relative">
-                        <input value={manualOverride} onChange={(e) => setManualOverride(e.target.value)} placeholder="Inject command..." className="w-full bg-slate-950 border border-slate-700 rounded-lg pl-3 pr-8 py-2 text-xs text-white focus:border-brand-500 outline-none"/>
-                        <button className="absolute right-2 top-1.5 text-brand-500 hover:text-white" disabled={!manualOverride}><Send size={14}/></button>
+                        <input 
+                            value={manualOverride} 
+                            onChange={(e) => setManualOverride(e.target.value)} 
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && manualOverride.trim()) {
+                                    handleInjectCommand();
+                                }
+                            }}
+                            placeholder="Inject command..." 
+                            className="w-full bg-slate-950 border border-slate-700 rounded-lg pl-3 pr-8 py-2 text-xs text-white focus:border-brand-500 outline-none"
+                        />
+                        <button 
+                            onClick={handleInjectCommand}
+                            className="absolute right-2 top-1.5 text-brand-500 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors" 
+                            disabled={!manualOverride.trim()}
+                            title="Send injection (Enter)"
+                        >
+                            <Send size={14}/>
+                        </button>
                     </div>
                 </div>
             </div>

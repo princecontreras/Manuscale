@@ -10,7 +10,7 @@ export const MODEL_PRO = 'gemini-2.5-pro';          // Best quality, stable
 export const MODEL_PRO_STABLE = 'gemini-2.5-flash'; // Fast stable fallback
 export const MODEL_FLASH = 'gemini-2.5-flash';       // Fast & stable primary
 export const MODEL_FLASH_STABLE = 'gemini-2.5-flash-lite'; // Lightest stable fallback
-export const MODEL_IMAGE = 'gemini-3-pro-image'; // Premium image generation model
+export const MODEL_IMAGE = 'gemini-3-pro-image-preview'; // Premium image generation model
 export const MODEL_IMAGE_STABLE = 'gemini-2.5-flash-image'; // Image fallback (2.5 Flash)
 export const MODEL_TTS = 'gemini-2.5-flash-preview-tts';
 

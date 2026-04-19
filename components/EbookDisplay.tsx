@@ -788,7 +788,13 @@ export const EbookDisplay: React.FC<EbookDisplayProps> = ({
                     if (idx !== -1 && newOutline[idx].content) {
                         try {
                             const corrected = await proofreadChapter(newOutline[idx].content!);
-                            newOutline[idx] = { ...newOutline[idx], content: corrected };
+                            const newPages = paginateContent(corrected);
+                            newOutline[idx] = { 
+                                ...newOutline[idx], 
+                                content: corrected,
+                                generatedPages: newPages,
+                                status: 'completed'
+                            };
                             completed++;
                             setProofreadProgress(Math.round((completed / chaptersToProofread.length) * 100));
                         } catch (err) {
@@ -833,10 +839,13 @@ export const EbookDisplay: React.FC<EbookDisplayProps> = ({
         try {
             const memory = await loadLocal(getProjectMemoryKey(data.id), { research: [], keyFigures: [], glossary: [], concepts: [], characters: [], world: [], plot: [] });
             
+            // Use the edited beat from the DraftCard, not the original outline beat
+            const chapterWithEditedBeat = { ...manuscript.outline[chapterIndex], beat: beat };
+            
             let fullContent = await streamChapterContent(
                 data.blueprint!,
                 data.blueprint!.profile,
-                manuscript.outline[chapterIndex],
+                chapterWithEditedBeat,
                 memory,
                 (chunk: string) => setStreamContent(prev => prev + chunk),
                 prevContext,
@@ -861,6 +870,7 @@ export const EbookDisplay: React.FC<EbookDisplayProps> = ({
             const newOutline = [...manuscript.outline];
             newOutline[chapterIndex] = { 
                 ...newOutline[chapterIndex], 
+                beat: beat,  // Save the edited beat
                 content: finalContent, 
                 generatedPages: newPages, 
                 status: 'completed' 
@@ -908,9 +918,14 @@ export const EbookDisplay: React.FC<EbookDisplayProps> = ({
             const idx = newOutline.findIndex(c => c.id === chapterId);
             if (idx === -1) return prev;
             
+            // Generate pagination data from the manually edited content
+            const newPages = paginateContent(newHtml);
+            
             newOutline[idx] = {
                 ...newOutline[idx],
-                content: newHtml
+                content: newHtml,
+                generatedPages: newPages,
+                status: 'completed'  // Mark as completed when manually edited
             };
             
             if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current);
