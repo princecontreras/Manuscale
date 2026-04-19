@@ -108,31 +108,31 @@ const ApiSettingsModal: React.FC<{ onClose: () => void, onExit: () => void }> = 
             const startX = 200;
             const baselineY = 300;
 
-            // Draw "Manu" (Serif Italic)
-            ctx.font = "italic 500 200px 'Merriweather', serif";
-            ctx.fillStyle = "#64748b"; // Slate 500
+            // Draw "Typo" (Serif Italic) - matches Logo component
+            ctx.font = "italic bold 200px 'Merriweather', serif";
+            ctx.fillStyle = "#5a4bd0"; // Primary 600 (purple)
             ctx.textAlign = "left";
             ctx.textBaseline = "alphabetic";
-            ctx.fillText("Manu", startX, baselineY);
+            ctx.fillText("Typo", startX, baselineY);
 
             // Measure first part to position second part
-            const manuWidth = ctx.measureText("Manu").width;
+            const typoWidth = ctx.measureText("Typo").width;
 
-            // Draw "scale" (Sans Bold)
+            // Draw "scale" (Sans Black/900) - matches Logo component
             ctx.font = "900 200px 'Inter', sans-serif";
-            ctx.fillStyle = "#0f172a"; // Slate 900
+            ctx.fillStyle = "#4a3eb8"; // Primary 700 (darker purple)
             // Tight tracking simulation
             if ('letterSpacing' in ctx) { (ctx as any).letterSpacing = "-10px"; }
-            ctx.fillText("scale", startX + manuWidth, baselineY);
+            ctx.fillText("scale", startX + typoWidth, baselineY);
             
             // Measure scale
             if ('letterSpacing' in ctx) { (ctx as any).letterSpacing = "0px"; }
             const scaleWidth = ctx.measureText("scale").width;
 
-            // Draw Dot (Brand Color) - circular dot
-            ctx.fillStyle = "#d97706"; // Brand 600
+            // Draw Dot (Primary 600) - circular dot - matches Logo component
+            ctx.fillStyle = "#5a4bd0"; // Primary 600 (purple)
             ctx.beginPath();
-            ctx.arc(startX + manuWidth + scaleWidth + 20, baselineY - 50, 20, 0, Math.PI * 2);
+            ctx.arc(startX + typoWidth + scaleWidth + 20, baselineY - 50, 20, 0, Math.PI * 2);
             ctx.fill();
 
             const dataUrl = canvas.toDataURL('image/png');
@@ -149,7 +149,7 @@ const ApiSettingsModal: React.FC<{ onClose: () => void, onExit: () => void }> = 
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={onClose}>
             <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
                 <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                    <h3 className="text-xl font-bold text-slate-900">Settings</h3>
+                    <h3 className="text-xl font-bold text-slate-900">Brand Assets</h3>
                     <button onClick={onClose}><X size={20} className="text-slate-400 hover:text-slate-600"/></button>
                 </div>
                 <div className="p-6">
@@ -337,13 +337,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, onCreateNew, onOpe
                             >
                                 Projects
                             </span>
-                            <ProfileDropdown onViewProfile={onViewProfile} onLogout={() => setShowLogoutConfirm(true)} />
-                            {!isDemoMode && <button 
-                                onClick={() => setShowSettings(true)}
-                                className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 transition-all"
-                            >
-                                <Settings size={14}/> Settings
-                            </button>}
+                            <ProfileDropdown onViewProfile={onViewProfile} onLogout={() => setShowLogoutConfirm(true)} onSettings={() => setShowSettings(true)} isDemoMode={isDemoMode} />
 
                             <button 
                                 onClick={() => setShowGuide(!showGuide)}

@@ -10,8 +10,8 @@ export const MODEL_PRO = 'gemini-2.5-pro';          // Best quality, stable
 export const MODEL_PRO_STABLE = 'gemini-2.5-flash'; // Fast stable fallback
 export const MODEL_FLASH = 'gemini-2.5-flash';       // Fast & stable primary
 export const MODEL_FLASH_STABLE = 'gemini-2.5-flash-lite'; // Lightest stable fallback
-export const MODEL_IMAGE = 'gemini-2.5-flash-image'; // Stable image model
-export const MODEL_IMAGE_STABLE = 'gemini-2.5-flash'; // Image fallback
+export const MODEL_IMAGE = 'gemini-3-pro-image'; // Premium image generation model
+export const MODEL_IMAGE_STABLE = 'gemini-2.5-flash-image'; // Image fallback (2.5 Flash)
 export const MODEL_TTS = 'gemini-2.5-flash-preview-tts';
 
 // Helper to get API Key (server-side only)
@@ -1382,7 +1382,7 @@ export const generateBibliography = async (sources: {title: string, uri: string}
 
 export const generateImageFromPrompt = async (prompt: string, quality: 'fast' | 'high' = 'fast'): Promise<string | null> => {
     const ai = getAI();
-    let usedModel = MODEL_IMAGE; // gemini-2.5-flash-image for both quality levels
+    let usedModel = MODEL_IMAGE; // gemini-3-pro-image for both quality levels
     
     try {
         let response = await retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
