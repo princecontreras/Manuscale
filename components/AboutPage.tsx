@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, memo, useMemo } from 'react';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { motion } from 'motion/react';
 import { ArrowRight, Sparkles, Users, Target, Heart } from 'lucide-react';
 import Link from 'next/link';
@@ -152,7 +153,10 @@ const OurStorySection = memo(() => (
 OurStorySection.displayName = 'OurStorySection';
 
 // Memoized CTA Section
-const CTASection = memo(() => (
+const CTASection = memo(() => {
+    const router = useRouter();
+    
+    return (
     <section className="py-16 sm:py-24">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center">
             <motion.div
@@ -170,7 +174,7 @@ const CTASection = memo(() => (
                 <Button 
                     variant="primary" 
                     size="lg" 
-                    onClick={() => window.location.href = '/?auth=signup'}
+                    onClick={() => router.push('/?auth=signup')}
                     className="rounded-full shadow-lg shadow-primary-600/20 px-8 py-4"
                 >
                     Start Writing <ArrowRight size={18} className="ml-2" />
@@ -178,7 +182,8 @@ const CTASection = memo(() => (
             </motion.div>
         </div>
     </section>
-));
+    );
+});
 CTASection.displayName = 'CTASection';
 
 // Memoized Footer
