@@ -137,7 +137,7 @@ const OurStorySection = memo(() => (
                             </p>
 
                             <p>
-                                Before Typoscale, I founded several businesses including <strong>Bead Lighting</strong>, an online store for home lighting products, and <strong>Digitale Internationale</strong>, a digital product store on Gumroad. Through those experiences, I realized creators needed a simple way to turn their knowledge into published books without the complexity and cost of traditional publishing.
+                                Before Typoscale, I was a content creator and founded several businesses including <strong>Bead Lighting</strong>, an online store for home lighting products, and <strong>Digitale International</strong>, a digital product store on Gumroad. Through those experiences, I realized creators needed a simple way to turn their knowledge into published books without the complexity and cost of traditional publishing.
                             </p>
 
                             <p>
@@ -153,9 +153,7 @@ const OurStorySection = memo(() => (
 OurStorySection.displayName = 'OurStorySection';
 
 // Memoized CTA Section
-const CTASection = memo(() => {
-    const router = useRouter();
-    
+const CTASection = memo(({ onSignup }: { onSignup: () => void }) => {
     return (
     <section className="py-16 sm:py-24">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center">
@@ -174,7 +172,7 @@ const CTASection = memo(() => {
                 <Button 
                     variant="primary" 
                     size="lg" 
-                    onClick={() => router.push('/?auth=signup')}
+                    onClick={onSignup}
                     className="rounded-full shadow-lg shadow-primary-600/20 px-8 py-4"
                 >
                     Start Writing <ArrowRight size={18} className="ml-2" />
@@ -249,7 +247,7 @@ const AboutPageContent = memo(({
                         <HeroSection />
                         <BrandStorySection />
                         <OurStorySection />
-                        <CTASection />
+                        <CTASection onSignup={onSignup} />
                     </main>
 
                     <FooterSection />

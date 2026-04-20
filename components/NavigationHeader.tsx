@@ -95,6 +95,10 @@ export const NavigationHeader: React.FC<NavigationHeaderProps> = ({
     router.push('/contact');
   };
 
+  const handleGoToHome = () => {
+    router.push('/');
+  };
+
   const closeMobileMenu = () => setMobileMenuOpen(false);
 
   return (
@@ -108,6 +112,12 @@ export const NavigationHeader: React.FC<NavigationHeaderProps> = ({
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-8">
+            <button 
+              onClick={handleGoToHome}
+              className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
+            >
+              Home
+            </button>
             {showFeatures && (
               <button 
                 onClick={handleGoToFeatures}
@@ -181,6 +191,15 @@ export const NavigationHeader: React.FC<NavigationHeaderProps> = ({
             <X size={24} className="text-slate-700" />
           </button>
           <nav className="flex flex-col gap-6 text-lg">
+            <button 
+              onClick={() => {
+                closeMobileMenu();
+                handleGoToHome();
+              }}
+              className="text-left font-semibold text-slate-800"
+            >
+              Home
+            </button>
             {showFeatures && (
               <button 
                 onClick={() => {
