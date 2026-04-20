@@ -6,6 +6,7 @@ import { Logo } from './Logo';
 import { Button } from './Button';
 import { useAuth } from './AuthProvider';
 import { useDemo } from './DemoContext';
+import { useSubscription } from '../hooks/useSubscription';
 import { useRouter } from 'next/navigation';
 
 interface NavigationHeaderProps {
@@ -34,9 +35,11 @@ export const NavigationHeader: React.FC<NavigationHeaderProps> = ({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user: firebaseUser, loading: authLoading } = useAuth();
   const { hasUsedDemoBefore, isDemoMode } = useDemo();
+  const subscription = useSubscription();
   const router = useRouter();
 
   const isLoggedIn = !!firebaseUser && !authLoading;
+  const isSubscribed = subscription.isSubscribed;
 
   const handleTryDemo = () => {
     if (onTryDemo) {
@@ -146,14 +149,25 @@ export const NavigationHeader: React.FC<NavigationHeaderProps> = ({
             </button>
             <div className="h-4 w-px bg-slate-300"></div>
             {isLoggedIn ? (
-              <Button 
-                variant="primary" 
-                size="sm" 
-                onClick={onEnterApp} 
-                className="shadow-sm"
-              >
-                Go to Dashboard
-              </Button>
+              isSubscribed ? (
+                <Button 
+                  variant="primary" 
+                  size="sm" 
+                  onClick={onEnterApp} 
+                  className="shadow-sm"
+                >
+                  Go to Dashboard
+                </Button>
+              ) : (
+                <Button 
+                  variant="primary" 
+                  size="sm" 
+                  onClick={handleGoToPricing} 
+                  className="shadow-sm"
+                >
+                  Complete Subscription
+                </Button>
+              )
             ) : (
               <div className="flex gap-3">
                 <Button variant="ghost" size="sm" onClick={handleTryDemo}>
@@ -240,15 +254,27 @@ export const NavigationHeader: React.FC<NavigationHeaderProps> = ({
             </button>
             <hr className="border-slate-200" />
             {isLoggedIn ? (
-              <Button 
-                variant="primary" 
-                onClick={() => {
-                  closeMobileMenu();
-                  onEnterApp?.();
-                }}
-              >
-                Go to Dashboard
-              </Button>
+              isSubscribed ? (
+                <Button 
+                  variant="primary" 
+                  onClick={() => {
+                    closeMobileMenu();
+                    onEnterApp?.();
+                  }}
+                >
+                  Go to Dashboard
+                </Button>
+              ) : (
+                <Button 
+                  variant="primary" 
+                  onClick={() => {
+                    closeMobileMenu();
+                    handleGoToPricing();
+                  }}
+                >
+                  Complete Subscription
+                </Button>
+              )
             ) : (
               <div className="flex flex-col gap-4">
                 <Button 
