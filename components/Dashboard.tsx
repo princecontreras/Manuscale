@@ -28,10 +28,10 @@ type SortOption = 'newest' | 'oldest' | 'az' | 'za';
 type FilterOption = 'all' | 'draft' | 'published';
 
 const ProjectSkeleton = () => (
-    <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm h-[280px] sm:h-[320px] flex flex-col animate-pulse">
-        <div className="aspect-[2/3] bg-slate-100 rounded-lg mb-4"></div>
-        <div className="h-4 bg-slate-100 rounded w-3/4 mb-2"></div>
-        <div className="h-3 bg-slate-100 rounded w-1/2"></div>
+    <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 border border-slate-200 shadow-sm flex flex-col animate-pulse">
+        <div className="aspect-[2/3] bg-slate-100 rounded-lg mb-2 sm:mb-4"></div>
+        <div className="h-3 sm:h-4 bg-slate-100 rounded w-3/4 mb-1 sm:mb-2"></div>
+        <div className="h-2 sm:h-3 bg-slate-100 rounded w-1/2"></div>
     </div>
 );
 
@@ -319,17 +319,17 @@ const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, onCreateNew, onOpe
     };
 
     return (
-        <div className="max-w-7xl mx-auto py-6 sm:py-12 px-4 sm:px-6 relative">
+        <div className="max-w-7xl mx-auto py-3 sm:py-6 md:py-12 px-3 sm:px-4 md:px-6 relative">
             {/* Header / Brand */}
-            <div className="flex items-center mb-8 sm:mb-12">
+            <div className="flex items-center mb-4 sm:mb-8 md:mb-12">
                 <Logo />
             </div>
 
             <>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 sm:mb-8 gap-3 sm:gap-4">
                         <div>
-                            <h1 className="text-2xl sm:text-3xl font-heading font-bold text-slate-900 mb-1">Publishing Studio</h1>
-                            <p className="text-xs sm:text-sm text-slate-500">Your private space for high-value publishing.</p>
+                            <h1 className="text-xl sm:text-2xl md:text-3xl font-heading font-bold text-slate-900 mb-0.5 sm:mb-1">Publishing Studio</h1>
+                            <p className="text-xs sm:text-sm text-slate-500 line-clamp-1">Your private space for high-value publishing.</p>
                         </div>
                         <div className="flex flex-wrap gap-2">
                             <span 
@@ -536,45 +536,45 @@ const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, onCreateNew, onOpe
                         console.log('[Dashboard] Clicked Agent button', { hasCallback: !!onOpenAgent });
                         onOpenAgent();
                     }}
-                    className={`group relative overflow-hidden bg-primary-600 p-8 rounded-3xl border border-primary-700 shadow-xl text-left transition-all h-full ${isDemoMode && !canUseAgent ? 'opacity-60 cursor-not-allowed' : 'hover:border-white/50 hover:shadow-primary-900/20'}`}
+                    className={`group relative overflow-hidden bg-primary-600 p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl border border-primary-700 shadow-xl text-left transition-all h-full ${isDemoMode && !canUseAgent ? 'opacity-60 cursor-not-allowed' : 'hover:border-white/50 hover:shadow-primary-900/20'}`}
                 >
-                    <div className="absolute top-0 right-0 p-8 opacity-5 text-white group-hover:opacity-10 transition-opacity">
-                        <Bot size={120} />
+                    <div className="absolute top-0 right-0 p-4 sm:p-6 md:p-8 opacity-5 text-white group-hover:opacity-10 transition-opacity">
+                        <Bot size={80} className="sm:w-24 sm:h-24 md:w-30 md:h-30" />
                     </div>
-                    <div className="w-14 h-14 bg-primary-700 text-white rounded-2xl flex items-center justify-center mb-6 shadow-sm group-hover:scale-110 transition-transform border border-primary-500">
-                        <Zap size={28} />
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 bg-primary-700 text-white rounded-xl sm:rounded-2xl flex items-center justify-center mb-3 sm:mb-4 md:mb-6 shadow-sm group-hover:scale-110 transition-transform border border-primary-500">
+                        <Zap size={20} className="sm:w-6 sm:h-6 md:w-7 md:h-7" />
                     </div>
-                    <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-2xl font-heading font-bold text-white">Autonomous Publishing Engine</h3>
-                        <span className="bg-primary-500 text-white text-[10px] font-bold px-2 py-0.5 rounded">AGENTIC</span>
+                    <div className="flex items-center gap-2 sm:gap-3 mb-2">
+                        <h3 className="text-lg sm:text-xl md:text-2xl font-heading font-bold text-white line-clamp-2">Autonomous Publishing Engine</h3>
+                        <span className="bg-primary-500 text-white text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded flex-shrink-0">AGENTIC</span>
                     </div>
-                    <p className="text-primary-50 mb-6 max-w-sm text-sm">The autonomous engine. Give it a goal and walk away. It <strong className="text-white">independently</strong> researches, plans, and writes the entire book recursively.</p>
+                    <p className="text-primary-50 mb-4 sm:mb-6 max-w-sm text-xs sm:text-sm">The autonomous engine. Give it a goal and walk away. It <strong className="text-white">independently</strong> researches, plans, and writes the entire book recursively.</p>
                     <div className="mt-auto">
-                        <span className="inline-flex items-center gap-2 font-bold text-white text-sm group-hover:underline">Launch Agent <ChevronRight size={16}/></span>
+                        <span className="inline-flex items-center gap-2 font-bold text-white text-xs sm:text-sm group-hover:underline">Launch Agent <ChevronRight size={14} className="sm:w-4 sm:h-4"/></span>
                     </div>
                 </button>
             </div>
 
             {/* Toolbar */}
-            <div className="bg-white p-2 rounded-xl border border-slate-200 shadow-sm mb-6 sm:mb-8 flex flex-col sm:flex-row gap-2">
+            <div className="bg-white p-2 rounded-lg sm:rounded-xl border border-slate-200 shadow-sm mb-4 sm:mb-6 md:mb-8 flex flex-col gap-2 sm:flex-row sm:gap-2">
                 <div className="relative flex-grow">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
                     <input 
                         type="text" 
                         placeholder="Search assets..." 
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 bg-slate-50 border-transparent focus:bg-white focus:ring-2 focus:ring-primary-100 rounded-lg outline-none text-sm transition-all"
+                        className="w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-2 bg-slate-50 border-transparent focus:bg-white focus:ring-2 focus:ring-primary-100 rounded-lg outline-none text-xs sm:text-sm transition-all"
                     />
                 </div>
                 
-                <div className="flex gap-2">
+                <div className="flex gap-1 sm:gap-2">
                     <div className="flex bg-slate-100 p-1 rounded-lg">
-                        <button onClick={() => setFilterOption('all')} className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${filterOption === 'all' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>All</button>
-                        <button onClick={() => setFilterOption('draft')} className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${filterOption === 'draft' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Drafts</button>
-                        <button onClick={() => setFilterOption('published')} className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${filterOption === 'published' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Published</button>
+                        <button onClick={() => setFilterOption('all')} className={`px-2 sm:px-3 py-1 rounded-md text-xs font-bold transition-all ${filterOption === 'all' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>All</button>
+                        <button onClick={() => setFilterOption('draft')} className={`px-2 sm:px-3 py-1 rounded-md text-xs font-bold transition-all ${filterOption === 'draft' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Drafts</button>
+                        <button onClick={() => setFilterOption('published')} className={`px-2 sm:px-3 py-1 rounded-md text-xs font-bold transition-all ${filterOption === 'published' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Published</button>
                     </div>
-                    <select value={sortOption} onChange={(e) => setSortOption(e.target.value as SortOption)} className="bg-slate-50 border-transparent hover:bg-slate-100 px-3 py-1 rounded-lg text-xs font-bold text-slate-600 outline-none cursor-pointer">
+                    <select value={sortOption} onChange={(e) => setSortOption(e.target.value as SortOption)} className="bg-slate-50 border-transparent hover:bg-slate-100 px-2 sm:px-3 py-1 rounded-lg text-xs font-bold text-slate-600 outline-none cursor-pointer">
                         <option value="newest">Newest</option>
                         <option value="oldest">Oldest</option>
                         <option value="az">A-Z</option>
@@ -585,20 +585,20 @@ const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, onCreateNew, onOpe
 
             {/* Grid */}
             {isLoading ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
                     {[1, 2, 3, 4].map((i) => (<ProjectSkeleton key={i} />))}
                 </div>
             ) : projects.length === 0 ? (
-                <div className="bg-white border-2 border-dashed border-slate-200 rounded-3xl p-8 sm:p-16 text-center flex flex-col items-center justify-center min-h-[300px] sm:min-h-[400px]">
+                <div className="bg-white border-2 border-dashed border-slate-200 rounded-2xl sm:rounded-3xl p-4 sm:p-8 md:p-16 text-center flex flex-col items-center justify-center min-h-[200px] sm:min-h-[300px] md:min-h-[400px]">
                     <div className="w-20 h-20 bg-slate-50 text-slate-300 rounded-full flex items-center justify-center mb-6"><BookOpen size={40} /></div>
                     <h3 className="text-title text-slate-900 mb-2">No products yet</h3>
                     <p className="text-body text-slate-500 max-w-md mx-auto mb-8">Start your journey as a digital creator. Create your first book product using the Studio above.</p>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
                     {/* Removed "Create New Product" tile as per new design */}
                     {filteredProjects.map((project) => (
-                        <div key={project.id} onClick={() => onOpenProject(project.id)} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden cursor-pointer group hover:shadow-xl hover:border-primary-200 hover:-translate-y-1 active:scale-[0.98] active:translate-y-0 transition-all duration-300 flex flex-col h-full relative">
+                        <div key={project.id} onClick={() => onOpenProject(project.id)} className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-slate-200 overflow-hidden cursor-pointer group hover:shadow-xl hover:border-primary-200 hover:-translate-y-1 active:scale-[0.98] active:translate-y-0 transition-all duration-300 flex flex-col h-full relative">
                             <div className="aspect-[2/3] bg-slate-100 relative overflow-hidden border-b border-slate-100 group-image-container">
                                 {project.coverImage ? (
                                     <>
@@ -606,15 +606,18 @@ const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, onCreateNew, onOpe
                                         <div className="fallback-cover hidden w-full h-full flex flex-col items-center justify-center text-slate-300 p-6 text-center bg-slate-50 absolute inset-0"><BookOpen size={48} className="mb-4 opacity-50" /><span className="text-label opacity-50">Image Error</span></div>
                                     </>
                                 ) : (<div className="w-full h-full flex flex-col items-center justify-center text-slate-300 p-6 text-center bg-slate-50"><BookOpen size={48} className="mb-4 opacity-50" /><span className="text-label opacity-50">No Cover</span></div>)}
-                                <div className="absolute top-3 right-3 z-10">{project.status === 'published' ? (<span className="bg-emerald-500 text-white text-xs sm:text-micro font-bold px-2.5 py-1 rounded-full shadow-md flex items-center gap-1 animate-in fade-in zoom-in"><CheckCircle2 size={12} /> Published</span>) : (<span className="bg-slate-900/50 backdrop-blur-sm text-white text-xs sm:text-micro font-bold px-2.5 py-1 rounded-full shadow-md">Draft</span>)}</div>
+                                <div className="absolute top-2 sm:top-3 right-2 sm:right-3 z-10">{project.status === 'published' ? (<span className="bg-emerald-500 text-white text-xs font-bold px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full shadow-md flex items-center gap-1 animate-in fade-in zoom-in"><CheckCircle2 size={12} /> Published</span>) : (<span className="bg-slate-900/50 backdrop-blur-sm text-white text-xs font-bold px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full shadow-md">Draft</span>)}</div>
                                 <div className="absolute inset-0 bg-slate-900/0 group-hover:bg-slate-900/10 transition-colors flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 gap-2"><button className="bg-white text-primary-600 px-4 py-2 rounded-full text-heading transform translate-y-4 group-hover:translate-y-0 transition-all shadow-lg flex items-center gap-2"><PenTool size={14} /> Open Studio</button></div>
                             </div>
-                            <div className="p-5 flex-grow flex flex-col">
-                                <h3 className="text-title text-slate-900 line-clamp-2 leading-tight mb-2 group-hover:text-primary-600 transition-colors" title={project.title}>{project.title}</h3>
-                                {project.author && <p className="text-body text-slate-500 mb-4">by {project.author}</p>}
-                                <div className="mt-auto space-y-3 pt-4 border-t border-slate-50">
-                                    <div className="flex items-center gap-2 text-xs sm:text-micro text-slate-400"><Clock size={14} /><span>Edited {formatDate(project.lastModified)}</span></div>
-                                    <div className="flex items-center justify-between"><div className="flex items-center gap-2 text-xs sm:text-micro font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-md"><FileText size={14} /><span>{project.wordCount ? project.wordCount.toLocaleString() : 0} words</span></div><div className="flex items-center gap-1">{project.status === 'published' && (<button onClick={(e) => handleOpenMarketing(e, project.id)} className="text-primary-600 hover:text-primary-700 hover:bg-primary-50 p-1.5 rounded transition-colors"><Share2 size={16} /></button>)}<button type="button" onClick={(e) => confirmDelete(e, project.id)} className="text-slate-300 hover:text-red-500 p-1.5 hover:bg-red-50 rounded transition-colors"><Trash2 size={16} /></button></div></div>
+                            <div className="p-3 sm:p-4 md:p-5 flex-grow flex flex-col">
+                                <h3 className="text-sm sm:text-title text-slate-900 line-clamp-2 leading-tight mb-1 sm:mb-2 group-hover:text-primary-600 transition-colors" title={project.title}>{project.title}</h3>
+                                {project.author && <p className="text-xs sm:text-sm text-slate-500 mb-2 sm:mb-4 line-clamp-1">by {project.author}</p>}
+                                <div className="mt-auto space-y-2 sm:space-y-3 pt-3 sm:pt-4 border-t border-slate-50">
+                                    <div className="flex items-center gap-2 text-xs text-slate-400"><Clock size={12} /><span className="truncate">Edited {formatDate(project.lastModified)}</span></div>
+                                    <div className="flex items-center justify-between gap-2">
+                                        <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-md flex-shrink-0"><FileText size={12} /><span className="hidden sm:inline">{project.wordCount ? project.wordCount.toLocaleString() : 0} words</span><span className="sm:hidden">{project.wordCount ? (project.wordCount / 1000).toFixed(0) : 0}k</span></div>
+                                        <div className="flex items-center gap-0.5 sm:gap-1 h-10 sm:h-auto">{project.status === 'published' && (<button onClick={(e) => { e.stopPropagation(); handleOpenMarketing(e, project.id); }} className="text-primary-600 hover:text-primary-700 hover:bg-primary-50 p-2 sm:p-2.5 rounded transition-colors flex items-center justify-center touch-target"><Share2 size={18} /></button>)}<button type="button" onClick={(e) => { e.stopPropagation(); confirmDelete(e, project.id); }} className="text-slate-400 hover:text-red-500 p-2 sm:p-2.5 hover:bg-red-50 rounded transition-colors flex items-center justify-center touch-target"><Trash2 size={18} /></button></div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
