@@ -85,17 +85,17 @@ const SelectionMenu: React.FC<{
 
     return (
         <div 
-            className="fixed z-50 flex flex-col bg-white text-slate-800 rounded-lg shadow-2xl border border-slate-200 selection-menu-enter transform -translate-x-1/2 -translate-y-full"
-            style={{ top: position.top - 8, left: position.left }}
+            className="fixed z-50 flex flex-col bg-white text-slate-800 rounded-lg shadow-2xl border border-slate-200 selection-menu-enter transform -translate-x-1/2 -translate-y-full p-0 w-auto max-w-[280px]" 
+            style={{ top: Math.max(60, position.top - 8), left: Math.max(16, Math.min(position.left - 140, window.innerWidth - 296)) }}
         >
             {/* Formatting Row */}
-            <div className="flex items-center p-1 border-b border-slate-100 bg-slate-50 rounded-t-lg">
-                <Button variant="ghost" size="sm" onMouseDown={(e) => { e.preventDefault(); onFormat('bold'); }} className="p-1.5"><Bold size={14}/></Button>
-                <Button variant="ghost" size="sm" onMouseDown={(e) => { e.preventDefault(); onFormat('italic'); }} className="p-1.5"><Italic size={14}/></Button>
-                <Button variant="ghost" size="sm" onMouseDown={(e) => { e.preventDefault(); onFormat('underline'); }} className="p-1.5"><Underline size={14}/></Button>
-                <div className="w-px h-4 bg-slate-300 mx-1"></div>
-                <Button variant="ghost" size="sm" onMouseDown={(e) => { e.preventDefault(); onFormat('formatBlock', 'h2'); }} className="p-1.5"><Heading2 size={14}/></Button>
-                <Button variant="ghost" size="sm" onMouseDown={(e) => { e.preventDefault(); onFormat('formatBlock', 'h3'); }} className="p-1.5"><Heading3 size={14}/></Button>
+            <div className="flex items-center flex-wrap p-1 border-b border-slate-100 bg-slate-50 rounded-t-lg gap-0.5 md:gap-1">
+                <Button variant="ghost" size="sm" onMouseDown={(e) => { e.preventDefault(); onFormat('bold'); }} className="p-2 md:p-2.5 h-10 w-10 md:h-auto flex items-center justify-center touch-target"><Bold size={16}/></Button>
+                <Button variant="ghost" size="sm" onMouseDown={(e) => { e.preventDefault(); onFormat('italic'); }} className="p-2 md:p-2.5 h-10 w-10 md:h-auto flex items-center justify-center touch-target"><Italic size={16}/></Button>
+                <Button variant="ghost" size="sm" onMouseDown={(e) => { e.preventDefault(); onFormat('underline'); }} className="p-2 md:p-2.5 h-10 w-10 md:h-auto flex items-center justify-center touch-target"><Underline size={16}/></Button>
+                <div className="w-px h-4 bg-slate-300 mx-0.5 md:mx-1"></div>
+                <Button variant="ghost" size="sm" onMouseDown={(e) => { e.preventDefault(); onFormat('formatBlock', 'h2'); }} className="p-2 md:p-2.5 h-10 w-10 md:h-auto flex items-center justify-center touch-target"><Heading2 size={16}/></Button>
+                <Button variant="ghost" size="sm" onMouseDown={(e) => { e.preventDefault(); onFormat('formatBlock', 'h3'); }} className="p-2 md:p-2.5 h-10 w-10 md:h-auto flex items-center justify-center touch-target"><Heading3 size={16}/></Button>
             </div>
             
             {/* AI Tools Row */}
@@ -253,19 +253,19 @@ const ContextReviewDialog: React.FC<{
     if (totalItems === 0) return null;
     
     return (
-        <div className="fixed bottom-4 right-4 left-4 sm:left-auto sm:bottom-8 sm:right-8 z-[100] animate-in slide-in-from-bottom-10 fade-in duration-500">
-            <div className="bg-slate-900 text-white p-4 sm:p-6 rounded-2xl shadow-2xl border border-slate-700 w-full sm:w-80">
-                <div className="flex justify-between items-start mb-4">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-primary-600 rounded-xl flex items-center justify-center animate-pulse">
-                            <Brain size={20} className="text-white"/>
+        <div className="fixed bottom-4 right-3 left-3 sm:left-auto sm:bottom-8 sm:right-8 z-[100] animate-in slide-in-from-bottom-10 fade-in duration-500">
+            <div className="bg-slate-900 text-white p-3 sm:p-4 md:p-6 rounded-lg sm:rounded-2xl shadow-2xl border border-slate-700 w-full sm:w-80">
+                <div className="flex justify-between items-start mb-3 sm:mb-4">
+                    <div className="flex items-center gap-2 sm:gap-3 flex-1">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-primary-600 rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0 animate-pulse">
+                            <Brain size={16} className="sm:w-5 sm:h-5"/>
                         </div>
-                        <div>
-                            <h4 className="font-bold text-sm">New Concepts Found</h4>
-                            <p className="text-[10px] text-slate-400">Found {totalItems} items to index.</p>
+                        <div className="min-w-0">
+                            <h4 className="font-bold text-xs sm:text-sm">New Concepts Found</h4>
+                            <p className="text-[9px] sm:text-[10px] text-slate-400">Found {totalItems} items to index.</p>
                         </div>
                     </div>
-                    <Button variant="ghost" size="sm" onClick={onDiscard} className="p-1"><X size={16}/></Button>
+                    <Button variant="ghost" size="sm" onClick={onDiscard} className="p-1 flex-shrink-0"><X size={14} className="sm:w-4 sm:h-4"/></Button>
                 </div>
                 
                 <div className="space-y-2 mb-4 max-h-40 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-700">
@@ -299,12 +299,12 @@ const NavigationSidebar: React.FC<{
     onClose: () => void 
 }> = ({ outline, activeChapterId, onNavigate, onClose }) => {
     return (
-        <div className="fixed top-0 left-0 h-full w-[85vw] sm:w-80 max-w-80 bg-white shadow-2xl border-r border-slate-200 z-50 flex flex-col animate-in slide-in-from-left duration-300">
-            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                <h3 className="font-bold text-slate-800 flex items-center gap-2"><List size={18}/> Contents</h3>
-                <Button variant="ghost" size="sm" onClick={onClose} className="p-1" title="Close Panel"><X size={20} className="text-slate-400 hover:text-slate-600"/></Button>
+        <div className="fixed top-0 left-0 h-full w-full sm:w-80 sm:max-w-80 bg-white shadow-2xl border-r border-slate-200 z-50 flex flex-col animate-in slide-in-from-left duration-300 max-h-[100vh]">
+            <div className="p-3 sm:p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 flex-shrink-0">
+                <h3 className="font-bold text-sm sm:text-base text-slate-800 flex items-center gap-2"><List size={16} className="sm:w-5 sm:h-5"/> Contents</h3>
+                <Button variant="ghost" size="sm" onClick={onClose} className="p-1" title="Close Panel"><X size={18} className="text-slate-400 hover:text-slate-600 sm:w-5 sm:h-5"/></Button>
             </div>
-            <div className="flex-grow overflow-y-auto p-4 space-y-2">
+            <div className="flex-grow overflow-y-auto p-3 sm:p-4 space-y-2 sm:space-y-3">
                 {outline.map((item, idx) => {
                     const isActive = item.id === activeChapterId;
                     return (
@@ -575,9 +575,9 @@ const DevicePreview: React.FC<{ html: string, device: 'mobile' | 'tablet' | 'des
     const paraClass = design.paragraphStyle === 'block' ? 'paragraph-block' : 'paragraph-indent';
     
     let containerClass = "mx-auto bg-white shadow-xl overflow-hidden relative transition-all duration-300 flex flex-col";
-    if (device === 'mobile') containerClass += " w-full max-w-[375px] h-[600px] sm:h-[812px] rounded-[2rem] sm:rounded-[3rem] border-[6px] sm:border-[8px] border-slate-800 my-4 sm:my-8";
-    else if (device === 'tablet') containerClass += " w-full max-w-[768px] h-[500px] sm:h-[1024px] rounded-[1.5rem] sm:rounded-[2rem] border-[6px] sm:border-[8px] border-slate-800 my-4 sm:my-8";
-    else containerClass += " w-full max-w-[1000px] h-[400px] sm:h-[600px] my-4 sm:my-8 rounded-lg border border-slate-200";
+    if (device === 'mobile') containerClass += " w-full max-w-[clamp(300px,90vw,420px)] h-[500px] sm:h-[600px] md:h-[812px] rounded-[clamp(1rem,5vw,2rem)] border-[clamp(4px,1.5vw,8px)] border-slate-800 my-3 sm:my-6 md:my-8";
+    else if (device === 'tablet') containerClass += " w-full max-w-[clamp(350px,95vw,768px)] h-[400px] sm:h-[600px] md:h-[1024px] rounded-[1.5rem] sm:rounded-[2rem] border-[clamp(4px,1.5vw,8px)] border-slate-800 my-3 sm:my-6 md:my-8";
+    else containerClass += " w-full max-w-[clamp(400px,95vw,1000px)] h-[300px] sm:h-[500px] md:h-[600px] my-3 sm:my-6 md:my-8 rounded-lg border border-slate-200";
 
     useEffect(() => {
         const updatePagination = () => {
@@ -949,15 +949,15 @@ export const EbookDisplay: React.FC<EbookDisplayProps> = ({
         useEffect(() => { if (streamRef.current) streamRef.current.scrollTop = streamRef.current.scrollHeight; }, [streamContent]);
         
         return (
-            <div className="w-full max-w-[6in] mx-auto bg-white border border-slate-200 shadow-md rounded-xl p-8 my-10">
-                <h2 className="text-2xl font-bold mb-4">{item.title}</h2>
+            <div className="w-full px-3 sm:px-0 mx-auto max-w-none sm:max-w-[6in] bg-white border border-slate-200 shadow-md rounded-xl p-3 sm:p-6 md:p-8 my-6 sm:my-10">
+                <h2 className="text-lg sm:text-2xl font-bold mb-3 sm:mb-4">{item.title}</h2>
                 {isWriting && streamContent ? (
-                    <div className="bg-slate-50 p-6 rounded-lg h-64 overflow-y-auto font-serif" ref={streamRef} dangerouslySetInnerHTML={{__html: streamContent}} />
+                    <div className="bg-slate-50 p-3 sm:p-6 rounded-lg h-40 sm:h-64 overflow-y-auto font-serif text-sm sm:text-base" ref={streamRef} dangerouslySetInnerHTML={{__html: streamContent}} />
                 ) : (
                     <>
-                        <textarea value={beat || ''} onChange={(e) => setBeat(e.target.value)} className="w-full h-32 p-4 bg-slate-50 rounded-lg text-sm mb-4" />
-                        <Button onClick={() => onWrite(item.id, beat)} disabled={isWriting} variant="primary" className="gap-2">
-                            {isWriting ? <Loader2 className="animate-spin" size={16}/> : <Wand2 size={16}/>} Generate
+                        <textarea value={beat || ''} onChange={(e) => setBeat(e.target.value)} className="w-full h-24 sm:h-32 p-3 sm:p-4 bg-slate-50 rounded-lg text-xs sm:text-sm mb-3 sm:mb-4 font-size-16px border border-slate-200" placeholder="Enter your beat outline..." />
+                        <Button onClick={() => onWrite(item.id, beat)} disabled={isWriting} variant="primary" className="gap-2 text-xs sm:text-sm h-9 sm:h-auto px-3 sm:px-4 py-2 sm:py-2.5">
+                            {isWriting ? <Loader2 className="animate-spin" size={14}/> : <Wand2 size={14}/>} Generate
                         </Button>
                     </>
                 )}
@@ -980,43 +980,43 @@ export const EbookDisplay: React.FC<EbookDisplayProps> = ({
             )}
 
             <div className={`flex-grow flex flex-col relative transition-all duration-300 ${activeTool === 'formatting' ? 'md:mr-80' : ''} ${activeTool === 'nav' ? 'md:ml-80' : ''}`}>
-                <div className="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-2 sm:px-4 z-30">
-                    <div className="flex items-center gap-3">
-                        <Button variant="ghost" size="sm" onClick={() => setActiveTool(activeTool === 'nav' ? null : 'nav')} className="p-2" title="Toggle Chapter List"><List size={20}/></Button>
+                <div className="h-12 sm:h-14 bg-white border-b border-slate-200 flex items-center justify-between px-2 sm:px-4 gap-2 z-30 overflow-x-auto scrollbar-hide">
+                    <div className="flex items-center gap-1 sm:gap-3 min-w-0">
+                        <Button variant="ghost" size="sm" onClick={() => setActiveTool(activeTool === 'nav' ? null : 'nav')} className="p-2 h-10 w-10 flex items-center justify-center touch-target flex-shrink-0 md:hidden" title="Toggle Chapter List"><List size={18}/></Button>
                         {onBackToDashboard && (
                             <Button 
                                 variant="ghost" 
                                 size="sm" 
                                 onClick={onBackToDashboard}
-                                className="gap-2 px-3 py-1.5 text-slate-600 hover:text-slate-900 border border-slate-200 rounded-lg hover:bg-slate-50"
+                                className="gap-1 sm:gap-2 px-2 sm:px-3 py-2 h-10 sm:h-auto text-xs sm:text-sm text-slate-600 hover:text-slate-900 border border-slate-200 rounded-lg hover:bg-slate-50 font-semibold flex-shrink-0"
                                 title="Return to Dashboard"
                             >
                                 <ArrowLeft size={16}/>
-                                <span className="text-xs font-semibold uppercase tracking-wide">Dashboard</span>
+                                <span className="hidden sm:inline">Dashboard</span>
                             </Button>
                         )}
-                        <span className="font-bold text-slate-700 ml-2 hidden sm:inline truncate max-w-[200px]">{data.title}</span>
+                        <span className="font-bold text-xs sm:text-sm text-slate-700 ml-1 sm:ml-2 hidden sm:inline truncate flex-shrink min-w-0 max-w-[150px]">{data.title}</span>
                     </div>
-                    <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto scrollbar-hide">
-                        <div className="flex bg-slate-100 p-1 rounded-lg gap-1 flex-shrink-0">
-                            <Button variant={viewMode === 'write' ? 'neutral' : 'ghost'} size="sm" onClick={switchToWrite} className="px-2 sm:px-3 py-1 text-xs">Write</Button>
-                            <Button variant={viewMode === 'preview' ? 'neutral' : 'ghost'} size="sm" onClick={switchToPreview} className="px-2 sm:px-3 py-1 text-xs">Preview</Button>
+                    <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto scrollbar-hide flex-shrink-0">
+                        <div className="flex bg-slate-100 p-0.5 sm:p-1 rounded-lg gap-0.5 sm:gap-1 flex-shrink-0">
+                            <Button variant={viewMode === 'write' ? 'neutral' : 'ghost'} size="sm" onClick={switchToWrite} className="px-2 sm:px-3 py-1 text-xs h-8 sm:h-auto">Write</Button>
+                            <Button variant={viewMode === 'preview' ? 'neutral' : 'ghost'} size="sm" onClick={switchToPreview} className="px-2 sm:px-3 py-1 text-xs h-8 sm:h-auto">Preview</Button>
                         </div>
                         {viewMode === 'preview' && (
-                            <div className="hidden sm:flex bg-slate-100 p-1 rounded-lg gap-1 ml-2 flex-shrink-0">
-                                <Button variant={previewDevice === 'print' ? 'neutral' : 'ghost'} size="sm" onClick={() => setPreviewDevice('print')} className="px-3 py-1 text-xs">Print</Button>
-                                <Button variant={previewDevice === 'desktop' ? 'neutral' : 'ghost'} size="sm" onClick={() => setPreviewDevice('desktop')} className="px-3 py-1 text-xs">Desktop</Button>
-                                <Button variant={previewDevice === 'tablet' ? 'neutral' : 'ghost'} size="sm" onClick={() => setPreviewDevice('tablet')} className="px-3 py-1 text-xs">Tablet</Button>
-                                <Button variant={previewDevice === 'mobile' ? 'neutral' : 'ghost'} size="sm" onClick={() => setPreviewDevice('mobile')} className="px-3 py-1 text-xs">Mobile</Button>
+                            <div className="hidden sm:flex bg-slate-100 p-0.5 sm:p-1 rounded-lg gap-0.5 sm:gap-1 ml-1 sm:ml-2 flex-shrink-0">
+                                <Button variant={previewDevice === 'print' ? 'neutral' : 'ghost'} size="sm" onClick={() => setPreviewDevice('print')} className="px-2 sm:px-3 py-1 text-xs h-8 sm:h-auto">Print</Button>
+                                <Button variant={previewDevice === 'desktop' ? 'neutral' : 'ghost'} size="sm" onClick={() => setPreviewDevice('desktop')} className="px-2 sm:px-3 py-1 text-xs h-8 sm:h-auto">Desktop</Button>
+                                <Button variant={previewDevice === 'tablet' ? 'neutral' : 'ghost'} size="sm" onClick={() => setPreviewDevice('tablet')} className="px-2 sm:px-3 py-1 text-xs h-8 sm:h-auto">Tablet</Button>
+                                <Button variant={previewDevice === 'mobile' ? 'neutral' : 'ghost'} size="sm" onClick={() => setPreviewDevice('mobile')} className="px-2 sm:px-3 py-1 text-xs h-8 sm:h-auto">Mobile</Button>
                             </div>
                         )}
-                        <Button variant="neutral" size="sm" onClick={handleProofreadBook} disabled={isProofreading} className="gap-1 sm:gap-2 flex-shrink-0 hidden sm:flex">
-                            {isProofreading ? <Loader2 size={14} className="animate-spin" /> : <CheckCheck size={14} />}
-                            <span className="hidden sm:inline">{isProofreading ? `Proofreading... ${proofreadProgress}%` : 'Proofread'}</span>
+                        <Button variant="neutral" size="sm" onClick={handleProofreadBook} disabled={isProofreading} className="gap-0.5 sm:gap-2 flex-shrink-0 hidden sm:flex text-xs h-8 sm:h-auto px-2 sm:px-3 py-1">
+                            {isProofreading ? <Loader2 size={12} className="sm:w-4 sm:h-4 animate-spin" /> : <CheckCheck size={12} className="sm:w-4 sm:h-4" />}
+                            <span className="hidden md:inline">{isProofreading ? `${proofreadProgress}%` : 'Proofread'}</span>
                         </Button>
-                        <Button variant="ghost" size="sm" onClick={() => { if (!isDemoMode) onOpenCoAuthor(); }} disabled={isDemoMode} className="gap-1 sm:gap-2 flex-shrink-0 hidden md:flex"><Database size={14}/> <span className="hidden lg:inline">Vault</span></Button>
-                        <Button variant="ghost" size="sm" onClick={() => setActiveTool(activeTool === 'formatting' ? null : 'formatting')} className="p-2 flex-shrink-0"><Palette size={20}/></Button>
-                        <Button variant="primary" size="sm" onClick={() => setActiveTool('publish')} className="flex-shrink-0">Publish</Button>
+                        <Button variant="ghost" size="sm" onClick={() => { if (!isDemoMode) onOpenCoAuthor(); }} disabled={isDemoMode} className="gap-0.5 sm:gap-2 flex-shrink-0 hidden md:flex p-2 h-10 md:h-auto"><Database size={14}/> <span className="hidden lg:inline text-xs">Vault</span></Button>
+                        <Button variant="ghost" size="sm" onClick={() => setActiveTool(activeTool === 'formatting' ? null : 'formatting')} className="p-2 h-10 w-10 sm:h-auto sm:w-auto flex items-center justify-center touch-target flex-shrink-0"><Palette size={18} className="sm:w-5 sm:h-5"/></Button>
+                        <Button variant="primary" size="sm" onClick={() => setActiveTool('publish')} className="flex-shrink-0 text-xs px-2 sm:px-3 py-1.5 h-9 sm:h-auto">Publish</Button>
                     </div>
                 </div>
 
