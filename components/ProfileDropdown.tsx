@@ -29,7 +29,7 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onViewProfile,
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2 px-3 sm:px-4 py-2.5 sm:py-2 rounded-lg text-sm font-bold bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 transition-all"
       >
-        <User size={16} /> Profile <ChevronDown size={14} />
+        <User size={16} /> Settings <ChevronDown size={14} />
       </button>
       
       {isOpen && (

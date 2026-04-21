@@ -73,15 +73,15 @@ export default function ContactForm() {
 
   return (
     <div className="w-full max-w-2xl mx-auto">
-      <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-8">
-        <div className="flex items-center gap-3 mb-6">
+      <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-4 sm:p-6 md:p-8">
+        <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
           <Mail className="w-6 h-6 text-blue-500" />
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
             Get In Touch
           </h2>
         </div>
 
-        <p className="text-gray-600 dark:text-gray-400 mb-8">
+        <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mb-6 sm:mb-8">
           Have a question or feedback? We'd love to hear from you. Fill out the
           form below and we'll get back to you as soon as possible.
         </p>
@@ -114,8 +114,8 @@ export default function ContactForm() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
             {/* Name Field */}
             <div>
               <label
@@ -132,7 +132,7 @@ export default function ContactForm() {
                 onChange={handleChange}
                 required
                 disabled={isLoading}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
+                className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 dark:border-gray-600 rounded-lg text-base
                   bg-white dark:bg-gray-800 text-gray-900 dark:text-white
                   focus:ring-2 focus:ring-blue-500 focus:border-transparent
                   disabled:opacity-50 disabled:cursor-not-allowed
@@ -157,7 +157,7 @@ export default function ContactForm() {
                 onChange={handleChange}
                 required
                 disabled={isLoading}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
+                className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 dark:border-gray-600 rounded-lg text-base
                   bg-white dark:bg-gray-800 text-gray-900 dark:text-white
                   focus:ring-2 focus:ring-blue-500 focus:border-transparent
                   disabled:opacity-50 disabled:cursor-not-allowed
@@ -183,7 +183,7 @@ export default function ContactForm() {
               onChange={handleChange}
               required
               disabled={isLoading}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
+              className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 dark:border-gray-600 rounded-lg text-base
                 bg-white dark:bg-gray-800 text-gray-900 dark:text-white
                 focus:ring-2 focus:ring-blue-500 focus:border-transparent
                 disabled:opacity-50 disabled:cursor-not-allowed
@@ -208,7 +208,7 @@ export default function ContactForm() {
               required
               disabled={isLoading}
               rows={6}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
+              className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 dark:border-gray-600 rounded-lg text-base
                 bg-white dark:bg-gray-800 text-gray-900 dark:text-white
                 focus:ring-2 focus:ring-blue-500 focus:border-transparent
                 disabled:opacity-50 disabled:cursor-not-allowed

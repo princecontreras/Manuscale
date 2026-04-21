@@ -41,12 +41,12 @@ const MarketingModal: React.FC<{ data: EbookData, onClose: () => void }> = ({ da
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={onClose}>
-            <div className="bg-white rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+            <div className="bg-white rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[100dvh]" onClick={e => e.stopPropagation()}>
                 <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
                     <h3 className="text-xl font-bold text-slate-900">Marketing Kit</h3>
                     <Button variant="ghost" size="sm" onClick={onClose}><X size={20} /></Button>
                 </div>
-                <div className="flex-grow overflow-y-auto p-8 space-y-8">
+                <div className="flex-grow overflow-y-auto p-4 sm:p-6 md:p-8 space-y-6 sm:space-y-8">
                     <section>
                         <h4 className="text-sm font-bold text-slate-500 uppercase mb-2">Book Blurb</h4>
                         <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-sm leading-relaxed text-slate-700 whitespace-pre-wrap">

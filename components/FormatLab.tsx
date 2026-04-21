@@ -72,15 +72,15 @@ const FormatLab: React.FC<FormatLabProps> = ({ onBack, onImportComplete }) => {
     return (
         <div className="h-screen w-full bg-slate-50 flex flex-col font-sans overflow-hidden relative selection:bg-primary-100 selection:text-primary-900">
             {/* Header */}
-            <div className="h-20 bg-white border-b border-slate-100 flex items-center justify-between px-8 shadow-sm z-20 flex-shrink-0">
-                <div className="flex items-center gap-6">
+            <div className="h-16 sm:h-20 bg-white border-b border-slate-100 flex items-center justify-between px-4 sm:px-6 lg:px-8 shadow-sm z-20 flex-shrink-0">
+                <div className="flex items-center gap-3 sm:gap-6">
                     <button onClick={onBack} className="p-2 -ml-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-900 transition-colors">
                         <X size={20}/>
                     </button>
                     <div>
-                        <h1 className="font-serif font-bold text-2xl text-slate-900 flex items-center gap-3">
-                            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white shadow-blue-200 shadow-lg">
-                                <FileText size={18}/>
+                        <h1 className="font-serif font-bold text-lg sm:text-2xl text-slate-900 flex items-center gap-2 sm:gap-3">
+                            <div className="w-7 h-7 sm:w-8 sm:h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white shadow-blue-200 shadow-lg">
+                                <FileText size={16} className="sm:scale-100 scale-90"/>
                             </div>
                             Format Lab
                         </h1>

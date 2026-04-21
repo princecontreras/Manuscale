@@ -113,7 +113,7 @@ const AgentOnboarding: React.FC<{ onClose: () => void; isDemoMode?: boolean }> =
 
     return (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300 overflow-y-auto">
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl sm:rounded-3xl w-full max-w-lg max-h-[90vh] shadow-2xl overflow-y-auto flex flex-col relative">
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl sm:rounded-3xl w-full max-w-lg max-h-[100dvh] shadow-2xl overflow-y-auto flex flex-col relative">
                 
                 {/* Visual Area */}
                 <div className={`h-32 sm:h-48 ${current.bg} flex items-center justify-center border-b ${current.border} relative overflow-hidden transition-colors duration-500`}>
@@ -884,7 +884,7 @@ CRITICAL: Do NOT duplicate the title. Only include the title text once.`;
             {showOnboarding && <AgentOnboarding onClose={handleCloseOnboarding} isDemoMode={isDemoMode} />}
 
             {/* LEFT: Controls & Monitor (3 Cols) */}
-            <div className="lg:col-span-3 min-h-[40vh] lg:min-h-0 lg:h-full lg:border-r border-slate-800 bg-slate-950 text-slate-300 flex flex-col z-20 shadow-xl overflow-y-auto lg:overflow-hidden">
+            <div className="lg:col-span-3 min-h-[30vh] sm:min-h-[35vh] lg:min-h-0 lg:h-full lg:border-r border-slate-800 bg-slate-950 text-slate-300 flex flex-col z-20 shadow-xl overflow-y-auto lg:overflow-hidden">
                 <div className="p-3 sm:p-4 border-b border-slate-800 flex items-center gap-3 justify-between">
                     <div className="flex items-center gap-3">
                         <button onClick={onBack} className="p-2 hover:bg-slate-800 rounded-lg text-slate-500 hover:text-white"><ArrowLeft size={18}/></button>
@@ -1306,17 +1306,17 @@ CRITICAL: Do NOT duplicate the title. Only include the title text once.`;
 
             {/* RIGHT: Agent Activity & Logs (3 Cols) */}
             <div className="lg:col-span-3 min-h-[30vh] lg:min-h-0 lg:h-full bg-white border-t lg:border-t-0 lg:border-l border-slate-200 flex flex-col shadow-xl z-20 overflow-hidden">
-                <div className="p-6 border-b border-slate-200 bg-white flex-shrink-0">
+                <div className="p-3 sm:p-4 md:p-6 border-b border-slate-200 bg-white flex-shrink-0">
                     <div className="flex items-center justify-between mb-4"><h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2"><Brain size={12}/> Neural Activity</h3></div>
                     <div className={`p-4 rounded-xl border-2 transition-all ${activeAgent ? `bg-white ring-2 ring-brand-500 shadow-lg` : 'border-slate-200 bg-slate-50 grayscale opacity-70'}`}>
                         <div className="flex items-center gap-3 mb-3">
                             <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-slate-100 flex-shrink-0"><Activity size={20} className={activeAgent ? "animate-pulse text-emerald-500" : "text-slate-400"}/></div>
                             <div><div className="font-bold text-slate-900 text-sm capitalize">{activeAgent || 'Idle'}</div><div className="text-[10px] text-slate-500 uppercase tracking-wider">{agentAction || 'Standby'}</div></div>
                         </div>
-                        {activeAgent && <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 text-xs text-slate-600 italic max-h-28 sm:max-h-40 overflow-y-auto custom-scrollbar">"{agentReasoning}"</div>}
+                        {activeAgent && <div className="bg-slate-50 p-2 sm:p-3 rounded-lg border border-slate-100 text-xs text-slate-600 italic max-h-32 sm:max-h-40 md:max-h-48 overflow-y-auto custom-scrollbar">"{agentReasoning}"</div>}
                     </div>
                 </div>
-                <div className="flex-grow overflow-y-auto p-4 space-y-4 bg-slate-50 custom-scrollbar">
+                <div className="flex-grow overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4 bg-slate-50 custom-scrollbar">
                     {logs.map((log) => {
                         const agent = AGENTS.find(a => a.id === log.agentRole);
                         if (!agent) return null;
