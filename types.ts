@@ -203,6 +203,7 @@ export interface UserSubscription {
   stripeCustomerId?: string;
   subscriptionId?: string;
   subscriptionStatus?: 'active' | 'canceled' | 'past_due' | 'unpaid' | 'trialing';
+  currentPeriodStart?: Date;
   currentPeriodEnd?: Date;
   cancelAtPeriodEnd?: boolean;
   cancelAt?: Date;

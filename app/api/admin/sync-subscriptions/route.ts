@@ -98,6 +98,9 @@ export async function POST(req: NextRequest) {
               : priceId === yearlyPrice ? 'yearly'
               : priceId;
 
+            const currentPeriodStart = (subscription as any).current_period_start
+              ? new Date((subscription as any).current_period_start * 1000)
+              : new Date();
             const currentPeriodEnd = (subscription as any).current_period_end
               ? new Date((subscription as any).current_period_end * 1000)
               : new Date();
@@ -107,6 +110,7 @@ export async function POST(req: NextRequest) {
               stripeCustomerId: customer.id,
               subscriptionId: subscription.id,
               subscriptionStatus: subscription.status,
+              currentPeriodStart,
               currentPeriodEnd,
               plan,
               updatedAt: new Date(),
@@ -175,6 +179,9 @@ export async function POST(req: NextRequest) {
               : priceId === yearlyPrice ? 'yearly'
               : priceId;
 
+            const currentPeriodStart = (subscription as any).current_period_start
+              ? new Date((subscription as any).current_period_start * 1000)
+              : new Date();
             const currentPeriodEnd = (subscription as any).current_period_end
               ? new Date((subscription as any).current_period_end * 1000)
               : new Date();
@@ -184,6 +191,7 @@ export async function POST(req: NextRequest) {
               stripeCustomerId: customer.id,
               subscriptionId: subscription.id,
               subscriptionStatus: subscription.status,
+              currentPeriodStart,
               currentPeriodEnd,
               plan,
               updatedAt: new Date(),

@@ -70,6 +70,9 @@ export async function POST(req: NextRequest) {
     const newPlan = newPriceId === monthlyPriceId ? 'monthly'
       : newPriceId === yearlyPriceId ? 'yearly'
       : newPriceId;
+    const newPeriodStart = (updatedSubscription as any).current_period_start
+      ? new Date((updatedSubscription as any).current_period_start * 1000)
+      : new Date();
     const newPeriodEnd = (updatedSubscription as any).current_period_end
       ? new Date((updatedSubscription as any).current_period_end * 1000)
       : new Date();
@@ -77,6 +80,7 @@ export async function POST(req: NextRequest) {
     // Update Firestore immediately (webhook will also fire, but this gives instant feedback)
     await adminDb.collection('users').doc(decodedToken.uid).set({
       plan: newPlan,
+      currentPeriodStart: newPeriodStart,
       currentPeriodEnd: newPeriodEnd,
       updatedAt: new Date(),
     }, { merge: true });
@@ -84,6 +88,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       plan: newPlan,
+      currentPeriodStart: newPeriodStart.toISOString(),
       currentPeriodEnd: newPeriodEnd.toISOString(),
     });
   } catch (error: any) {

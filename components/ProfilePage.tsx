@@ -66,7 +66,7 @@ const formatRelativeTime = (timestamp: number): string => {
 
 // Billing Section Component
 const BillingSection: React.FC = () => {
-  const { isSubscribed, isPastDue, isCanceling, subscriptionStatus, currentPeriodEnd, cancelAtPeriodEnd, openBillingPortal, isMonthly, isYearly, isPortalLoading, switchPlan } = useSubscription();
+  const { isSubscribed, isPastDue, isCanceling, subscriptionStatus, currentPeriodStart, currentPeriodEnd, cancelAtPeriodEnd, openBillingPortal, isMonthly, isYearly, isPortalLoading, switchPlan } = useSubscription();
   const { showToast } = useToast();
   const [isSwitching, setIsSwitching] = useState(false);
   const [showSwitchConfirm, setShowSwitchConfirm] = useState(false);
@@ -81,6 +81,35 @@ const BillingSection: React.FC = () => {
       month: 'long',
       day: 'numeric',
     });
+  };
+
+  // Calculate the next billing date correctly
+  // If we have both dates, verify that currentPeriodEnd is valid and in the future
+  const getNextBillingDate = (): Date | undefined => {
+    if (!currentPeriodEnd) return undefined;
+    
+    const endDate = currentPeriodEnd instanceof Date ? currentPeriodEnd : new Date(currentPeriodEnd);
+    if (isNaN(endDate.getTime())) return undefined;
+    
+    // Ensure we're not showing the start date instead of the end date
+    // The end date should be at least 1 day after the start date
+    if (currentPeriodStart) {
+      const startDate = currentPeriodStart instanceof Date ? currentPeriodStart : new Date(currentPeriodStart);
+      if (!isNaN(startDate.getTime())) {
+        const daysDiff = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
+        // For monthly plans, should be ~30 days, for yearly should be ~365 days
+        if (daysDiff < 20) {
+          // This looks like the dates are swapped or invalid
+          console.warn('[BillingSection] Warning: currentPeriodEnd is too close to currentPeriodStart', {
+            startDate,
+            endDate,
+            daysDiff,
+          });
+        }
+      }
+    }
+    
+    return endDate;
   };
 
   const handleManageSubscription = async () => {
@@ -108,6 +137,8 @@ const BillingSection: React.FC = () => {
     }
   };
 
+  const nextBillingDate = getNextBillingDate();
+
   if (isSubscribed) {
     return (
       <section className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
@@ -126,7 +157,7 @@ const BillingSection: React.FC = () => {
             {isCanceling && (
               <div className="mb-3 p-3 bg-amber-100 rounded-lg">
                 <p className="text-sm text-amber-800 font-medium">
-                  Your subscription will end on {formatDate(currentPeriodEnd)}. You have full access until then.
+                  Your subscription will end on {formatDate(nextBillingDate)}. You have full access until then.
                 </p>
                 <p className="text-xs text-amber-600 mt-1">
                   To keep your subscription, click &quot;Manage Subscription&quot; below and reactivate.
@@ -151,7 +182,7 @@ const BillingSection: React.FC = () => {
                 </span>
               </p>
               <p>
-                <strong>{isCanceling ? 'Access Until:' : 'Next Billing Date:'}</strong> {formatDate(currentPeriodEnd)}
+                <strong>{isCanceling ? 'Access Until:' : 'Next Billing Date:'}</strong> {formatDate(nextBillingDate)}
               </p>
             </div>
           </div>

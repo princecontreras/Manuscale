@@ -136,6 +136,9 @@ export async function POST(req: NextRequest) {
             const plan = priceId === process.env.NEXT_PUBLIC_STRIPE_MONTHLY_PRICE_ID ? 'monthly'
               : priceId === process.env.NEXT_PUBLIC_STRIPE_YEARLY_PRICE_ID ? 'yearly'
               : priceId;
+            const currentPeriodStart = (subscription as any).current_period_start
+              ? new Date((subscription as any).current_period_start * 1000)
+              : new Date();
             const currentPeriodEnd = (subscription as any).current_period_end
               ? new Date((subscription as any).current_period_end * 1000)
               : new Date();
@@ -152,6 +155,7 @@ export async function POST(req: NextRequest) {
               stripeCustomerId: session.customer,
               subscriptionId: subscription.id,
               subscriptionStatus: subscription.status,
+              currentPeriodStart,
               currentPeriodEnd,
               cancelAtPeriodEnd: subscription.cancel_at_period_end || false,
               cancelAt: subscription.cancel_at ? new Date(subscription.cancel_at * 1000) : null,
@@ -199,6 +203,9 @@ export async function POST(req: NextRequest) {
             const plan = priceId === process.env.NEXT_PUBLIC_STRIPE_MONTHLY_PRICE_ID ? 'monthly'
               : priceId === process.env.NEXT_PUBLIC_STRIPE_YEARLY_PRICE_ID ? 'yearly'
               : priceId;
+            const currentPeriodStart = (subscription as any).current_period_start
+              ? new Date((subscription as any).current_period_start * 1000)
+              : new Date();
             const currentPeriodEnd = (subscription as any).current_period_end
               ? new Date((subscription as any).current_period_end * 1000)
               : new Date();
@@ -211,6 +218,7 @@ export async function POST(req: NextRequest) {
               stripeCustomerId: subscription.customer,
               subscriptionId: subscription.id,
               subscriptionStatus: subscription.status,
+              currentPeriodStart,
               currentPeriodEnd,
               cancelAtPeriodEnd: subscription.cancel_at_period_end || false,
               cancelAt: subscription.cancel_at ? new Date(subscription.cancel_at * 1000) : null,

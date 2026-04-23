@@ -70,6 +70,7 @@ export const useSubscription = () => {
     openBillingPortal,
     switchPlan,
     subscriptionStatus: userProfile?.subscriptionStatus,
+    currentPeriodStart: userProfile?.currentPeriodStart,
     currentPeriodEnd: userProfile?.currentPeriodEnd,
     cancelAtPeriodEnd: userProfile?.cancelAtPeriodEnd,
   };

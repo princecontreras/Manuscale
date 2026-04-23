@@ -66,6 +66,7 @@ export const useUser = () => {
                 stripeCustomerId: userData.stripeCustomerId,
                 subscriptionId: userData.subscriptionId,
                 subscriptionStatus: userData.subscriptionStatus,
+                currentPeriodStart: userData.currentPeriodStart?.toDate?.() || userData.currentPeriodStart,
                 currentPeriodEnd: userData.currentPeriodEnd?.toDate?.() || userData.currentPeriodEnd,
                 cancelAtPeriodEnd: userData.cancelAtPeriodEnd ?? false,
                 cancelAt: userData.cancelAt?.toDate?.() || userData.cancelAt,
