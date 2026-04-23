@@ -106,6 +106,19 @@ export async function POST(req: NextRequest) {
               ? new Date((subscription as any).current_period_end * 1000)
               : new Date();
 
+            console.log(`[SYNC] Raw Stripe data for ${email}:`, {
+              subscriptionId: subscription.id,
+              current_period_start: (subscription as any).current_period_start,
+              current_period_start_date: new Date((subscription as any).current_period_start * 1000),
+              current_period_end: (subscription as any).current_period_end,
+              current_period_end_date: new Date((subscription as any).current_period_end * 1000),
+            });
+            console.log(`[SYNC] Extracted dates for ${email}:`, {
+              currentPeriodStart,
+              currentPeriodEnd,
+              daysDiff: (currentPeriodEnd.getTime() - currentPeriodStart.getTime()) / (1000 * 60 * 60 * 24),
+            });
+
             // Sync to Firestore
             await adminDb.collection('users').doc(firebaseUid).set({
               stripeCustomerId: customer.id,
@@ -201,6 +214,19 @@ export async function POST(req: NextRequest) {
               const currentPeriodEnd = (subscription as any).current_period_end
                 ? new Date((subscription as any).current_period_end * 1000)
                 : new Date();
+
+              console.log(`[SYNC] Raw Stripe data for ${customer.email}:`, {
+                subscriptionId: subscription.id,
+                current_period_start: (subscription as any).current_period_start,
+                current_period_start_date: new Date((subscription as any).current_period_start * 1000),
+                current_period_end: (subscription as any).current_period_end,
+                current_period_end_date: new Date((subscription as any).current_period_end * 1000),
+              });
+              console.log(`[SYNC] Extracted dates for ${customer.email}:`, {
+                currentPeriodStart,
+                currentPeriodEnd,
+                daysDiff: (currentPeriodEnd.getTime() - currentPeriodStart.getTime()) / (1000 * 60 * 60 * 24),
+              });
 
               // Sync to Firestore
               await adminDb.collection('users').doc(firebaseUid).set({

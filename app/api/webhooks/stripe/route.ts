@@ -132,6 +132,17 @@ export async function POST(req: NextRequest) {
           try {
             // Retrieve the full subscription to get status and plan details
             subscription = await stripe.subscriptions.retrieve(session.subscription as string);
+            
+            // Debug: Log the raw Stripe data
+            console.log(`[checkout.session.completed] Raw Stripe subscription data:`, {
+              subscriptionId: subscription.id,
+              current_period_start: (subscription as any).current_period_start,
+              current_period_start_date: new Date((subscription as any).current_period_start * 1000),
+              current_period_end: (subscription as any).current_period_end,
+              current_period_end_date: new Date((subscription as any).current_period_end * 1000),
+              billing_cycle_anchor: (subscription as any).billing_cycle_anchor,
+            });
+            
             const priceId = subscription.items.data[0]?.price.id || '';
             const plan = priceId === process.env.NEXT_PUBLIC_STRIPE_MONTHLY_PRICE_ID ? 'monthly'
               : priceId === process.env.NEXT_PUBLIC_STRIPE_YEARLY_PRICE_ID ? 'yearly'
@@ -146,6 +157,11 @@ export async function POST(req: NextRequest) {
             const app = getAdminApp();
             const databaseId = process.env.NEXT_PUBLIC_FIREBASE_FIRESTORE_DB_ID || '(default)';
             const adminDb = getFirestore(app, databaseId);
+            console.log(`[checkout.session.completed] Extracted dates:`, {
+              currentPeriodStart,
+              currentPeriodEnd,
+              daysDiff: (currentPeriodEnd.getTime() - currentPeriodStart.getTime()) / (1000 * 60 * 60 * 24),
+            });
             console.log(`[checkout.session.completed] Got Admin app:`, {
               appName: app?.name,
               initialized: !!app,
@@ -197,6 +213,16 @@ export async function POST(req: NextRequest) {
         const subscription = event.data.object as Stripe.Subscription;
         console.log(`[${event.type}] Subscription ID: ${subscription.id}, Customer: ${subscription.customer}, Status: ${subscription.status}`);
         
+        // Debug: Log the raw Stripe data
+        console.log(`[${event.type}] Raw Stripe subscription data:`, {
+          subscriptionId: subscription.id,
+          current_period_start: (subscription as any).current_period_start,
+          current_period_start_date: new Date((subscription as any).current_period_start * 1000),
+          current_period_end: (subscription as any).current_period_end,
+          current_period_end_date: new Date((subscription as any).current_period_end * 1000),
+          billing_cycle_anchor: (subscription as any).billing_cycle_anchor,
+        });
+        
         if (firebaseUid) {
           try {
             const priceId = subscription.items.data[0]?.price.id || '';
@@ -209,6 +235,12 @@ export async function POST(req: NextRequest) {
             const currentPeriodEnd = (subscription as any).current_period_end
               ? new Date((subscription as any).current_period_end * 1000)
               : new Date();
+
+            console.log(`[${event.type}] Extracted dates:`, {
+              currentPeriodStart,
+              currentPeriodEnd,
+              daysDiff: (currentPeriodEnd.getTime() - currentPeriodStart.getTime()) / (1000 * 60 * 60 * 24),
+            });
 
             const app = getAdminApp();
             const databaseId = process.env.NEXT_PUBLIC_FIREBASE_FIRESTORE_DB_ID || '(default)';
