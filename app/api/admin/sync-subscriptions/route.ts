@@ -13,6 +13,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
  * Query params:
  * - email: Sync a specific user by email
  * - limit: Number of customers to check (default: 10)
+ * - syncAll: Set to "true" to sync ALL customers with active subscriptions (ignores limit)
  * - verbose: Set to "true" for detailed logs
  */
 export async function POST(req: NextRequest) {
@@ -29,7 +30,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { email, limit = 10, verbose = false } = await req.json().catch(() => ({}));
+    const { email, limit = 10, syncAll = false, verbose = false } = await req.json().catch(() => ({}));
 
     console.log('\n[SYNC] Starting subscription sync from Stripe to Firestore');
     console.log(`[SYNC] Params:`, { email, limit, verbose });
@@ -132,85 +133,111 @@ export async function POST(req: NextRequest) {
         results.details.push(detail);
       }
     } else {
-      // Sync all recent customers
-      console.log(`[SYNC] Fetching ${limit} recent customers from Stripe`);
-      const customers = await stripe.customers.list({ limit });
+      // Sync all customers or limited set
+      const customersLimit = syncAll ? 100 : limit; // Stripe API max is 100 per page
+      console.log(`[SYNC] ${syncAll ? 'Starting full sync of ALL customers' : `Fetching ${customersLimit} recent customers`} from Stripe`);
+      
+      let hasMore = true;
+      let startingAfter: string | undefined = undefined;
 
-      for (const customer of customers.data) {
-        if (!customer.email) continue;
+      while (hasMore) {
+        const listParams: any = { limit: customersLimit };
+        if (startingAfter) {
+          listParams.starting_after = startingAfter;
+        }
+        
+        const customers = await stripe.customers.list(listParams);
+        console.log(`[SYNC] Fetched ${customers.data.length} customers (paginated)`);
 
-        results.checked++;
-        const detail: any = {
-          customerId: customer.id,
-          email: customer.email,
-        };
+        for (const customer of customers.data) {
+          if (!customer.email) continue;
 
-        try {
-          // Get subscriptions for this customer
-          const subscriptions = await stripe.subscriptions.list({
-            customer: customer.id,
-            limit: 100,
-          });
+          results.checked++;
+          const detail: any = {
+            customerId: customer.id,
+            email: customer.email,
+          };
 
-          if (subscriptions.data.length === 0) {
-            detail.note = 'No active subscriptions';
-            continue;
-          }
+          try {
+            // Get subscriptions for this customer
+            const subscriptions = await stripe.subscriptions.list({
+              customer: customer.id,
+              limit: 100,
+            });
 
-          // Try to find Firebase user by email
-          const userQuery = await adminDb
-            .collection('users')
-            .where('email', '==', customer.email)
-            .limit(1)
-            .get();
+            if (subscriptions.data.length === 0) {
+              detail.note = 'No active subscriptions';
+              if (verbose) {
+                results.details.push(detail);
+              }
+              continue;
+            }
 
-          if (userQuery.empty) {
-            const errorMsg = `No Firebase user found for ${customer.email}`;
+            // Try to find Firebase user by email
+            const userQuery = await adminDb
+              .collection('users')
+              .where('email', '==', customer.email)
+              .limit(1)
+              .get();
+
+            if (userQuery.empty) {
+              const errorMsg = `No Firebase user found for ${customer.email}`;
+              detail.error = errorMsg;
+              results.errors.push(errorMsg);
+            } else {
+              const firebaseUid = userQuery.docs[0].id;
+              const subscription = subscriptions.data[0];
+              const priceId = subscription.items.data[0]?.price.id || '';
+              const monthlyPrice = process.env.NEXT_PUBLIC_STRIPE_MONTHLY_PRICE_ID;
+              const yearlyPrice = process.env.NEXT_PUBLIC_STRIPE_YEARLY_PRICE_ID;
+              
+              const plan = priceId === monthlyPrice ? 'monthly'
+                : priceId === yearlyPrice ? 'yearly'
+                : priceId;
+
+              const currentPeriodStart = (subscription as any).current_period_start
+                ? new Date((subscription as any).current_period_start * 1000)
+                : new Date();
+              const currentPeriodEnd = (subscription as any).current_period_end
+                ? new Date((subscription as any).current_period_end * 1000)
+                : new Date();
+
+              // Sync to Firestore
+              await adminDb.collection('users').doc(firebaseUid).set({
+                stripeCustomerId: customer.id,
+                subscriptionId: subscription.id,
+                subscriptionStatus: subscription.status,
+                currentPeriodStart,
+                currentPeriodEnd,
+                plan,
+                updatedAt: new Date(),
+              }, { merge: true });
+
+              results.synced++;
+              detail.firebaseUid = firebaseUid;
+              detail.subscriptionId = subscription.id;
+              detail.plan = plan;
+              detail.synced = true;
+              console.log(`[SYNC] ✓ Synced ${customer.email} (${firebaseUid})`);
+            }
+          } catch (err: any) {
+            const errorMsg = `Failed to sync: ${err.message}`;
             detail.error = errorMsg;
             results.errors.push(errorMsg);
-          } else {
-            const firebaseUid = userQuery.docs[0].id;
-            const subscription = subscriptions.data[0];
-            const priceId = subscription.items.data[0]?.price.id || '';
-            const monthlyPrice = process.env.NEXT_PUBLIC_STRIPE_MONTHLY_PRICE_ID;
-            const yearlyPrice = process.env.NEXT_PUBLIC_STRIPE_YEARLY_PRICE_ID;
-            
-            const plan = priceId === monthlyPrice ? 'monthly'
-              : priceId === yearlyPrice ? 'yearly'
-              : priceId;
-
-            const currentPeriodStart = (subscription as any).current_period_start
-              ? new Date((subscription as any).current_period_start * 1000)
-              : new Date();
-            const currentPeriodEnd = (subscription as any).current_period_end
-              ? new Date((subscription as any).current_period_end * 1000)
-              : new Date();
-
-            // Sync to Firestore
-            await adminDb.collection('users').doc(firebaseUid).set({
-              stripeCustomerId: customer.id,
-              subscriptionId: subscription.id,
-              subscriptionStatus: subscription.status,
-              currentPeriodStart,
-              currentPeriodEnd,
-              plan,
-              updatedAt: new Date(),
-            }, { merge: true });
-
-            results.synced++;
-            detail.firebaseUid = firebaseUid;
-            detail.subscriptionId = subscription.id;
-            detail.plan = plan;
-            detail.synced = true;
+            console.error(`[SYNC] ✗ Error syncing ${customer.email}: ${errorMsg}`);
           }
-        } catch (err: any) {
-          const errorMsg = `Failed to sync: ${err.message}`;
-          detail.error = errorMsg;
-          results.errors.push(errorMsg);
+
+          if (verbose) {
+            results.details.push(detail);
+          }
         }
 
-        if (verbose) {
-          results.details.push(detail);
+        // Check if there are more customers
+        if (syncAll && customers.has_more && customers.data.length > 0) {
+          startingAfter = customers.data[customers.data.length - 1].id;
+          console.log(`[SYNC] Continuing pagination with starting_after: ${startingAfter}`);
+        } else {
+          hasMore = false;
         }
       }
     }
@@ -239,6 +266,7 @@ export async function GET(req: NextRequest) {
   const searchParams = req.nextUrl.searchParams;
   const email = searchParams.get('email') || undefined;
   const limit = parseInt(searchParams.get('limit') || '10');
+  const syncAll = searchParams.get('syncAll') === 'true';
   const verbose = searchParams.get('verbose') === 'true';
 
   // Recreate as POST request for reuse
@@ -246,7 +274,7 @@ export async function GET(req: NextRequest) {
     new NextRequest(req.url, {
       method: 'POST',
       headers: req.headers,
-      body: JSON.stringify({ email, limit, verbose }),
+      body: JSON.stringify({ email, limit, syncAll, verbose }),
     })
   );
 }

@@ -225,15 +225,11 @@ const PricingPage: React.FC = () => {
               </li>
               <li className="flex items-start gap-3">
                 <Check size={20} className="text-primary-600 flex-shrink-0 mt-0.5" />
-                <span className="text-slate-700">AI-powered writing & research</span>
+                <span className="text-slate-700">Access to all features</span>
               </li>
               <li className="flex items-start gap-3">
                 <Check size={20} className="text-primary-600 flex-shrink-0 mt-0.5" />
-                <span className="text-slate-700">Export to EPUB & DOCX</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <Check size={20} className="text-primary-600 flex-shrink-0 mt-0.5" />
-                <span className="text-slate-700">Publishing tools & templates</span>
+                <span className="text-slate-700">Export to EPUB, DOCX, and Audiobook</span>
               </li>
               <li className="flex items-start gap-3">
                 <Check size={20} className="text-primary-600 flex-shrink-0 mt-0.5" />
@@ -289,15 +285,11 @@ const PricingPage: React.FC = () => {
               </li>
               <li className="flex items-start gap-3">
                 <Check size={20} className="text-primary-600 flex-shrink-0 mt-0.5" />
-                <span className="text-slate-700">AI-powered writing & research</span>
+                <span className="text-slate-700">Access to all features</span>
               </li>
               <li className="flex items-start gap-3">
                 <Check size={20} className="text-primary-600 flex-shrink-0 mt-0.5" />
-                <span className="text-slate-700">Export to EPUB & DOCX</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <Check size={20} className="text-primary-600 flex-shrink-0 mt-0.5" />
-                <span className="text-slate-700">Publishing tools & templates</span>
+                <span className="text-slate-700">Export to EPUB, DOCX, and Audiobook</span>
               </li>
               <li className="flex items-start gap-3">
                 <Check size={20} className="text-primary-600 flex-shrink-0 mt-0.5" />
