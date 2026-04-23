@@ -18,7 +18,7 @@ service cloud.firestore {
       
       // Restrict write to safe fields only - block subscription/billing fields
       allow write: if isAuthenticated() && isOwner(userId) && 
-        !request.resource.data.keys().hasAny(['stripeCustomerId', 'subscriptionId', 'subscriptionStatus', 'currentPeriodEnd', 'plan', 'updatedAt', 'createdAt']);
+        !request.resource.data.keys().hasAny(['stripeCustomerId', 'subscriptionId', 'subscriptionStatus', 'currentPeriodStart', 'currentPeriodEnd', 'plan', 'updatedAt', 'createdAt']);
       
       // Note: Server-side operations (Stripe webhooks, admin operations, etc.) use the Admin SDK
       // and bypass these rules, so subscription updates work correctly.
