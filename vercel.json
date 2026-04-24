@@ -6,11 +6,5 @@
     "app/api/ai/stream/route.ts": {
       "maxDuration": 180
     }
-  },
-  "rewrites": [
-    {
-      "source": "/__/auth/:path*",
-      "destination": "https://gen-lang-client-0724614586.firebaseapp.com/__/auth/:path*"
-    }
-  ]
+  }
 }

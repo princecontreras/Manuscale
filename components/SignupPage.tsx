@@ -1,6 +1,6 @@
 "use client";
-import React, { useState, useEffect } from 'react';
-import { signInWithRedirect, getRedirectResult, createUserWithEmailAndPassword, sendEmailVerification, signOut } from 'firebase/auth';
+import React, { useState } from 'react';
+import { signInWithPopup, createUserWithEmailAndPassword, sendEmailVerification, signOut } from 'firebase/auth';
 import { auth, googleProvider } from '../services/firebase';
 import { ArrowRight, Chrome, Zap, Shield, BrainCircuit } from 'lucide-react';
 import { Button } from './Button';
@@ -57,61 +57,20 @@ export const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onGoToLogin, o
     const [verificationEmail, setVerificationEmail] = useState('');
     const { showToast } = useToast();
 
-    // Check for redirect result on component mount
-    useEffect(() => {
-        let isMounted = true;
-        
-        const handleRedirectResult = async () => {
-            try {
-                console.log("Checking for redirect result...");
-                const result = await getRedirectResult(auth);
-                
-                if (!isMounted) return;
-                
-                if (result && result.user) {
-                    console.log("Signup successful:", result.user.email);
-                    showToast("Account created! Please sign in to continue.", "success");
-                    await signOut(auth);
-                    if (isMounted) {
-                        setVerificationEmail(result.user.email || '');
-                        // Give a moment for state to update before showing modal
-                        setTimeout(() => {
-                            if (isMounted) {
-                                setShowVerificationModal(true);
-                            }
-                        }, 100);
-                    }
-                } else {
-                    console.log("No redirect result found");
-                }
-            } catch (error: any) {
-                if (!isMounted) return;
-                
-                console.error("Google signup redirect error:", error);
-                const errorMessage = getFirebaseErrorMessage(error);
-                if (error?.code !== 'auth/no-redirect-client') {
-                    showToast(errorMessage, "error");
-                }
-            }
-        };
-        
-        handleRedirectResult();
-        
-        return () => {
-            isMounted = false;
-        };
-    }, []); // Empty dependency array - run once on mount
-
     const handleGoogleSignup = async () => {
         setLoading(true);
         try {
-            await signInWithRedirect(auth, googleProvider);
-            // User will be redirected to Google, then back to this page
-            // getRedirectResult above will handle the result
+            const userCredential = await signInWithPopup(auth, googleProvider);
+            // Google sign-in automatically verifies email, so sign them out and ask to log in
+            showToast("Account created! Please sign in to continue.", "success");
+            await signOut(auth);
+            setVerificationEmail(userCredential.user.email || '');
+            setShowVerificationModal(true);
         } catch (error: any) {
-            console.error("Google signup redirect failed:", error);
+            console.error("Google signup failed:", error);
             const errorMessage = getFirebaseErrorMessage(error);
             showToast(errorMessage, "error");
+        } finally {
             setLoading(false);
         }
     };

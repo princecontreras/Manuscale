@@ -1,6 +1,6 @@
 "use client";
-import React, { useState, useEffect } from 'react';
-import { signInWithRedirect, getRedirectResult, signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
+import React, { useState } from 'react';
+import { signInWithPopup, signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { auth, googleProvider } from '../services/firebase';
 import { ArrowRight, Chrome } from 'lucide-react';
 import { Button } from './Button';
@@ -53,57 +53,20 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onGoToSignup, onB
     const [password, setPassword] = useState('');
     const { showToast } = useToast();
 
-    // Check for redirect result on component mount
-    useEffect(() => {
-        let isMounted = true;
-        
-        const handleRedirectResult = async () => {
-            try {
-                console.log("Checking for redirect result...");
-                const result = await getRedirectResult(auth);
-                
-                if (!isMounted) return;
-                
-                if (result && result.user) {
-                    console.log("Login successful:", result.user.email);
-                    showToast("Successfully signed in!", "success");
-                    // Give toast time to show before redirecting
-                    setTimeout(() => {
-                        if (isMounted) {
-                            onLogin();
-                        }
-                    }, 500);
-                } else {
-                    console.log("No redirect result found");
-                }
-            } catch (error: any) {
-                if (!isMounted) return;
-                
-                console.error("Google login redirect error:", error);
-                const errorMessage = getFirebaseErrorMessage(error);
-                if (error?.code !== 'auth/no-redirect-client') {
-                    showToast(errorMessage, "error");
-                }
-            }
-        };
-        
-        handleRedirectResult();
-        
-        return () => {
-            isMounted = false;
-        };
-    }, []); // Empty dependency array - run once on mount
-
     const handleGoogleLogin = async () => {
         setLoading(true);
         try {
-            await signInWithRedirect(auth, googleProvider);
-            // User will be redirected to Google, then back to this page
-            // getRedirectResult above will handle the result
+            const userCredential = await signInWithPopup(auth, googleProvider);
+            // Google sign-in automatically verifies email
+            showToast("Successfully signed in!", "success");
+            // Call onLogin to set isJustLoggedIn flag and let subscription check handle routing
+            // This ensures subscribed users go to DASHBOARD and unsubscribed go to /pricing
+            onLogin();
         } catch (error: any) {
-            console.error("Google login redirect failed:", error);
+            console.error("Google login failed:", error);
             const errorMessage = getFirebaseErrorMessage(error);
             showToast(errorMessage, "error");
+        } finally {
             setLoading(false);
         }
     };
