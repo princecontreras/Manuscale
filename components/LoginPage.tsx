@@ -1,6 +1,6 @@
 "use client";
-import React, { useState } from 'react';
-import { signInWithPopup, signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
+import React, { useState, useEffect } from 'react';
+import { signInWithRedirect, getRedirectResult, signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { auth, googleProvider } from '../services/firebase';
 import { ArrowRight, Chrome } from 'lucide-react';
 import { Button } from './Button';
@@ -53,20 +53,34 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onGoToSignup, onB
     const [password, setPassword] = useState('');
     const { showToast } = useToast();
 
+    // Check for redirect result on component mount
+    useEffect(() => {
+        const handleRedirectResult = async () => {
+            try {
+                const result = await getRedirectResult(auth);
+                if (result && result.user) {
+                    showToast("Successfully signed in!", "success");
+                    onLogin();
+                }
+            } catch (error: any) {
+                console.error("Google login redirect error:", error);
+                const errorMessage = getFirebaseErrorMessage(error);
+                showToast(errorMessage, "error");
+            }
+        };
+        handleRedirectResult();
+    }, [showToast, onLogin]);
+
     const handleGoogleLogin = async () => {
         setLoading(true);
         try {
-            const userCredential = await signInWithPopup(auth, googleProvider);
-            // Google sign-in automatically verifies email
-            showToast("Successfully signed in!", "success");
-            // Call onLogin to set isJustLoggedIn flag and let subscription check handle routing
-            // This ensures subscribed users go to DASHBOARD and unsubscribed go to /pricing
-            onLogin();
+            await signInWithRedirect(auth, googleProvider);
+            // User will be redirected to Google, then back to this page
+            // getRedirectResult above will handle the result
         } catch (error: any) {
-            console.error("Google login failed:", error);
+            console.error("Google login redirect failed:", error);
             const errorMessage = getFirebaseErrorMessage(error);
             showToast(errorMessage, "error");
-        } finally {
             setLoading(false);
         }
     };

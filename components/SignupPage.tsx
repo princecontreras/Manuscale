@@ -1,6 +1,6 @@
 "use client";
-import React, { useState } from 'react';
-import { signInWithPopup, createUserWithEmailAndPassword, sendEmailVerification, signOut } from 'firebase/auth';
+import React, { useState, useEffect } from 'react';
+import { signInWithRedirect, getRedirectResult, createUserWithEmailAndPassword, sendEmailVerification, signOut } from 'firebase/auth';
 import { auth, googleProvider } from '../services/firebase';
 import { ArrowRight, Chrome, Zap, Shield, BrainCircuit } from 'lucide-react';
 import { Button } from './Button';
@@ -57,20 +57,36 @@ export const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onGoToLogin, o
     const [verificationEmail, setVerificationEmail] = useState('');
     const { showToast } = useToast();
 
+    // Check for redirect result on component mount
+    useEffect(() => {
+        const handleRedirectResult = async () => {
+            try {
+                const result = await getRedirectResult(auth);
+                if (result && result.user) {
+                    showToast("Account created! Please sign in to continue.", "success");
+                    await signOut(auth);
+                    setVerificationEmail(result.user.email || '');
+                    setShowVerificationModal(true);
+                }
+            } catch (error: any) {
+                console.error("Google signup redirect error:", error);
+                const errorMessage = getFirebaseErrorMessage(error);
+                showToast(errorMessage, "error");
+            }
+        };
+        handleRedirectResult();
+    }, [showToast]);
+
     const handleGoogleSignup = async () => {
         setLoading(true);
         try {
-            const userCredential = await signInWithPopup(auth, googleProvider);
-            // Google sign-in automatically verifies email, so sign them out and ask to log in
-            showToast("Account created! Please sign in to continue.", "success");
-            await signOut(auth);
-            setVerificationEmail(userCredential.user.email || '');
-            setShowVerificationModal(true);
+            await signInWithRedirect(auth, googleProvider);
+            // User will be redirected to Google, then back to this page
+            // getRedirectResult above will handle the result
         } catch (error: any) {
-            console.error("Google signup failed:", error);
+            console.error("Google signup redirect failed:", error);
             const errorMessage = getFirebaseErrorMessage(error);
             showToast(errorMessage, "error");
-        } finally {
             setLoading(false);
         }
     };
