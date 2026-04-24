@@ -59,23 +59,48 @@ export const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onGoToLogin, o
 
     // Check for redirect result on component mount
     useEffect(() => {
+        let isMounted = true;
+        
         const handleRedirectResult = async () => {
             try {
+                console.log("Checking for redirect result...");
                 const result = await getRedirectResult(auth);
+                
+                if (!isMounted) return;
+                
                 if (result && result.user) {
+                    console.log("Signup successful:", result.user.email);
                     showToast("Account created! Please sign in to continue.", "success");
                     await signOut(auth);
-                    setVerificationEmail(result.user.email || '');
-                    setShowVerificationModal(true);
+                    if (isMounted) {
+                        setVerificationEmail(result.user.email || '');
+                        // Give a moment for state to update before showing modal
+                        setTimeout(() => {
+                            if (isMounted) {
+                                setShowVerificationModal(true);
+                            }
+                        }, 100);
+                    }
+                } else {
+                    console.log("No redirect result found");
                 }
             } catch (error: any) {
+                if (!isMounted) return;
+                
                 console.error("Google signup redirect error:", error);
                 const errorMessage = getFirebaseErrorMessage(error);
-                showToast(errorMessage, "error");
+                if (error?.code !== 'auth/no-redirect-client') {
+                    showToast(errorMessage, "error");
+                }
             }
         };
+        
         handleRedirectResult();
-    }, [showToast]);
+        
+        return () => {
+            isMounted = false;
+        };
+    }, []); // Empty dependency array - run once on mount
 
     const handleGoogleSignup = async () => {
         setLoading(true);

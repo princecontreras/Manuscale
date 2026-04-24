@@ -55,21 +55,44 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onGoToSignup, onB
 
     // Check for redirect result on component mount
     useEffect(() => {
+        let isMounted = true;
+        
         const handleRedirectResult = async () => {
             try {
+                console.log("Checking for redirect result...");
                 const result = await getRedirectResult(auth);
+                
+                if (!isMounted) return;
+                
                 if (result && result.user) {
+                    console.log("Login successful:", result.user.email);
                     showToast("Successfully signed in!", "success");
-                    onLogin();
+                    // Give toast time to show before redirecting
+                    setTimeout(() => {
+                        if (isMounted) {
+                            onLogin();
+                        }
+                    }, 500);
+                } else {
+                    console.log("No redirect result found");
                 }
             } catch (error: any) {
+                if (!isMounted) return;
+                
                 console.error("Google login redirect error:", error);
                 const errorMessage = getFirebaseErrorMessage(error);
-                showToast(errorMessage, "error");
+                if (error?.code !== 'auth/no-redirect-client') {
+                    showToast(errorMessage, "error");
+                }
             }
         };
+        
         handleRedirectResult();
-    }, [showToast, onLogin]);
+        
+        return () => {
+            isMounted = false;
+        };
+    }, []); // Empty dependency array - run once on mount
 
     const handleGoogleLogin = async () => {
         setLoading(true);
