@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminApp } from '@/services/firebaseAdmin';
 import * as admin from 'firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
+import { validateSubscriptionDates, logValidationWarnings } from '@/utils/subscriptionValidation';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -105,6 +106,10 @@ export async function POST(req: NextRequest) {
             const currentPeriodEnd = (subscription as any).current_period_end
               ? new Date((subscription as any).current_period_end * 1000)
               : new Date();
+
+            // Validate subscription dates before writing to Firestore
+            const validation = validateSubscriptionDates(currentPeriodStart, currentPeriodEnd);
+            logValidationWarnings('sync-subscriptions (email)', firebaseUid, subscription.id, validation);
 
             console.log(`[SYNC] Raw Stripe data for ${email}:`, {
               subscriptionId: subscription.id,
@@ -214,6 +219,10 @@ export async function POST(req: NextRequest) {
               const currentPeriodEnd = (subscription as any).current_period_end
                 ? new Date((subscription as any).current_period_end * 1000)
                 : new Date();
+
+              // Validate subscription dates before writing to Firestore
+              const validation = validateSubscriptionDates(currentPeriodStart, currentPeriodEnd);
+              logValidationWarnings('sync-subscriptions (bulk)', firebaseUid, subscription.id, validation);
 
               console.log(`[SYNC] Raw Stripe data for ${customer.email}:`, {
                 subscriptionId: subscription.id,

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminApp } from '@/services/firebaseAdmin';
 import * as admin from 'firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
+import { validateSubscriptionDates, logValidationWarnings } from '@/utils/subscriptionValidation';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
@@ -154,6 +155,10 @@ export async function POST(req: NextRequest) {
               ? new Date((subscription as any).current_period_end * 1000)
               : new Date();
 
+            // Validate subscription dates before writing to Firestore
+            const validation = validateSubscriptionDates(currentPeriodStart, currentPeriodEnd);
+            logValidationWarnings('checkout.session.completed', firebaseUid, subscription.id, validation);
+
             const app = getAdminApp();
             const databaseId = process.env.NEXT_PUBLIC_FIREBASE_FIRESTORE_DB_ID || '(default)';
             const adminDb = getFirestore(app, databaseId);
@@ -235,6 +240,10 @@ export async function POST(req: NextRequest) {
             const currentPeriodEnd = (subscription as any).current_period_end
               ? new Date((subscription as any).current_period_end * 1000)
               : new Date();
+
+            // Validate subscription dates before writing to Firestore
+            const validation = validateSubscriptionDates(currentPeriodStart, currentPeriodEnd);
+            logValidationWarnings(event.type, firebaseUid, subscription.id, validation);
 
             console.log(`[${event.type}] Extracted dates:`, {
               currentPeriodStart,

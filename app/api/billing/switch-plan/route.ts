@@ -2,6 +2,7 @@ import Stripe from 'stripe';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminApp, verifyIdToken } from '@/services/firebaseAdmin';
 import { getFirestore } from 'firebase-admin/firestore';
+import { validateSubscriptionDates, logValidationWarnings } from '@/utils/subscriptionValidation';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -76,6 +77,10 @@ export async function POST(req: NextRequest) {
     const newPeriodEnd = (updatedSubscription as any).current_period_end
       ? new Date((updatedSubscription as any).current_period_end * 1000)
       : new Date();
+
+    // Validate subscription dates before writing to Firestore
+    const validation = validateSubscriptionDates(newPeriodStart, newPeriodEnd);
+    logValidationWarnings('switch-plan', decodedToken.uid, userData.subscriptionId, validation);
 
     // Update Firestore immediately (webhook will also fire, but this gives instant feedback)
     await adminDb.collection('users').doc(decodedToken.uid).set({

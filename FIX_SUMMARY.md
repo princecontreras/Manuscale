@@ -35,6 +35,77 @@
 
 **Status:** ⏳ PENDING DEPLOYMENT - Rules need to be deployed to Firebase
 
+### 4. ✅ Incorrect Subscription Period Dates
+**Problem:** User subscription `currentPeriodEnd` was set to April 23, 2026 (past date) instead of May 23, 2026 (future date). This caused the next billing date to display incorrectly.
+
+**Example Issue:**
+- Current date: April 25, 2026
+- currentPeriodStart: April 23, 2026 ✓
+- currentPeriodEnd: April 23, 2026 ✗ (should be May 23)
+- subscriptionStatus: "active" (inconsistent - period already ended)
+
+**Solution:** Created [/api/admin/fix-subscription-dates](app/api/admin/fix-subscription-dates/route.ts) endpoint:
+- Accepts email parameter: `GET /api/admin/fix-subscription-dates?email=user@example.com`
+- Fixes existing user records by:
+  - Extending `currentPeriodEnd` by 1 month from `currentPeriodStart`
+  - Clearing `cancelAt` (null) and `cancelAtPeriodEnd` (false)
+  - Ensuring `subscriptionStatus` = "active"
+
+**Test Case:** ✅ contrerasprince6@gmail.com
+- Before: `currentPeriodEnd: April 23, 2026`
+- After: `currentPeriodEnd: May 23, 2026`
+
+**Status:** ✅ FIXED - User subscription dates corrected and validated
+
+## Preventive Measures Implemented (April 25, 2026)
+
+To prevent this issue from recurring with future subscribers, the following preventive measures have been implemented:
+
+### 1. **Subscription Date Validation Utility** - New File
+- **File:** [utils/subscriptionValidation.ts](utils/subscriptionValidation.ts)
+- **Rules Enforced:**
+  - Both start and end dates must be valid
+  - End date must be AFTER start date (minimum 1 day)
+  - End date must be in the FUTURE (not expired)
+  - Billing period should be 20-400 days (for monthly/yearly plans)
+  - Start date shouldn't be more than 1 day in the future
+
+### 2. **Validation Added to All Data Write Points**
+Validation is now called (non-blocking) whenever subscription dates are written to Firestore:
+- [app/api/webhooks/stripe/route.ts](app/api/webhooks/stripe/route.ts) - Three cases:
+  - `checkout.session.completed`
+  - `customer.subscription.created`
+  - `customer.subscription.updated`
+- [app/api/admin/sync-subscriptions/route.ts](app/api/admin/sync-subscriptions/route.ts) - Two paths:
+  - Single user sync (by email)
+  - Bulk sync (all customers)
+- [app/api/billing/switch-plan/route.ts](app/api/billing/switch-plan/route.ts)
+
+### 3. **Monitoring Endpoint** - New Endpoint
+- **Endpoint:** `GET /api/admin/monitor-subscriptions?adminKey=xxx`
+- **Purpose:** Scan all active subscriptions for invalid dates
+- **Returns:** List of problematic subscriptions with direct fix links
+
+### 4. **Bulk Fix Endpoint** - New Endpoint
+- **Endpoint:** `POST /api/admin/bulk-fix-subscriptions`
+- **Features:**
+  - Dry-run mode to preview changes
+  - Bulk process multiple subscriptions at once
+  - Automatic error handling and reporting
+
+### 5. **Enhanced Logging**
+All subscription operations now log validation results with context, making it easy to:
+- Detect when invalid dates are being written
+- Track which endpoint caused the issue
+- Trace problems back to Stripe data
+
+### 6. **Comprehensive Documentation**
+- [SUBSCRIPTION_DATE_PREVENTION.md](SUBSCRIPTION_DATE_PREVENTION.md) - Complete guide including:
+  - Usage instructions for all monitoring endpoints
+  - Validation rules explained
+  - Testing procedures
+  - Maintenance checklist
+
 ## Next Steps to Complete
 
 ### Deploy Firestore Security Rules
