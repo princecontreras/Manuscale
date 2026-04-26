@@ -646,9 +646,15 @@ CRITICAL: Do NOT duplicate the title. Only include the title text once.`;
                             newState.frontMatter.copyright = generateCopyright(authorName || newState.author || 'Unknown');
                         }
 
-                        if (includeBibliography && !newState.backMatter?.bibliography) {
+                        // Ensure backMatter is initialized with the includeBibliography flag
+                        if (!newState.backMatter) {
+                            newState.backMatter = { includeBibliography: includeBibliography };
+                        }
+
+                        // Generate bibliography if user requested it and hasn't been generated yet
+                        const shouldIncludeBibliography = newState.backMatter.includeBibliography ?? includeBibliography;
+                        if (shouldIncludeBibliography && !newState.backMatter?.bibliography) {
                             addLog('publisher', 'Generating Bibliography...', 'action');
-                            if (!newState.backMatter) newState.backMatter = { includeBibliography: includeBibliography };
                             try {
                                 let bibliographyHtml = '';
                                 const allSources: {title: string, uri: string}[] = [];

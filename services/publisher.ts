@@ -234,7 +234,7 @@ export const getDOCXUint8Array = async (data: EbookData): Promise<Uint8Array | n
       }
   }
 
-  if (data.backMatter?.bibliography) {
+  if (data.backMatter?.includeBibliography && data.backMatter?.bibliography) {
       content += `<div class="bibliography-page">${data.backMatter.bibliography}</div>`;
       content += `<br style="page-break-before:always" />`;
   }
@@ -368,7 +368,7 @@ export const getEPUBUint8Array = async (data: EbookData): Promise<Uint8Array | n
       });
   }
 
-  if (data.backMatter?.bibliography) {
+  if (data.backMatter?.includeBibliography && data.backMatter?.bibliography) {
       const sanitizedBib = fixXHTML(data.backMatter.bibliography);
       const bibContent = `<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html><html xmlns="http://www.w3.org/1999/xhtml"><head><title>References</title><link rel="stylesheet" type="text/css" href="styles.css"/></head><body>${sanitizedBib}</body></html>`;
       oebps.file("references.xhtml", bibContent);
@@ -398,7 +398,7 @@ export const getEPUBUint8Array = async (data: EbookData): Promise<Uint8Array | n
   if (data.outline) {
       data.outline.forEach((c, i) => { if(c.content) finalSpine += `<itemref idref="ch${i+1}"/>`; });
   }
-  if (data.backMatter?.bibliography) finalSpine += `<itemref idref="references"/>`;
+if (data.backMatter?.includeBibliography && data.backMatter?.bibliography) finalSpine += `<itemref idref="references"/>`;
   if (data.frontMatter?.aboutAuthor) finalSpine += `<itemref idref="about_author"/>`;
 
   const opf = `<?xml version="1.0" encoding="UTF-8"?>
