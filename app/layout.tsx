@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Space_Grotesk } from 'next/font/google';
 import { AuthProvider } from '../components/AuthProvider';
 import { DemoProvider } from '../components/DemoContext';
+import MobileBanner from '../components/MobileBanner';
 import "./globals.css";
 
 const inter = Inter({
@@ -17,6 +18,9 @@ const spaceGrotesk = Space_Grotesk({
 export const metadata: Metadata = {
   title: "Typoscale - The Publishing Engine",
   description: "Professional AI-powered publishing studio. Transform ideas into marketable digital products.",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({
@@ -35,6 +39,7 @@ export default function RootLayout({
         <script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js" async></script>
       </head>
       <body className="font-sans">
+        <MobileBanner />
         <AuthProvider>
           <DemoProvider>
             {children}

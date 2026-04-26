@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Merriweather:ital@1&family=Space+Grotesk:wght@700&display=swap');
+    </style>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="256" height="256" fill="#f8fafc" rx="64"/>
+  
+  <!-- Main text container -->
+  <g transform="translate(128, 128)">
+    <!-- "Typo" in serif italic -->
+    <text x="-55" y="25" font-family="Merriweather, serif" font-style="italic" font-weight="bold" font-size="52" fill="#9f1239" text-anchor="middle" letter-spacing="-1">Typo</text>
+    
+    <!-- "scale" in sans black -->
+    <text x="25" y="25" font-family="Space Grotesk, sans-serif" font-weight="700" font-size="52" fill="#7e1d32" text-anchor="middle" letter-spacing="-2">scale</text>
+    
+    <!-- Period dot -->
+    <circle cx="70" cy="5" r="10" fill="#9f1239"/>
+  </g>
+</svg>
