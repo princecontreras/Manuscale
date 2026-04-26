@@ -93,10 +93,10 @@ const ContactPageContentWrapper = memo(({
           <div className="pt-24 sm:pt-32">
             {/* Page Title */}
             <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 mb-12">
-              <h1 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-3">
+              <h1 className="text-3xl sm:text-4xl font-bold text-slate-900 dark:text-white mb-3">
                 Contact Us
               </h1>
-              <p className="text-lg text-slate-600">
+              <p className="text-lg text-slate-600 dark:text-gray-300">
                 Have questions about Typoscale? We'd love to hear from you.
               </p>
             </div>
