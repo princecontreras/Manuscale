@@ -19,7 +19,16 @@ export const metadata: Metadata = {
   title: "Typoscale - AI-Powered Publishing Studio",
   description: "Professional AI-powered publishing studio. Transform ideas into marketable digital products.",
   icons: {
-    icon: "/favicon.svg",
+    icon: [
+      {
+        url: "/favicon.svg",
+        type: "image/svg+xml",
+      },
+      {
+        url: "/favicon.ico",
+        sizes: "any",
+      },
+    ],
   },
 };
 
@@ -31,6 +40,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${spaceGrotesk.variable}`}>
       <head>
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=1" />
+        <link rel="icon" href="/favicon.ico" />
+        <link rel="shortcut icon" href="/favicon.svg?v=1" type="image/svg+xml" />
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="mobile-web-app-capable" content="yes" />
