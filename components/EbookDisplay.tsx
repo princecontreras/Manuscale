@@ -136,18 +136,29 @@ const ChapterEditor = React.memo<{
 }>(({ html, onChange, design, isDemoMode }) => {
     const editorRef = useRef<HTMLDivElement>(null);
     const isTyping = useRef(false);
+    const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const [menuPos, setMenuPos] = useState<{ top: number, left: number } | null>(null);
     const [isThinking, setIsThinking] = useState(false);
 
     useLayoutEffect(() => {
-        if (editorRef.current && !isTyping.current) {
+        if (editorRef.current) {
             const currentHtml = editorRef.current.innerHTML;
             // Only update if content actually differs to prevent cursor loss
             if (currentHtml !== html) {
+                // Clear typing flag for external updates (undo/redo)
+                // This ensures undo/redo updates apply immediately
+                const wasTyping = isTyping.current;
+                if (typingTimeoutRef.current) {
+                    clearTimeout(typingTimeoutRef.current);
+                    typingTimeoutRef.current = null;
+                }
+                isTyping.current = false;
+                
                 // Preserve cursor position if possible
                 const selection = window.getSelection();
                 let cursorOffset = 0;
-                if (selection && selection.rangeCount > 0) {
+                if (selection && selection.rangeCount > 0 && wasTyping) {
+                    // Only preserve cursor if user was actively typing (not undo/redo)
                     const range = selection.getRangeAt(0);
                     const preRange = range.cloneRange();
                     preRange.selectNodeContents(editorRef.current);
@@ -157,8 +168,8 @@ const ChapterEditor = React.memo<{
                 
                 editorRef.current.innerHTML = html;
                 
-                // Restore cursor position if we had one
-                if (cursorOffset > 0 && selection) {
+                // Restore cursor position if we had one from typing (not undo/redo)
+                if (cursorOffset > 0 && selection && wasTyping) {
                     const range = document.createRange();
                     let charCount = 0;
                     let found = false;
@@ -196,8 +207,24 @@ const ChapterEditor = React.memo<{
         if (editorRef.current) {
             onChange(editorRef.current.innerHTML);
         }
-        setTimeout(() => { isTyping.current = false; }, 500); 
+        // Clear existing timeout to reset the timer
+        if (typingTimeoutRef.current) {
+            clearTimeout(typingTimeoutRef.current);
+        }
+        typingTimeoutRef.current = setTimeout(() => { 
+            isTyping.current = false;
+            typingTimeoutRef.current = null;
+        }, 500); 
     };
+
+    // Cleanup timeout on unmount
+    useEffect(() => {
+        return () => {
+            if (typingTimeoutRef.current) {
+                clearTimeout(typingTimeoutRef.current);
+            }
+        };
+    }, []);
 
     const handleSelect = () => {
         const selection = window.getSelection();
