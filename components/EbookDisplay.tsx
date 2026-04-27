@@ -473,8 +473,13 @@ const EditorToolbar: React.FC<{ activeFormats: Record<string, boolean>; onUndo?:
     };
 
     const handleHistoryAction = (action: () => void) => {
-        if (document.activeElement instanceof HTMLElement && document.activeElement.isContentEditable) { document.activeElement.blur(); }
-        setTimeout(() => { action(); }, 0);
+        // Find and focus the contentEditable editor before calling undo/redo
+        const editor = document.querySelector('[contenteditable="true"]') as HTMLElement;
+        if (editor) {
+            editor.focus();
+        }
+        // Call action immediately (no setTimeout delay)
+        action();
     };
     const Btn = ({ cmd, val, icon: Icon, active, title, onClick, disabled }: any) => ( 
         <Button variant={active ? 'primary' : 'ghost'} size="sm" onMouseDown={onClick ? undefined : (e) => handleAction(e, cmd, val)} onClick={onClick} disabled={disabled} className={`p-1.5 md:p-2 ${active ? 'bg-primary-100 text-primary-700' : 'text-slate-600'}`} title={title}> <Icon size={16} strokeWidth={active ? 2.5 : 2} /> </Button> 

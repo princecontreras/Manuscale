@@ -19,11 +19,7 @@ export const metadata: Metadata = {
   title: "Typoscale - AI-Powered Publishing Studio",
   description: "Professional AI-powered publishing studio. Transform ideas into marketable digital products.",
   icons: {
-    icon: [
-      { url: "/favicon.ico", sizes: "any" },
-      { url: "/favicon.svg", type: "image/svg+xml" },
-    ],
-    apple: "/apple-touch-icon.png",
+    icon: "/favicon.svg",
   },
 };
 
