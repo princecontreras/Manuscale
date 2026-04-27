@@ -1,13 +1,14 @@
 import { NextRequest } from 'next/server';
 import { verifyIdToken, verifySubscription } from '../../../../services/firebaseAdmin';
-import { streamChapterContent } from '../../../../services/geminiService';
+import { streamChapterContent, getApiStressLevel } from '../../../../services/geminiService';
 
 export const maxDuration = 180; // 3 minutes for chapter generation
 
-// --- Demo rate limiting (shared in-memory) ---
+// --- Demo rate limiting (shared in-memory) with adaptive limits based on API stress ---
 const DEMO_STREAM_RATE_LIMIT = new Map<string, { count: number; resetAt: number }>();
 const DEMO_MAX_STREAMS_PER_IP = 20;
 const DEMO_RATE_WINDOW = 24 * 60 * 60 * 1000;
+let recentErrors = 0; // Track recent API errors
 
 function getClientIp(req: NextRequest): string {
   return req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
@@ -99,6 +100,7 @@ export async function POST(req: NextRequest) {
         const msgStr = String(error?.message ?? '');
         const statusCode = typeof error?.status === 'number' ? error.status : 0;
         const errorCode = error?.error?.code;
+        const apiStress = getApiStressLevel();
 
         const isOverloaded = statusStr === 'UNAVAILABLE' ||
                              msgStr.includes('UNAVAILABLE') ||
@@ -112,13 +114,26 @@ export async function POST(req: NextRequest) {
                              errorCode === 503 || errorCode === 502 || errorCode === 504 ||
                              (statusCode >= 500 && statusCode < 600);
         const isRateLimit = error?.status === 429 || msgStr.includes('429') || msgStr.includes('RESOURCE_EXHAUSTED') || errorCode === 429;
-        const msg = isOverloaded
-          ? 'The AI model is currently experiencing high demand. Please try again in a moment.'
-          : isRateLimit
-          ? 'Rate limit reached. Please wait a moment before trying again.'
-          : msgStr || 'Stream generation failed';
+        
+        // Enhanced error messages with API stress context
+        let msg = '';
+        if (isOverloaded) {
+          msg = apiStress > 70 
+            ? 'The AI model is under severe load. Please wait a few minutes before retrying.' 
+            : 'The AI model is currently experiencing high demand. Please try again in a moment.';
+        } else if (isRateLimit) {
+          msg = 'Rate limit reached. Please wait a moment before trying again.';
+        } else {
+          msg = msgStr || 'Stream generation failed';
+        }
+        
+        recentErrors++;
+        if (recentErrors > 5) {
+          recentErrors = 0; // Reset counter
+        }
+        
         controller.enqueue(
-          encoder.encode(`data: ${JSON.stringify({ type: 'error', error: msg, retryable: isOverloaded || isRateLimit })}\n\n`)
+          encoder.encode(`data: ${JSON.stringify({ type: 'error', error: msg, retryable: isOverloaded || isRateLimit, apiStress })}\n\n`)
         );
       } finally {
         controller.close();

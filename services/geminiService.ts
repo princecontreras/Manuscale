@@ -166,11 +166,48 @@ const isValidSource = (uri: string): boolean => {
     return !forbidden.some(domain => uri.includes(domain));
 };
 
+// --- TOKEN ESTIMATION & OPTIMIZATION ---
+// Rough estimate: 1 token ≈ 4 characters (Gemini tokenization)
+const estimateTokenCount = (text: string): number => {
+    return Math.ceil(text.length / 3.5); // Conservative estimate
+};
+
+// Format context items concisely to reduce token count
+const formatContextSlim = (item: any): string => {
+    if (!item) return '';
+    // Only include name and brief description, skip nested details
+    return `${item.name || ''}${item.description ? ': ' + item.description.substring(0, 100) : ''}`;
+};
+
+// Create optimized context block that's human-readable but token-efficient
+const buildOptimizedContextBlock = (items: any[], maxItems: number = 3): string => {
+    if (!items || items.length === 0) return '';
+    const selected = items.slice(0, maxItems);
+    return selected.map(item => formatContextSlim(item)).filter(s => s.length > 0).join('\n- ');
+};
+
+// Track cumulative API stress to enable adaptive sizing
+let apiStressLevel = 0; // 0-100 scale
+const updateApiStressLevel = (recentErrors: boolean) => {
+    apiStressLevel = recentErrors ? Math.min(100, apiStressLevel + 20) : Math.max(0, apiStressLevel - 5);
+};
+
+// Export for diagnostics
+export const getApiStressLevel = (): number => apiStressLevel;
+
+// Determine content fidelity based on API stress
+const getContextFidelity = (): 'full' | 'medium' | 'slim' => {
+    if (apiStressLevel > 70) return 'slim';     // Minimal context only
+    if (apiStressLevel > 40) return 'medium';   // Medium context
+    return 'full';                              // Full context
+};
+
 // --- Queue Management ---
 class RequestQueue {
     private queue: (() => Promise<any>)[] = [];
     private active = 0;
     private concurrencyLimit: number;
+    private recentErrors: number[] = []; // Track errors in last 60s
 
     constructor(concurrencyLimit: number) {
         this.concurrencyLimit = concurrencyLimit;
@@ -180,8 +217,19 @@ class RequestQueue {
         return new Promise((resolve, reject) => {
             this.queue.push(async () => {
                 try {
-                    resolve(await fn());
+                    const result = await fn();
+                    // Success: clear error tracking
+                    this.recentErrors = [];
+                    updateApiStressLevel(false);
+                    resolve(result);
                 } catch (e) {
+                    // Track error for adaptive rate limiting
+                    this.recentErrors.push(Date.now());
+                    // Clean old errors (> 60s)
+                    this.recentErrors = this.recentErrors.filter(t => Date.now() - t < 60000);
+                    // If we're seeing lots of errors, increase stress level
+                    const hasHighErrorRate = this.recentErrors.length > 3;
+                    updateApiStressLevel(hasHighErrorRate);
                     reject(e);
                 }
             });
@@ -199,8 +247,16 @@ class RequestQueue {
             });
         }
     }
+
+    // Reduce concurrency if under extreme API stress
+    adaptConcurrency(): number {
+        if (apiStressLevel > 80) return 2;  // Severe: minimal requests
+        if (apiStressLevel > 60) return 3;  // High: reduced requests
+        if (apiStressLevel > 40) return 4;  // Moderate: slightly reduced
+        return 6;                           // Normal: standard concurrency
+    }
 }
-const aiQueue = new RequestQueue(6); // Increased concurrency for faster image generation
+const aiQueue = new RequestQueue(6);
 
 // --- Error Classification Helper ---
 const isRetryableError = (error: any): { retryable: boolean; isRateLimit: boolean } => {
@@ -229,7 +285,7 @@ const isRetryableError = (error: any): { retryable: boolean; isRateLimit: boolea
     return { retryable: isRateLimit || isServerErr, isRateLimit };
 };
 
-// Retry Logic
+// Retry Logic with Adaptive Backoff based on API Stress
 export async function retryWithBackoff<T>(fn: () => Promise<T>, retries = 5, delay = 2000, signal?: AbortSignal, _initialRetries: number = retries): Promise<T> {
     try {
         if (signal?.aborted) throw new Error("Aborted by user");
@@ -243,14 +299,18 @@ export async function retryWithBackoff<T>(fn: () => Promise<T>, retries = 5, del
 
         if (!retryable && error?.status) throw error;
         
-        // Exponential backoff with jitter
+        // Exponential backoff with jitter, adapted based on API stress
         // Use _initialRetries to correctly compute attempt number regardless of initial retries value
         const attemptsMade = _initialRetries - retries;
         const backoffDelay = delay * Math.pow(2, attemptsMade);
         const jitter = Math.random() * 1000;
-        const waitTime = isRateLimit ? Math.max(backoffDelay + jitter, 5000) : (backoffDelay + jitter);
         
-        console.warn(`API Error (${isRateLimit ? '429 Rate Limit' : 'Server'}). Pausing for ${Math.round(waitTime/1000)}s... (${retries} left)`);
+        // Apply stress multiplier: higher stress = longer delays
+        const stressMultiplier = 1 + (apiStressLevel / 100) * 2; // 1x to 3x multiplier
+        const adaptiveDelay = Math.ceil(backoffDelay * stressMultiplier);
+        const waitTime = isRateLimit ? Math.max(adaptiveDelay + jitter, 5000) : (adaptiveDelay + jitter);
+        
+        console.warn(`API Error (${isRateLimit ? '429 Rate Limit' : 'Server'}). Stress=${apiStressLevel}%. Waiting ${Math.round(waitTime/1000)}s... (${retries} retries left)`);
         
         await new Promise((resolve, reject) => {
             const timer = setTimeout(resolve, waitTime);
@@ -1032,29 +1092,37 @@ export const streamChapterContent = async (
         (chapterIndex >= totalChapters - 2) ? 'closing' : 'middle';
     const progressPercent = totalChapters > 0 ? Math.round((chapterIndex / totalChapters) * 100) : 0;
 
-    // --- SMART CONTEXT INJECTION (RAG-LITE) ---
+    // --- SMART CONTEXT INJECTION (RAG-LITE) with ADAPTIVE SIZING ---
+    const contextFidelity = getContextFidelity();
     let relevantContext: any[] = [];
+    let contextBlockSize = contextFidelity === 'slim' ? 1 : (contextFidelity === 'medium' ? 2 : 4);
+    
     try {
        if (memory.research.length > 0 || memory.keyFigures.length > 0 || memory.concepts.length > 0) {
            relevantContext = await getRelevantContext(chapter.beat, memory, signal);
        }
     } catch (e) {
         console.warn("Smart context retrieval failed, proceeding with basic slice.", e);
-        relevantContext = memory.research.slice(0, 5);
+        relevantContext = memory.research.slice(0, Math.min(2, contextBlockSize));
     }
+    // Limit context based on API stress
+    relevantContext = relevantContext.slice(0, Math.min(contextBlockSize, relevantContext.length));
 
     // --- ANTI-REPETITION: Extract topics already covered ---
     let coveredTopics = "";
     if (globalSummary && globalSummary.length > 20) {
         // Extract key noun phrases from the summary to explicitly ban
-        const summaryWords = globalSummary.split(/[.!?]+/).filter(s => s.trim().length > 10).slice(-8);
+        // Limit to 5 items in slim mode, 8 in full mode
+        const maxTopics = contextFidelity === 'slim' ? 5 : 8;
+        const summaryWords = globalSummary.split(/[.!?]+/).filter(s => s.trim().length > 10).slice(-maxTopics);
         coveredTopics = `\nTOPICS ALREADY COVERED (DO NOT REPEAT OR REPHRASE THESE):\n${summaryWords.map(s => `- ${s.trim()}`).join('\n')}`;
     }
     
-    // Build list of what previous chapters covered
+    // Build list of what previous chapters covered - reduced when under stress
     let previousChapterTopics = "";
     if (chapterIndex > 0) {
-        const prevChapters = fullOutline.slice(Math.max(0, chapterIndex - 3), chapterIndex);
+        const lookbackChapters = contextFidelity === 'slim' ? 2 : 3;
+        const prevChapters = fullOutline.slice(Math.max(0, chapterIndex - lookbackChapters), chapterIndex);
         previousChapterTopics = `\nRECENT CHAPTERS (already written — do NOT overlap with their content):\n${prevChapters.map(c => `- Ch${c.chapterNumber} "${c.title}": ${c.beat}`).join('\n')}`;
     }
 
@@ -1163,7 +1231,7 @@ export const streamChapterContent = async (
     ${flowGuide}
     ${endingInstruction}
 
-    STORY SO FAR: ${globalSummary || "This is the first chapter."}
+    STORY SO FAR: ${globalSummary ? (contextFidelity === 'slim' ? globalSummary.substring(0, 500) : globalSummary) : "This is the first chapter."}
     Context: Previous: ${prevContext}. Next: ${isLastChapter ? "NONE — this is the final chapter" : nextContext}.
     Plan: ${chapter.beat}
     
@@ -1177,9 +1245,8 @@ export const streamChapterContent = async (
     ${previousChapterTopics}
     ===============================
     
-    CRITICAL KNOWLEDGE VAULT: 
-    ${JSON.stringify(relevantContext.slice(0, 4))}
-    ${liveContextBlock}
+    ${relevantContext.length > 0 ? `CRITICAL KNOWLEDGE VAULT:\n${buildOptimizedContextBlock(relevantContext, contextBlockSize)}` : ''}
+    ${liveContextBlock ? (contextFidelity === 'slim' ? `\nFRESH RESEARCH (KEY FACTS):\n${additionalContext?.substring(0, 400)}` : `\nFRESH RESEARCH:\n${additionalContext?.substring(0, 750)}`) : ''}
     
     STRICT OUTPUT RULES:
     1. Write ONLY the chapter content. 
@@ -1215,6 +1282,8 @@ export const streamChapterContent = async (
     const combinedSignal = signal ? signal : timeoutController.signal;
 
     try {
+        console.log("Generating chapter content. Prompt tokens (estimate):", estimateTokenCount(prompt));
+        console.log("API Stress Level:", apiStressLevel);
         console.log("Calling ai.models.generateContentStream...");
         result = await retryWithBackoff(() => ai.models.generateContentStream({
             model: MODEL_FLASH,
@@ -1223,7 +1292,6 @@ export const streamChapterContent = async (
         console.log("ai.models.generateContentStream call returned.");
     } catch (e: any) {
         console.error("Error generating chapter content:", e);
-        // ... (rest of the error handling remains the same)
         const eMsg = String(e?.message ?? '');
         const eStatus = String(e?.status ?? '');
         const isServiceErr = e?.status === 429 ||
@@ -1236,29 +1304,35 @@ export const streamChapterContent = async (
                              e?.error?.code === 503 ||
                              eMsg.includes('503') ||
                              eMsg.includes('RESOURCE_EXHAUSTED');
+        
         if (isServiceErr) {
-            console.warn('⚠️ Preview model overloaded. Falling back to stable flash model.');
+            // API is overloaded - increase stress level
+            updateApiStressLevel(true);
+            console.warn(`⚠️ MODEL OVERLOAD DETECTED (Stress: ${apiStressLevel}%). Enabling adaptive retry with longer delays...`);
+            
+            // Try with longer delays and fallback models
             try {
+                console.warn('Attempting fallback with longer delay...');
                 usedModel = MODEL_FLASH_STABLE;
                 result = await retryWithBackoff(() => ai.models.generateContentStream({
                     model: MODEL_FLASH_STABLE,
                     contents: prompt
-                }), 3, 2000, combinedSignal);
+                }), 2, 5000, combinedSignal); // Increased delay to 5s
             } catch (e2: any) {
-                console.warn('⚠️ Stable flash overloaded. Falling back to Pro Stable.');
+                console.warn('⚠️ Stable flash also overloaded. Trying Pro Stable with even longer delays...');
                 try {
                     usedModel = MODEL_PRO_STABLE;
                     result = await retryWithBackoff(() => ai.models.generateContentStream({
                         model: MODEL_PRO_STABLE,
                         contents: prompt
-                    }), 2, 3000, combinedSignal);
+                    }), 2, 8000, combinedSignal); // Increased delay to 8s
                 } catch (e3: any) {
-                    console.warn('⚠️ Pro Stable overloaded. Final fallback to Pro 3.1.');
+                    console.warn('⚠️ Pro Stable also overloaded. Last attempt with Pro model and aggressive backoff...');
                     usedModel = MODEL_PRO;
                     result = await retryWithBackoff(() => ai.models.generateContentStream({
                         model: MODEL_PRO,
                         contents: prompt
-                    }), 3, 4000, combinedSignal);
+                    }), 2, 10000, combinedSignal); // 10s delay for final attempt
                 }
             }
         } else {
