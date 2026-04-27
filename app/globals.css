@@ -72,6 +72,9 @@
   /* Typography Variables */
   --font-size: 11pt;
   --line-height: 1.6;
+  --paragraph-spacing: 1em;
+  --first-line-indent: 0;
+  --block-indent: 0;
   --page-bg: #ffffff;
   --text-color: #1e293b;
 }

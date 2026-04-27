@@ -86,7 +86,7 @@ const SelectionMenu: React.FC<{
     return (
         <div 
             className="fixed z-50 flex flex-col bg-white text-slate-800 rounded-lg shadow-2xl border border-slate-200 selection-menu-enter transform -translate-x-1/2 -translate-y-full"
-            style={{ top: position.top - 8, left: position.left }}
+            style={{ top: `${position.top}px`, left: `${position.left}px` }}
         >
             {/* Formatting Row */}
             <div className="flex items-center p-1 border-b border-slate-100 bg-slate-50 rounded-t-lg">
@@ -140,8 +140,54 @@ const ChapterEditor = React.memo<{
     const [isThinking, setIsThinking] = useState(false);
 
     useLayoutEffect(() => {
-        if (editorRef.current && html !== editorRef.current.innerHTML && !isTyping.current) {
-            editorRef.current.innerHTML = html;
+        if (editorRef.current && !isTyping.current) {
+            const currentHtml = editorRef.current.innerHTML;
+            // Only update if content actually differs to prevent cursor loss
+            if (currentHtml !== html) {
+                // Preserve cursor position if possible
+                const selection = window.getSelection();
+                let cursorOffset = 0;
+                if (selection && selection.rangeCount > 0) {
+                    const range = selection.getRangeAt(0);
+                    const preRange = range.cloneRange();
+                    preRange.selectNodeContents(editorRef.current);
+                    preRange.setEnd(range.endContainer, range.endOffset);
+                    cursorOffset = preRange.toString().length;
+                }
+                
+                editorRef.current.innerHTML = html;
+                
+                // Restore cursor position if we had one
+                if (cursorOffset > 0 && selection) {
+                    const range = document.createRange();
+                    let charCount = 0;
+                    let found = false;
+                    
+                    const traverse = (node: Node) => {
+                        if (found) return;
+                        if (node.nodeType === Node.TEXT_NODE) {
+                            const nextCharCount = charCount + (node as any).length;
+                            if (nextCharCount >= cursorOffset) {
+                                range.setStart(node, cursorOffset - charCount);
+                                found = true;
+                                return;
+                            }
+                            charCount = nextCharCount;
+                        } else if (node.nodeType === Node.ELEMENT_NODE) {
+                            for (let child of node.childNodes) {
+                                traverse(child);
+                                if (found) return;
+                            }
+                        }
+                    };
+                    
+                    traverse(editorRef.current);
+                    if (found) {
+                        selection.removeAllRanges();
+                        selection.addRange(range);
+                    }
+                }
+            }
         }
     }, [html]);
 
@@ -163,7 +209,13 @@ const ChapterEditor = React.memo<{
         const rect = range.getBoundingClientRect();
         
         if (selection.toString().trim().length > 5) {
-            setMenuPos({ top: rect.top, left: rect.left + (rect.width / 2) });
+            // Account for scroll offset to position menu correctly
+            const scrollOffset = window.scrollY;
+            // Position above selection, centered horizontally
+            setMenuPos({ 
+                top: rect.top + scrollOffset - 8,
+                left: rect.left + (rect.width / 2) 
+            });
         } else {
             setMenuPos(null);
         }
@@ -197,13 +249,27 @@ const ChapterEditor = React.memo<{
             const refined = await performMagicRefinement(text, instruction);
             
             range.deleteContents();
-            const fragment = document.createRange().createContextualFragment(refined);
-            range.insertNode(fragment);
-            
-            if (editorRef.current) onChange(editorRef.current.innerHTML);
+            // Wrap refined content in a paragraph to preserve styling
+            const wrappedRefined = `<p>${refined}</p>`;
+            try {
+                const fragment = document.createRange().createContextualFragment(wrappedRefined);
+                range.insertNode(fragment);
+                
+                // Ensure updated content includes proper paragraph classes
+                if (editorRef.current) {
+                    onChange(editorRef.current.innerHTML);
+                }
+            } catch (parseError) {
+                // If wrapping fails, try plain insertion
+                const fragment = document.createRange().createContextualFragment(refined);
+                range.insertNode(fragment);
+                if (editorRef.current) onChange(editorRef.current.innerHTML);
+            }
             
         } catch (e) {
-            console.error(e);
+            const errorMsg = e instanceof Error ? e.message : 'Failed to refine text';
+            console.error('AI refinement error:', errorMsg);
+            // Could integrate with toast notification here if available
         } finally {
             setIsThinking(false);
         }
@@ -214,12 +280,18 @@ const ChapterEditor = React.memo<{
         fontSize: design.fontSize,
         lineHeight: design.lineHeight,
         textAlign: design.justification === 'justify' ? 'justify' : 'left',
-    };
+        '--ebook-font': design.fontFamily,
+        '--font-size': design.fontSize,
+        '--line-height': design.lineHeight,
+        '--paragraph-spacing': design.paragraphSpacing || '0',
+        '--first-line-indent': design.firstLineIndent || '0',
+        '--block-indent': design.blockIndent || '0',
+    } as React.CSSProperties;
     
     const paraClass = design.paragraphStyle === 'block' ? 'paragraph-block' : 'paragraph-indent';
 
     return (
-        <div className="w-full max-w-full sm:max-w-[8.5in] mx-auto bg-white shadow-md sm:shadow-xl min-h-[auto] sm:min-h-[11in] p-3 sm:p-6 md:p-[1in] mb-6 sm:mb-10 transition-all relative group">
+        <div className="w-full max-w-full sm:max-w-[8.5in] mx-auto bg-white shadow-md sm:shadow-xl min-h-[auto] sm:min-h-[11in] p-3 sm:p-6 md:p-[1in] mb-6 sm:mb-10 transition-all relative group" style={styles as any}>
              <div className="absolute inset-0 pointer-events-none border border-slate-100 m-3 sm:m-6 md:m-[1in] opacity-0 group-hover:opacity-100 transition-opacity"></div>
              
              {isThinking && (
@@ -238,7 +310,8 @@ const ChapterEditor = React.memo<{
                 onMouseUp={handleSelect}
                 onKeyUp={handleSelect}
                 className={`outline-none focus:outline-none book-content ${paraClass}`}
-                style={{ ...styles, minHeight: '9in' }}
+                style={{ ...styles, minHeight: '9in' } as React.CSSProperties}
+                spellCheck="true"
             />
         </div>
     );
@@ -732,13 +805,36 @@ export const EbookDisplay: React.FC<EbookDisplayProps> = ({
     useEffect(() => {
         const checkFormat = () => {
             const formats: Record<string, boolean> = {};
-            ['bold', 'italic', 'underline', 'justifyLeft', 'justifyCenter'].forEach(cmd => {
+            // Text formatting
+            ['bold', 'italic', 'underline'].forEach(cmd => {
                 formats[cmd] = document.queryCommandState(cmd);
             });
+            // Heading formats
+            ['h1', 'h2', 'h3'].forEach(cmd => {
+                formats[cmd] = document.queryCommandState('formatBlock') && 
+                               document.queryCommandValue('formatBlock') === cmd;
+            });
+            // Alignment
+            ['justifyLeft', 'justifyCenter', 'justifyRight', 'justifyFull'].forEach(cmd => {
+                formats[cmd] = document.queryCommandState(cmd);
+            });
+            // Lists
+            ['insertUnorderedList', 'insertOrderedList'].forEach(cmd => {
+                formats[cmd] = document.queryCommandState(cmd);
+            });
+            // Block formatting
+            formats['blockquote'] = document.queryCommandValue('formatBlock') === 'blockquote';
             setActiveFormats(formats);
         };
         document.addEventListener('selectionchange', checkFormat);
-        return () => document.removeEventListener('selectionchange', checkFormat);
+        // Also check on mouse/key events for immediate feedback
+        document.addEventListener('mouseup', checkFormat);
+        document.addEventListener('keyup', checkFormat);
+        return () => {
+            document.removeEventListener('selectionchange', checkFormat);
+            document.removeEventListener('mouseup', checkFormat);
+            document.removeEventListener('keyup', checkFormat);
+        };
     }, []);
 
     const switchToPreview = useCallback(() => {
