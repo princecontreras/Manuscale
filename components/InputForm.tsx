@@ -2,7 +2,7 @@
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
 import { EbookData, ProjectBlueprint, OutlineItem, NarrativeProfile, ProjectMemory } from '../types';
-import { analyzeTopicAndConfigure, generateProjectOutline, generateAuthorityBible, agenticChapterGeneration, calibrateStyleFromSample, analyzeChapterAftermath, compressGlobalSummary, gatherChapterFacts, breakDownChapter, expandNonFictionOutline } from '../services/aiClient';
+import { analyzeTopicAndConfigure, generateProjectOutline, generateAuthorityBible, agenticChapterGeneration, calibrateStyleFromSample, analyzeChapterAftermath, compressGlobalSummary, gatherChapterFacts, breakDownChapter, expandNonFictionOutline, getAdaptiveInterChapterDelay, getThrottlerStatus } from '../services/aiClient';
 import { saveLocal, getProjectMemoryKey, saveProject } from '../services/storage';
 import { paginateContent } from '../utils/pagination';
 import ResearchStudio from './ResearchStudio';
@@ -766,6 +766,14 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, initialTopic, 
                   for (let attempt = 0; attempt < 4; attempt++) {
                       try {
                           expandedBeat = await expandNonFictionOutline(currentItem.beat, blueprint.title, globalSummary, ac.signal);
+                          // ADAPTIVE DELAY: wait before next operation
+                          const betweenOpsDelay = getAdaptiveInterChapterDelay();
+                          if (betweenOpsDelay > 2000) {
+                              const secs = Math.round(betweenOpsDelay / 1000);
+                              addLog(`API recovering... waiting ${secs}s before next operation`);
+                          }
+                          await new Promise(r => setTimeout(r, betweenOpsDelay));
+                          
                           logicFlow = await breakDownChapter(currentItem.title, expandedBeat, blueprint.type, projectMemory, ac.signal);
                           break; // success
                       } catch (planErr: any) {
@@ -797,7 +805,9 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, initialTopic, 
               addLog(`Structure locked. Proceeding to research...`);
               
               if (ac.signal.aborted) break;
-              await new Promise(resolve => setTimeout(resolve, 2000));
+              // ADAPTIVE DELAY: Between architecture and research
+              const preResearchDelay = Math.min(getAdaptiveInterChapterDelay(), 10000);
+              await new Promise(resolve => setTimeout(resolve, preResearchDelay));
 
               let facts = "";
               let verifiedSources: {title: string, uri: string}[] = [];
@@ -835,7 +845,12 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, initialTopic, 
                   }
               }
               if (ac.signal.aborted) break;
-              await new Promise(resolve => setTimeout(resolve, 2000));
+              // ADAPTIVE DELAY: Between research and chapter generation
+              const preGenerationDelay = Math.min(getAdaptiveInterChapterDelay(), 15000);
+              if (preGenerationDelay > 2000) {
+                  addLog(`Preparing for generation... waiting ${Math.round(preGenerationDelay/1000)}s`);
+              }
+              await new Promise(resolve => setTimeout(resolve, preGenerationDelay));
 
               const now = Date.now();
               const timeSinceLastPro = now - lastProCallTime.current;
@@ -1004,8 +1019,19 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, initialTopic, 
               }
               
               if (i < filledOutline.length - 1) { 
-                  if (isMounted.current) setActiveAgentId('idle'); 
-                  await new Promise(resolve => setTimeout(resolve, 1500)); 
+                  if (isMounted.current) setActiveAgentId('idle');
+                  // ADAPTIVE INTER-CHAPTER DELAY: Based on API stress level
+                  const interChapterDelay = getAdaptiveInterChapterDelay();
+                  const delaySeconds = Math.round(interChapterDelay / 1000);
+                  const throttlerStatus = getThrottlerStatus();
+                  
+                  if (throttlerStatus.errorRate > 30 || throttlerStatus.circuitBreakerOpen) {
+                      addLog(`🔄 API stabilizing (Queue: ${throttlerStatus.queueLength}, Errors: ${throttlerStatus.errorRate}%)...`);
+                  }
+                  if (delaySeconds > 3) {
+                      addLog(`⏳ Preparing for Chapter ${i+2}... (${delaySeconds}s)`);
+                  }
+                  await new Promise(resolve => setTimeout(resolve, interChapterDelay));
               }
           }
           
