@@ -16,10 +16,14 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "Typoscale - The Publishing Engine",
+  title: "Typoscale - AI-Powered Publishing Studio",
   description: "Professional AI-powered publishing studio. Transform ideas into marketable digital products.",
   icons: {
-    icon: "/favicon.svg",
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon.svg", type: "image/svg+xml" },
+    ],
+    apple: "/apple-touch-icon.png",
   },
 };
 
