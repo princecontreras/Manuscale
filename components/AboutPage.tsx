@@ -133,15 +133,15 @@ const OurStorySection = memo(() => (
                         
                         <div className="space-y-4 text-lg text-slate-600 leading-relaxed">
                             <p>
-                                I'm the founder and creator of Typoscale. My vision is to help people create ebooks easily—whether for selling or personal use.
+                                I am the founder and creator of Typoscale. I built Typoscale with a simple vision: to make ebook creation easier, faster, and more accessible for everyone.
                             </p>
 
                             <p>
-                                Before Typoscale, I was a content creator and founded several businesses including <strong>Bead Lighting</strong>, an online store for home lighting products, and <strong>Digitale International</strong>, a digital product store on Gumroad. Through those experiences, I realized creators needed a simple way to turn their knowledge into published books without the complexity and cost of traditional publishing.
+                                Typoscale is designed to help people turn ideas, knowledge, and expertise into structured non-fiction ebooks with the help of AI. Whether it is for building a digital product, growing a brand, sharing knowledge, or personal use, the goal is to simplify the entire creation process from idea to finished ebook.
                             </p>
 
                             <p>
-                                That's why I built Typoscale—to democratize book creation for everyone.
+                                I believe creating a book should not feel overwhelming or limited to traditional publishing methods. Typoscale was built to help more people create and publish with confidence.
                             </p>
                         </div>
                     </motion.div>

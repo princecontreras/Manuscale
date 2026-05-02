@@ -126,7 +126,7 @@ export const FeaturesPage: React.FC<FeaturesPageProps> = ({ onEnterApp, onBack, 
                                 <div className="w-12 h-12 bg-white rounded-xl shadow-sm border border-slate-200 flex items-center justify-center text-primary-600 mb-6 font-bold text-xl">1</div>
                                 <h3 className="font-heading text-2xl font-bold text-slate-900 mb-3">Topic & Syllabus Phase</h3>
                                 <p className="text-slate-600 leading-relaxed">
-                                    You enter your core premise. The AI generates a comprehensive book blueprint—identifying the target audience, tone, and mapping out a detailed table of contents. You can edit this mapping structurally before moving on.
+                                    You enter your core ideas or topics. The AI generates a comprehensive book blueprint—identifying the target audience, their pain-point or desire, tone, and mapping out a detailed table of contents. You can edit this mapping structurally before moving on.
                                 </p>
                             </motion.div>
                             
@@ -138,9 +138,9 @@ export const FeaturesPage: React.FC<FeaturesPageProps> = ({ onEnterApp, onBack, 
                                 className="bg-slate-50 p-5 sm:p-8 rounded-2xl border border-slate-200 group hover:border-primary-200 transition-colors"
                             >
                                 <div className="w-12 h-12 bg-white rounded-xl shadow-sm border border-slate-200 flex items-center justify-center text-primary-600 mb-6 font-bold text-xl">2</div>
-                                <h3 className="font-heading text-xl sm:text-2xl font-bold text-slate-900 mb-3">Manuscript Board</h3>
+                                <h3 className="font-heading text-xl sm:text-2xl font-bold text-slate-900 mb-3">Auto-Drafting and Editing Board</h3>
                                 <p className="text-slate-600 leading-relaxed">
-                                    Once the AI finishes auto-generating your entire manuscript, it lands in the editable Manuscript Board. Here you can read your full book, edit any chapter, reorder sections, adjust tone and voice, add citations, and refine every sentence. Full creative control, anytime.
+                                    After your blueprint and chapter outline are generated, the Auto-Drafting Engine automatically researches and writes each chapter based on your topic and structure. Once the draft is complete, it moves to the Editing Board where you can edit content, change text and paragraph formatting, reorganize sections, and preview your ebook before publishing.
                                 </p>
                             </motion.div>
 

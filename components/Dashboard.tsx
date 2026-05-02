@@ -265,6 +265,45 @@ const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, onCreateNew, onOpe
         }
     };
 
+    const handleExportProject = (projectId: string, e?: React.MouseEvent) => {
+        if (e) {
+            e.stopPropagation();
+        }
+        
+        const project = projects.find(p => p.id === projectId);
+        if (!project) {
+            showToast("Project not found", 'error');
+            return;
+        }
+
+        try {
+            // Load the full project data to export
+            const projectData = JSON.parse(localStorage.getItem(`project_${projectId}`) || '{}');
+            if (!projectData || !projectData.id) {
+                showToast("Project data not found in storage", 'error');
+                return;
+            }
+
+            // Create a JSON blob and download it
+            const dataStr = JSON.stringify(projectData, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${project.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_export.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
+            showToast("Project exported successfully!", 'success');
+        } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : "Failed to export project";
+            console.error("Project export error:", err);
+            showToast(errorMessage, 'error');
+        }
+    };
+
     const handleImportProject = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -274,7 +313,12 @@ const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, onCreateNew, onOpe
             try {
                 const json = JSON.parse(event.target?.result as string);
                 if (json.id && json.title) {
-                    const newProject = { ...json, id: crypto.randomUUID(), lastModified: Date.now() };
+                    const newProjectId = crypto.randomUUID();
+                    const newProject = { 
+                        ...json, 
+                        id: newProjectId, 
+                        lastModified: Date.now() 
+                    };
                     await saveProject(newProject);
                     const synced = await syncProjectIndex();
                     setProjects(synced);
@@ -580,6 +624,22 @@ const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, onCreateNew, onOpe
                         <option value="az">A-Z</option>
                         <option value="za">Z-A</option>
                     </select>
+                    <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="flex items-center gap-2 px-3 sm:px-4 py-1 bg-slate-50 border border-slate-200 hover:bg-slate-100 rounded-lg text-xs font-bold text-slate-600 transition-all"
+                        title="Import a project file"
+                    >
+                        <FileUp size={14} />
+                        <span className="hidden sm:inline">Import</span>
+                    </button>
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".json"
+                        onChange={handleImportProject}
+                        className="hidden"
+                        aria-label="Import project file"
+                    />
                 </div>
             </div>
 
@@ -616,7 +676,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, onCreateNew, onOpe
                                     <div className="flex items-center gap-2 text-xs text-slate-400"><Clock size={12} /><span className="truncate">Edited {formatDate(project.lastModified)}</span></div>
                                     <div className="flex items-center justify-between gap-2">
                                         <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-md flex-shrink-0"><FileText size={12} /><span className="hidden sm:inline">{project.wordCount ? project.wordCount.toLocaleString() : 0} words</span><span className="sm:hidden">{project.wordCount ? (project.wordCount / 1000).toFixed(0) : 0}k</span></div>
-                                        <div className="flex items-center gap-0.5 sm:gap-1 h-10 sm:h-auto">{project.status === 'published' && (<button onClick={(e) => { e.stopPropagation(); handleOpenMarketing(e, project.id); }} className="text-primary-600 hover:text-primary-700 hover:bg-primary-50 p-2 sm:p-2.5 rounded transition-colors flex items-center justify-center touch-target"><Share2 size={18} /></button>)}<button type="button" onClick={(e) => { e.stopPropagation(); confirmDelete(e, project.id); }} className="text-slate-400 hover:text-red-500 p-2 sm:p-2.5 hover:bg-red-50 rounded transition-colors flex items-center justify-center touch-target"><Trash2 size={18} /></button></div>
+                                        <div className="flex items-center gap-0.5 sm:gap-1 h-10 sm:h-auto">{project.status === 'published' && (<button onClick={(e) => { e.stopPropagation(); handleOpenMarketing(e, project.id); }} className="text-primary-600 hover:text-primary-700 hover:bg-primary-50 p-2 sm:p-2.5 rounded transition-colors flex items-center justify-center touch-target" title="Marketing Kit"><Share2 size={18} /></button>)}<button onClick={(e) => handleExportProject(project.id, e)} className="text-slate-400 hover:text-slate-600 p-2 sm:p-2.5 hover:bg-slate-100 rounded transition-colors flex items-center justify-center touch-target" title="Export Project"><Download size={18} /></button><button type="button" onClick={(e) => { e.stopPropagation(); confirmDelete(e, project.id); }} className="text-slate-400 hover:text-red-500 p-2 sm:p-2.5 hover:bg-red-50 rounded transition-colors flex items-center justify-center touch-target" title="Delete Project"><Trash2 size={18} /></button></div>
                                     </div>
                                 </div>
                             </div>

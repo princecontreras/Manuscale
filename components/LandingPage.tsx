@@ -437,6 +437,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                                 question="Is my data and research private?" 
                                 answer="Yes. Your projects, drafts, and research materials are stored securely. We do not use your personal manuscripts to train the global AI models."
                             />
+                            <FAQItem 
+                                question="Why do my book projects disappear when I open my account on a different device?" 
+                                answer="Your book projects are stored locally on your device to protect your privacy and keep your data under your control. Since we don't store your project data on our servers, you'll only see projects on the specific device where you created them. To access your projects across devices, you can export them and import them on another device."
+                            />
                         </div>
                     </div>
                 </section>
