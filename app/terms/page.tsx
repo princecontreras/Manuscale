@@ -12,7 +12,7 @@ export default function TermsOfService() {
       <div className="max-w-3xl mx-auto px-6 py-12">
         <div className="bg-white rounded-[40px] p-12 shadow-sm border border-slate-100">
           <h1 className="text-4xl font-serif font-bold text-slate-900 mb-4 tracking-tight">Terms of Service</h1>
-          <p className="text-slate-500 mb-12">Last updated: March 12, 2026</p>
+          <p className="text-slate-500 mb-12">Last updated: May 3, 2026</p>
           
           <div className="space-y-12 prose prose-slate max-w-none">
             <section>
@@ -48,23 +48,35 @@ export default function TermsOfService() {
             </section>
 
             <section>
-              <h2 className="text-xl font-bold text-slate-900 mb-4">4. Intellectual Property</h2>
-              <p className="text-slate-600 leading-relaxed">
-                You retain all ownership rights to the content you provide and the manuscripts generated through the Service. Typoscale does not claim any copyright over your generated books. You are solely responsible for ensuring that your content does not infringe upon the intellectual property rights of others.
+              <h2 className="text-xl font-bold text-slate-900 mb-4">4. Intellectual Property and Project Storage</h2>
+              <p className="text-slate-600 leading-relaxed mb-4">
+                You retain all ownership rights to the content you provide and the manuscripts generated through the Service. Typoscale does not claim any copyright over your generated books or projects. You are solely responsible for ensuring that your content does not infringe upon the intellectual property rights of others.
               </p>
+              <p className="text-slate-600 leading-relaxed mb-4">
+                <strong>Important Note on Project Storage:</strong> Your book projects, manuscripts, and drafts are stored exclusively on your local device (in your browser). These files are never uploaded to or stored on Typoscale's cloud servers. This means:
+              </p>
+              <ul className="list-disc pl-6 space-y-2 text-slate-600">
+                <li>Your projects remain completely under your control and cannot be accessed by Typoscale</li>
+                <li>You are responsible for backing up your projects if you wish to preserve them</li>
+                <li>Clearing your browser cache or using incognito/private mode may result in loss of local project data</li>
+                <li>You can export your projects at any time for external backup</li>
+              </ul>
             </section>
 
             <section>
-              <h2 className="text-xl font-bold text-slate-900 mb-4">5. AI Services and Accuracy</h2>
+              <h2 className="text-xl font-bold text-slate-900 mb-4">5. Account Data and AI Services</h2>
+              <p className="text-slate-600 leading-relaxed mb-4">
+                Typoscale stores your account information (name, email, authentication credentials) in our secure cloud database. However, your book projects and manuscripts are stored only on your local device and are never transmitted to or stored on our servers.
+              </p>
               <p className="text-slate-600 leading-relaxed">
-                Typoscale utilizes artificial intelligence to assist in research and drafting. While we strive for high fidelity, we do not guarantee the accuracy, completeness, or reliability of any information generated. Users are expected to fact-check and review all generated content before publication.
+                Typoscale utilizes artificial intelligence (Google's Gemini) to assist in research and drafting. While we strive for high fidelity, we do not guarantee the accuracy, completeness, or reliability of any information generated. Users are expected to fact-check and review all generated content before publication. When you use AI features, your prompts are sent to Google's servers for processing according to their privacy policies.
               </p>
             </section>
 
             <section>
               <h2 className="text-xl font-bold text-slate-900 mb-4">6. Subscription and Payments</h2>
               <p className="text-slate-600 leading-relaxed">
-                Access to certain features may require a paid subscription or credits. All fees are non-refundable unless required by law. You may cancel your subscription at any time through your account settings.
+                Access to certain features may require a paid subscription or credits. All fees are non-refundable unless required by law. You may cancel your subscription at any time through your account settings. Your subscription information is stored securely on our servers.
               </p>
             </section>
 
