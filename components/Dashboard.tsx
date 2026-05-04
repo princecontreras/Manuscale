@@ -265,7 +265,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, onCreateNew, onOpe
         }
     };
 
-    const handleExportProject = (projectId: string, e?: React.MouseEvent) => {
+    const handleExportProject = async (projectId: string, e?: React.MouseEvent) => {
         if (e) {
             e.stopPropagation();
         }
@@ -277,8 +277,8 @@ const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, onCreateNew, onOpe
         }
 
         try {
-            // Load the full project data to export
-            const projectData = JSON.parse(localStorage.getItem(`project_${projectId}`) || '{}');
+            // Load the full project data from IndexedDB
+            const projectData = await loadProject(projectId);
             if (!projectData || !projectData.id) {
                 showToast("Project data not found in storage", 'error');
                 return;

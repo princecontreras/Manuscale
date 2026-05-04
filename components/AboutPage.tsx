@@ -105,7 +105,7 @@ const OurStorySection = memo(() => (
                     >
                         <div className="relative w-full max-w-md aspect-square rounded-3xl overflow-hidden border-2 border-slate-200 shadow-xl">
                             <Image
-                                src="/covers/IMG_8626.png"
+                                src="/covers/Portrait Image.png"
                                 alt="Prince Contreras - Founder of Typoscale"
                                 fill
                                 className="object-cover"
