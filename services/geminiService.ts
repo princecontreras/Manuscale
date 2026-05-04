@@ -804,7 +804,8 @@ export const generateProjectOutline = async (blueprint: ProjectBlueprint, memory
        - Providing a definitive closing thought or call to action
        Do NOT place a conclusion or summary in any chapter other than the last.
     5. Non-final chapters should each end with a natural transition hook into the next chapter's topic.
-    6. Ensure a logical progression: early chapters build foundations, middle chapters develop depth, final chapters synthesize.`;
+    6. Ensure a logical progression: early chapters build foundations, middle chapters develop depth, final chapters synthesize.
+    7. Set targetWordCount to a MINIMUM of 2500 words per chapter. Chapters covering deep conceptual or instructional content should be set to 3000-4000 words. Never set targetWordCount below 2500.`;
 
     const [modeResult, outlineResult] = await Promise.allSettled([
         callWithModelFallback(
@@ -904,7 +905,7 @@ export const generateProjectOutline = async (blueprint: ProjectBlueprint, memory
                 chapterNumber: num,
                 title: `Chapter ${num}`,
                 beat: `Continue developing the book's themes. This chapter expands on the content established so far.`,
-                targetWordCount: 2000
+                targetWordCount: 2500
             });
         }
     }
@@ -918,7 +919,7 @@ export const generateProjectOutline = async (blueprint: ProjectBlueprint, memory
         chapterNumber: idx + 1,
         title: item.title,
         beat: item.beat,
-        targetWordCount: item.targetWordCount || 2000,
+        targetWordCount: item.targetWordCount || 2500,
         logicFlow: item.logicFlow || [],
         mode: item.mode ?? (modeIds.length > 0 ? modeIds[idx % modeIds.length] : undefined),
         status: 'draft' as const
@@ -1079,7 +1080,7 @@ export const streamChapterContent = async (
     signal?: AbortSignal
 ): Promise<string> => {
     const ai = getAI();
-    const targetWords = chapter.targetWordCount || 1500;
+    const targetWords = chapter.targetWordCount || 2500;
     const totalChapters = fullOutline.length;
     const chapterIndex = fullOutline.findIndex(c => c.id === chapter.id);
 
@@ -1216,11 +1217,11 @@ export const streamChapterContent = async (
     const contentBlocksInstruction = selectDynamicContentBlocks(chapter, blueprint, chapterPosition, assignedMode);
 
     const prompt = `Write Chapter ${chapter.chapterNumber}: "${chapter.title}" for the book "${blueprint.title}".
-    LENGTH GOAL: ~${targetWords} words.
+    LENGTH GOAL: ${targetWords} words MINIMUM. This is a hard floor — the chapter MUST reach at least ${targetWords} words. Shorter output is considered incomplete. Aim for ${Math.round(targetWords * 1.2)} words to ensure full coverage.
     Style Guide: ${profile.voice}, ${profile.archetype}.
     Book Progress: Chapter ${chapter.chapterNumber} of ${totalChapters} (${progressPercent}%).
     
-    EXPANSIVE NON-FICTION INSTRUCTION: Write a detailed, comprehensive, and authoritative chapter. Do not use fictional characters, invented scenarios, or fabricated dialogues. All narrative elements—including scenes, dialogues, and actions—must be strictly grounded in documented historical facts, real-world events, and actual people. For instructional content, use real-world case studies and clear factual analysis. Focus on depth, clarity, and accuracy. Aim to fully meet or exceed the word count goal.
+    EXPANSIVE NON-FICTION INSTRUCTION: Write a detailed, comprehensive, and authoritative chapter. Do not use fictional characters, invented scenarios, or fabricated dialogues. All narrative elements—including scenes, dialogues, and actions—must be strictly grounded in documented historical facts, real-world events, and actual people. For instructional content, use real-world case studies and clear factual analysis. Focus on depth, clarity, and accuracy. Every section must be developed with full explanations, examples, and analysis — do NOT truncate or summarise sections. Each <h2> section should contain at least 4-6 substantial paragraphs.
     
     ${thesisInstruction}
     ${personaInstruction}

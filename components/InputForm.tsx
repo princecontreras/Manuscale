@@ -888,7 +888,7 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, initialTopic, 
                           addLog(`Retrying draft for Chapter ${i+1} (attempt ${attempt + 1})...`);
                           lastProCallTime.current = Date.now();
                       }
-                      refinedHtml = await agenticChapterGeneration(blueprint, safeProfile, { ...currentItem, beat: expandedBeat }, memory, (chunk) => { if (isMounted.current) setStreamLog(prev => prev + chunk); }, prevContext, nextContext, filledOutline.map(o => ({ ...o, content: undefined, generatedPages: undefined, sourceContent: undefined })), globalSummary, facts, ac.signal);
+                      refinedHtml = await agenticChapterGeneration(blueprint, safeProfile, { ...currentItem, beat: finalBeat }, memory, (chunk) => { if (isMounted.current) setStreamLog(prev => prev + chunk); }, prevContext, nextContext, filledOutline.map(o => ({ ...o, content: undefined, generatedPages: undefined, sourceContent: undefined })), globalSummary, facts, ac.signal);
                       break; // success
                   } catch (genErr: any) {
                       if (ac.signal.aborted) throw genErr;
