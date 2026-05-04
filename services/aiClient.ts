@@ -98,8 +98,11 @@ async function callAI(action: string, params: Record<string, any>, signal?: Abor
       const isRetryable = errorData.retryable || res.status === 429 || res.status === 503 || res.status === 502 || res.status === 504;
 
       if (isRetryable && attempt < maxRetries - 1) {
-        // Exponential backoff: 3s, 6s, 12s
-        const delay = 3000 * Math.pow(2, attempt) + Math.random() * 1000;
+        // Respect Retry-After header (in seconds) from 429 responses; otherwise exponential backoff
+        const retryAfterHeader = res.headers.get('Retry-After');
+        const delay = retryAfterHeader
+          ? parseInt(retryAfterHeader) * 1000
+          : 3000 * Math.pow(2, attempt) + Math.random() * 1000;
         await new Promise(resolve => setTimeout(resolve, delay));
         continue;
       }
@@ -199,32 +202,46 @@ export const streamChapterContent = async (
     let fullContent = '';
     let buffer = '';
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
 
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
 
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue;
-        try {
-          const payload = JSON.parse(line.slice(6));
-          if (payload.type === 'chunk') {
-            onChunk(payload.data);
-          } else if (payload.type === 'done') {
-            fullContent = payload.data;
-          } else if (payload.type === 'error') {
-            throw new Error(payload.error);
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          try {
+            const payload = JSON.parse(line.slice(6));
+            if (payload.type === 'chunk') {
+              onChunk(payload.data);
+            } else if (payload.type === 'done') {
+              fullContent = payload.data;
+            } else if (payload.type === 'error') {
+              // Carry retryable flag so the outer loop can decide whether to retry
+              const err = new Error(payload.error) as any;
+              err.__retryable = payload.retryable === true;
+              throw err;
+            }
+          } catch (e) {
+            if (e instanceof Error && e.message !== 'Unexpected end of JSON input') throw e;
           }
-        } catch (e) {
-          if (e instanceof Error && e.message !== 'Unexpected end of JSON input') throw e;
         }
       }
-    }
 
-    return fullContent;
+      return fullContent;
+    } catch (streamErr: any) {
+      // Retry on retryable stream-level API errors (e.g., 503 from Gemini mid-stream)
+      if (streamErr?.__retryable && attempt < maxRetries) {
+        const delay = 4000 * Math.pow(2, attempt) + Math.random() * 1000;
+        lastError = streamErr;
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      throw streamErr;
+    }
   } // end retry loop
 
   throw lastError || new Error('Stream failed after retries');

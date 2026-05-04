@@ -195,23 +195,34 @@ export async function POST(req: NextRequest) {
 
       case 'generateMarketingImage': {
         // Server-side image generation — reuse the singleton from geminiService
-        const { getAI, MODEL_IMAGE } = await import('../../../services/geminiService');
+        const { getAI, MODEL_IMAGE, MODEL_IMAGE_STABLE, retryWithBackoff } = await import('../../../services/geminiService');
         const ai = getAI();
-        
-        const response = await ai.models.generateContent({
-          model: MODEL_IMAGE,
-          contents: {
-            parts: [
-              {
-                inlineData: {
-                  mimeType: 'image/jpeg',
-                  data: params.compressedBase64,
-                },
+
+        const imageContents = {
+          parts: [
+            {
+              inlineData: {
+                mimeType: 'image/jpeg',
+                data: params.compressedBase64,
               },
-              { text: `Create a marketing graphic using the provided book cover as the central element. ${params.prompt}. High quality, professional design.` },
-            ],
-          },
-        });
+            },
+            { text: `Create a marketing graphic using the provided book cover as the central element. ${params.prompt}. High quality, professional design.` },
+          ],
+        };
+
+        let response;
+        try {
+          response = await retryWithBackoff(() => ai.models.generateContent({
+            model: MODEL_IMAGE,
+            contents: imageContents,
+          }), 3, 2000, signal);
+        } catch {
+          // Fallback to stable image model on overload/quota errors
+          response = await retryWithBackoff(() => ai.models.generateContent({
+            model: MODEL_IMAGE_STABLE,
+            contents: imageContents,
+          }), 2, 3000, signal);
+        }
 
         for (const part of response.candidates?.[0]?.content?.parts || []) {
           if (part.inlineData) {
@@ -263,7 +274,10 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(
       { error: userMessage, retryable: isOverloaded || isRateLimit },
-      { status: httpStatus }
+      {
+        status: httpStatus,
+        headers: isRateLimit ? { 'Retry-After': '30' } : {},
+      }
     );
   }
 }

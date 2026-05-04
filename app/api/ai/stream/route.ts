@@ -8,7 +8,6 @@ export const maxDuration = 180; // 3 minutes for chapter generation
 const DEMO_STREAM_RATE_LIMIT = new Map<string, { count: number; resetAt: number }>();
 const DEMO_MAX_STREAMS_PER_IP = 20;
 const DEMO_RATE_WINDOW = 24 * 60 * 60 * 1000;
-let recentErrors = 0; // Track recent API errors
 
 function getClientIp(req: NextRequest): string {
   return req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
@@ -42,7 +41,7 @@ export async function POST(req: NextRequest) {
     if (!checkDemoStreamRateLimit(ip)) {
       return new Response(JSON.stringify({ error: 'Demo limit reached. Sign up for full access!' }), {
         status: 429,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Retry-After': '86400' },
       });
     }
   } else {
@@ -117,23 +116,20 @@ export async function POST(req: NextRequest) {
         
         // Enhanced error messages with API stress context
         let msg = '';
+        let retryAfterMs: number | undefined;
         if (isOverloaded) {
-          msg = apiStress > 70 
-            ? 'The AI model is under severe load. Please wait a few minutes before retrying.' 
+          msg = apiStress > 70
+            ? 'The AI model is under severe load. Please wait a few minutes before retrying.'
             : 'The AI model is currently experiencing high demand. Please try again in a moment.';
         } else if (isRateLimit) {
           msg = 'Rate limit reached. Please wait a moment before trying again.';
+          retryAfterMs = 30000; // Suggest 30s wait on rate limit
         } else {
           msg = msgStr || 'Stream generation failed';
         }
-        
-        recentErrors++;
-        if (recentErrors > 5) {
-          recentErrors = 0; // Reset counter
-        }
-        
+
         controller.enqueue(
-          encoder.encode(`data: ${JSON.stringify({ type: 'error', error: msg, retryable: isOverloaded || isRateLimit, apiStress })}\n\n`)
+          encoder.encode(`data: ${JSON.stringify({ type: 'error', error: msg, retryable: isOverloaded || isRateLimit, apiStress, ...(retryAfterMs ? { retryAfterMs } : {}) })}\n\n`)
         );
       } finally {
         controller.close();

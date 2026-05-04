@@ -158,12 +158,28 @@ const convertMarkdownToHtml = (text: string): string => {
 // Helper: Validate Source URL
 const isValidSource = (uri: string): boolean => {
     if (!uri) return false;
+    
+    // Blocked domains (Google internal, localhost, etc.)
     const forbidden = [
         'vertex.ai', 'google.com/search', 'google.com/url', 'googleapis.com',
         'gemini.google.com', 'support.google.com', 'accounts.google.com',
         'localhost', '127.0.0.1', 'googleusercontent.com'
     ];
-    return !forbidden.some(domain => uri.includes(domain));
+    
+    if (forbidden.some(domain => uri.includes(domain))) return false;
+    
+    // Prioritize trusted domains: educational, government, non-profit
+    const trustedDomains = ['.edu', '.gov', '.org'];
+    const isTrusted = trustedDomains.some(domain => uri.includes(domain));
+    
+    // Allow trusted domains; for others, do basic quality checks
+    if (isTrusted) return true;
+    
+    // For non-trusted: ensure it has a proper domain and isn't obviously spam
+    const hasProperDomain = uri.includes('.') && !uri.includes('localhost');
+    const notSpam = !uri.includes('ad-') && !uri.includes('tracking') && !uri.includes('utm_');
+    
+    return hasProperDomain && notSpam;
 };
 
 // --- TOKEN ESTIMATION & OPTIMIZATION ---
@@ -1387,9 +1403,25 @@ export const gatherChapterFacts = async (beat: string, blueprint: ProjectBluepri
     const ai = getAI();
     
     // Fast keyword heuristic — no LLM roundtrip needed to decide if research is worthwhile.
-    // Research genres: non-fiction, history, biography, technical, science, business, journalism.
-    // Skip genres: fiction, self-help (conceptual), philosophy, mindset.
-    const NEEDS_RESEARCH_GENRES = ['non-fiction', 'nonfiction', 'history', 'histor', 'biograph', 'autobiography', 'memoir', 'true crime', 'science', 'technical', 'technology', 'business', 'journalism', 'social', 'political', 'economics'];
+    // Expanded research genres to cover more non-fiction domains
+    const NEEDS_RESEARCH_GENRES = [
+        // Core non-fiction genres
+        'non-fiction', 'nonfiction', 'narrative non-fiction',
+        // History & biography
+        'history', 'histor', 'biograph', 'autobiography', 'memoir', 'biography',
+        // True crime, mystery
+        'true crime', 'crime', 'mystery', 'investigation',
+        // Science, tech, education
+        'science', 'technical', 'technology', 'education', 'educational',
+        // Business, economics, self-improvement
+        'business', 'economics', 'economics', 'finance', 'self-help', 'psychology', 'personal',
+        // Journalism, social issues
+        'journalism', 'social', 'political', 'politics', 'sociology',
+        // Health, science-based lifestyle
+        'health', 'medical', 'wellness', 'nutrition', 'fitness',
+        // Environment, nature
+        'environment', 'nature', 'sustainability'
+    ];
     const SKIP_BEAT_KEYWORDS = ['hypothetical', 'metaphorical', 'philosophical', 'fictional', 'parable', 'personal reflection', 'self-reflection', 'mindset exercise', 'imagine if'];
     const genreLower = `${blueprint.genre ?? ''} ${blueprint.type ?? ''}`.toLowerCase();
     const beatLower = beat.toLowerCase();

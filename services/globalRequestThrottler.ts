@@ -20,6 +20,8 @@ class GlobalRequestThrottler {
     private errorThresholdWindow = 60000; // 60 seconds
     private circuitBreakerOpen = false;
     private circuitBreakerOpenUntil = 0;
+    private circuitBreakerOpenCount = 0; // Track consecutive opens for progressive timeout
+    private successfulRequestsSinceOpen = 0; // Track recovery after breaker closes
     
     // Track errors per operation type
     private errorRateByType = new Map<string, { count: number; window: number[] }>();
@@ -99,6 +101,14 @@ class GlobalRequestThrottler {
             const result = await request.fn();
             // Success: reduce error tracking
             this.recentErrors = this.recentErrors.filter(e => Date.now() - e.timestamp < this.errorThresholdWindow);
+            // Reset progressive circuit breaker count after 10 consecutive successes
+            if (!this.circuitBreakerOpen) {
+                this.successfulRequestsSinceOpen++;
+                if (this.successfulRequestsSinceOpen >= 10) {
+                    this.circuitBreakerOpenCount = 0;
+                    this.successfulRequestsSinceOpen = 0;
+                }
+            }
             request.resolve(result);
         } catch (error: any) {
             // Error: track it
@@ -124,8 +134,12 @@ class GlobalRequestThrottler {
     private openCircuitBreaker() {
         if (this.circuitBreakerOpen) return;
         this.circuitBreakerOpen = true;
-        this.circuitBreakerOpenUntil = Date.now() + 30000; // 30 second timeout
-        console.warn('🔴 CIRCUIT BREAKER OPENED - Pausing requests for 30 seconds');
+        this.circuitBreakerOpenCount++;
+        this.successfulRequestsSinceOpen = 0;
+        // Progressive timeout: 30s → 60s → 120s (capped) based on consecutive opens
+        const timeoutMs = Math.min(30000 * Math.pow(2, this.circuitBreakerOpenCount - 1), 120000);
+        this.circuitBreakerOpenUntil = Date.now() + timeoutMs;
+        console.warn(`🔴 CIRCUIT BREAKER OPENED (#${this.circuitBreakerOpenCount}) - Pausing requests for ${timeoutMs / 1000}s`);
         
         // Reject all queued low-priority requests
         const newQueue: typeof this.requestQueue = [];
@@ -153,6 +167,8 @@ class GlobalRequestThrottler {
             maxConcurrentRequests: this.maxConcurrentRequests,
             queueLength: this.requestQueue.length,
             circuitBreakerOpen: this.circuitBreakerOpen,
+            circuitBreakerOpenCount: this.circuitBreakerOpenCount,
+            circuitBreakerOpenUntil: this.circuitBreakerOpenUntil,
             recentErrorCount: this.recentErrors.filter(e => Date.now() - e.timestamp < this.errorThresholdWindow).length,
             errorRate: this.getErrorRate(),
         };
