@@ -2,6 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminApp } from '@/services/firebaseAdmin';
 import { getFirestore } from 'firebase-admin/firestore';
 import { validateSubscriptionDates } from '@/utils/subscriptionValidation';
+import { timingSafeEqual } from 'crypto';
+
+function isValidAdminKey(provided: string | null): boolean {
+  const expected = process.env.SYNC_ADMIN_KEY;
+  if (!expected || !provided) return false;
+  try {
+    return timingSafeEqual(Buffer.from(provided), Buffer.from(expected));
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Bulk fixes subscriptions with invalid dates
@@ -17,8 +28,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { adminKey, dryRun = true, limit = 100 } = body;
 
-    // Check authorization
-    if (!adminKey || adminKey !== process.env.SYNC_ADMIN_KEY) {
+    // Use constant-time comparison to prevent timing attacks
+    if (!isValidAdminKey(adminKey ?? null)) {
       return NextResponse.json(
         { error: 'Unauthorized - Missing or invalid admin key' },
         { status: 401 }

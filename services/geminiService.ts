@@ -135,23 +135,76 @@ const validateChapterContent = (html: string): string => {
     return html;
 };
 
+// Helper: Strip markdown formatting from plain text (for text-only outputs like dedications, bios)
+const stripMarkdownFormatting = (text: string): string => {
+    let clean = text;
+    // Remove markdown bold (**text** -> text)
+    clean = clean.replace(/\*\*\*(.*?)\*\*\*/g, '$1');
+    clean = clean.replace(/\*\*(.*?)\*\*/g, '$1');
+    // Remove markdown italic (*text* or _text_ -> text)
+    clean = clean.replace(/(?<!\*|\\)\*(?![*\s])(.+?)(?<!\s|\\)\*(?!\*)/g, '$1');
+    clean = clean.replace(/__(.*?)__/g, '$1');
+    clean = clean.replace(/_(.*?)_/g, '$1');
+    // Remove markdown headings (## Title -> Title)
+    clean = clean.replace(/^#{1,6}\s+(.+)$/gm, '$1');
+    // Convert markdown bullet points to plain text (remove * markers)
+    clean = clean.replace(/^\s*\*\s+/gm, '');
+    // Remove any remaining orphaned asterisks/underscores
+    clean = clean.replace(/\*/g, '');
+    clean = clean.replace(/_/g, '');
+    return clean;
+};
+
 // Helper: Safety Net to convert accidental Markdown to HTML and strip leftover asterisks
 const convertMarkdownToHtml = (text: string): string => {
     let clean = text;
-    // Convert markdown bold/italic to HTML
+    
+    // STEP 1: Convert markdown bold/italic to HTML
+    // Handle bold-italic first (***text***)
     clean = clean.replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>');
-    clean = clean.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-    clean = clean.replace(/(?<!\*|\\)\*(?![*\s])(.+?)(?<!\s|\\)\*(?!\*)/g, '<em>$1</em>');
+    
+    // Handle bold (**text**)
+    // Use greedy matching with proper boundary detection for robustness
+    clean = clean.replace(/\*\*([^*]+?)\*\*/g, '<strong>$1</strong>');
+    // Multiple passes to catch cases with multiple ** sequences
+    for (let i = 0; i < 3; i++) {
+        clean = clean.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    }
+    
+    // Handle single italic (*text*) - be more careful to avoid false positives
+    clean = clean.replace(/(?<!\*)\*([^\*\s][^\*]*?[^\*\s]|[^\*\s])\*(?!\*)/g, '<em>$1</em>');
+    
+    // Handle double underscore bold (__text__)
     clean = clean.replace(/__(.*?)__/g, '<strong>$1</strong>');
+    
+    // Handle single underscore italic (_text_)
     clean = clean.replace(/_(.*?)_/g, '<em>$1</em>');
-    // Convert markdown headings to HTML (## Title -> <h2>Title</h2>)
+    
+    // STEP 2: Convert markdown headings to HTML
     clean = clean.replace(/^#{3}\s+(.+)$/gm, '<h3>$1</h3>');
     clean = clean.replace(/^#{2}\s+(.+)$/gm, '<h2>$1</h2>');
     clean = clean.replace(/^#{1}\s+(.+)$/gm, '<h1>$1</h1>');
-    // Strip any remaining standalone asterisks used as bullet markers
-    clean = clean.replace(/^\s*\*\s+/gm, '• ');
-    // Remove any orphaned asterisks that weren't part of matched pairs
-    clean = clean.replace(/(?<![<\/a-zA-Z])\*(?![a-zA-Z>])/g, '');
+    
+    // STEP 3: Convert bullet points - but preserve the content
+    clean = clean.replace(/^\s*\*\s+/gm, '');  // Just remove the * marker, keep the content
+    clean = clean.replace(/^\s*-\s+/gm, '');   // Also handle - bullet style
+    
+    // STEP 4: Aggressively remove any remaining orphaned asterisks/underscores
+    // This is critical for catching edge cases where markdown conversion didn't work
+    // Strategy: Only keep asterisks/underscores that are clearly inside HTML tags
+    
+    // Remove standalone ** (not converted earlier for some reason)
+    clean = clean.replace(/\*\*+/g, ' ');
+    
+    // Remove standalone single asterisks that aren't part of HTML
+    clean = clean.replace(/(?<!<[a-z])(?<![a-zA-Z0-9])\*+(?![a-zA-Z0-9>])/g, ' ');
+    
+    // Remove standalone underscores that aren't part of HTML
+    clean = clean.replace(/(?<!<[a-z])(?<![a-zA-Z0-9])_+(?![a-zA-Z0-9>])/g, ' ');
+    
+    // Clean up excessive spaces created by removing markers
+    clean = clean.replace(/\s{2,}/g, ' ');
+    
     return clean;
 };
 
@@ -1265,13 +1318,24 @@ export const streamChapterContent = async (
     ${relevantContext.length > 0 ? `CRITICAL KNOWLEDGE VAULT:\n${buildOptimizedContextBlock(relevantContext, contextBlockSize)}` : ''}
     ${liveContextBlock ? (contextFidelity === 'slim' ? `\nFRESH RESEARCH (KEY FACTS):\n${additionalContext?.substring(0, 400)}` : `\nFRESH RESEARCH:\n${additionalContext?.substring(0, 750)}`) : ''}
     
-    STRICT OUTPUT RULES:
+    STRICT OUTPUT RULES - CRITICAL - READ CAREFULLY:
     1. Write ONLY the chapter content. 
     2. Do NOT include the book title. 
     3. Do NOT write "Chapter [N]" headers.
     4. Start the narrative text immediately.
-    5. IMPORTANT: Do NOT use Markdown styling (no *, **, _, __, #). You MUST use standard HTML tags: <strong> for bold, <em> for italics, <h2> for section headings, <h3> for sub-sections.
-    6. NEVER output asterisk (*) characters for emphasis or bullet points. Use <strong>, <em>, and <ul>/<li> tags instead.
+    
+    5. ⚠️ MARKDOWN BAN - THIS IS CRITICAL ⚠️
+       - NEVER use markdown formatting. NO ** for bold. NO * for italic. NO __ or _ for emphasis.
+       - NEVER use # for headings. NEVER use - for bullet points. NEVER use * for bullets.
+       - You MUST use ONLY HTML tags for all formatting:
+         * Use <strong>text</strong> instead of **text** for bold
+         * Use <em>text</em> instead of *text* for italic
+         * Use <h2>heading</h2> instead of ## heading
+         * Use <h3>subheading</h3> instead of ### subheading
+         * Use <ul><li>item</li></ul> instead of - item or * item
+       - If you accidentally use markdown (**, *, _, #, -, etc.), the output will be broken and unreadable.
+    
+    6. FINAL CHECK before responding: Search your response for these characters: * _ # - and make sure they are ONLY used inside HTML tags, never as markdown formatting.
     
     CHAPTER STRUCTURE REQUIREMENTS:
     - Break the chapter into clearly defined SECTIONS using <h2> and <h3> headings.
@@ -1687,7 +1751,7 @@ export const generateAboutAuthor = async (authorName: string, bookSummary: strin
         MODEL_FLASH
     );
     trackResponseUsage(response, MODEL_FLASH);
-    return stripMarkdownWrapper(response.text || "");
+    return stripMarkdownFormatting(response.text || "");
 };
 
 export const generateDedication = async (bookTitle: string, bookSummary: string): Promise<string> => {
@@ -1704,7 +1768,7 @@ export const generateDedication = async (bookTitle: string, bookSummary: string)
         MODEL_FLASH
     );
     trackResponseUsage(response, MODEL_FLASH);
-    return stripMarkdownWrapper(response.text || "").trim();
+    return stripMarkdownFormatting(response.text || "").trim();
 };
 
 export const generateCopyright = (authorName: string): string => {
@@ -1897,7 +1961,7 @@ export const compressGlobalSummary = async (s: string, e: string, signal?: Abort
             MODEL_FLASH,
             signal
         );
-        return response.text?.trim() || s + "\n" + e;
+        return stripMarkdownFormatting(response.text?.trim() || s + "\n" + e);
     } catch (err) {
         console.warn("Summary compression failed", err);
         return s + "\n" + e;
@@ -1930,7 +1994,7 @@ export const expandChapterBeat = async (beat: string, title: string, summary: st
             MODEL_FLASH,
             signal
         );
-        return response.text?.trim() || beat;
+        return stripMarkdownFormatting(response.text?.trim() || beat);
     } catch (e) {
         console.warn("Beat expansion failed", e);
         return beat;
@@ -1999,7 +2063,7 @@ export const expandNonFictionOutline = async (beat: string, title: string, summa
             MODEL_FLASH,
             signal
         );
-        return response.text?.trim() || beat;
+        return stripMarkdownFormatting(response.text?.trim() || beat);
     } catch (e) {
         console.warn("Beat expansion failed", e);
         return beat;
@@ -2024,7 +2088,7 @@ export const performMagicRefinement = async (text: string, instruction: string, 
         
         let refinedText = response.text || text;
         
-        return refinedText.trim();
+        return stripMarkdownFormatting(refinedText.trim());
     } catch (e) {
         console.error("Magic Refinement failed:", e);
         return text;
@@ -2535,7 +2599,7 @@ export const runSpecialistAgent = async (role: AgentRole, instruction: string, c
          const sources = chunks.map((c: any) => c.web ? `[${c.web.title}](${c.web.uri})` : null).filter(Boolean);
          if (sources.length > 0) text += `\n\nSOURCES:\n${sources.join('\n')}`;
     }
-    return { output: stripMarkdownWrapper(text) };
+    return { output: stripMarkdownFormatting(stripMarkdownWrapper(text)) };
 };
 
 export type { GenerateContentResponse };

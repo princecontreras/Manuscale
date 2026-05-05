@@ -33,6 +33,15 @@ function checkDemoStreamRateLimit(ip: string): boolean {
 }
 
 export async function POST(req: NextRequest) {
+  // Reject oversized payloads before parsing
+  const contentLength = parseInt(req.headers.get('content-length') || '0', 10);
+  if (contentLength > 20_000_000) {
+    return new Response(JSON.stringify({ error: 'Request too large' }), {
+      status: 413,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
   const body = await req.json();
   const { params, demoMode } = body;
 
@@ -118,6 +127,7 @@ export async function POST(req: NextRequest) {
         let msg = '';
         let retryAfterMs: number | undefined;
         if (isOverloaded) {
+          retryAfterMs = apiStress > 70 ? 120000 : 10000; // 2 min on severe, 10s otherwise
           msg = apiStress > 70
             ? 'The AI model is under severe load. Please wait a few minutes before retrying.'
             : 'The AI model is currently experiencing high demand. Please try again in a moment.';

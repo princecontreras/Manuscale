@@ -11,6 +11,35 @@ const messages: Array<{
   read: boolean;
 }> = [];
 
+// Rate limiting — prevent contact form spam
+const contactRateLimit = new Map<string, { count: number; resetAt: number }>();
+const CONTACT_MAX_PER_HOUR = 5;
+const CONTACT_RATE_WINDOW = 60 * 60 * 1000; // 1 hour
+const MAX_RATE_ENTRIES = 10000;
+
+function getClientIp(req: NextRequest): string {
+  return req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    || req.headers.get('x-real-ip')
+    || 'unknown';
+}
+
+function checkContactRateLimit(ip: string): boolean {
+  const now = Date.now();
+  if (contactRateLimit.size > MAX_RATE_ENTRIES) {
+    for (const [key, val] of contactRateLimit) {
+      if (now > val.resetAt) contactRateLimit.delete(key);
+    }
+  }
+  const entry = contactRateLimit.get(ip);
+  if (!entry || now > entry.resetAt) {
+    contactRateLimit.set(ip, { count: 1, resetAt: now + CONTACT_RATE_WINDOW });
+    return true;
+  }
+  if (entry.count >= CONTACT_MAX_PER_HOUR) return false;
+  entry.count++;
+  return true;
+}
+
 // Validate email format
 function isValidEmail(email: string): boolean {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -132,6 +161,15 @@ function escapeHtml(text: string): string {
 }
 
 export async function POST(request: NextRequest) {
+  // Rate limit: max 5 submissions per IP per hour
+  const ip = getClientIp(request);
+  if (!checkContactRateLimit(ip)) {
+    return NextResponse.json(
+      { message: 'Too many requests. Please try again later.' },
+      { status: 429, headers: { 'Retry-After': '3600' } }
+    );
+  }
+
   try {
     const body = await request.json();
     const { name, email, subject, message } = body;

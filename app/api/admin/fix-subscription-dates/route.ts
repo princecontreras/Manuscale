@@ -1,16 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminApp } from '@/services/firebaseAdmin';
 import { getFirestore } from 'firebase-admin/firestore';
+import { timingSafeEqual } from 'crypto';
+
+function isValidAdminKey(provided: string | null): boolean {
+  const expected = process.env.SYNC_ADMIN_KEY;
+  if (!expected || !provided) return false;
+  try {
+    return timingSafeEqual(Buffer.from(provided), Buffer.from(expected));
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Fixes subscription dates for a user with an expired currentPeriodEnd
  * Sets currentPeriodEnd to 1 month from currentPeriodStart
  * 
- * Usage: GET /api/admin/fix-subscription-dates?email=user@example.com
+ * Usage: GET /api/admin/fix-subscription-dates?email=user@example.com&key=xxx
  */
 export async function GET(req: NextRequest) {
   try {
     const email = req.nextUrl.searchParams.get('email');
+    const adminKey = req.nextUrl.searchParams.get('key');
+
+    // Use constant-time comparison to prevent timing attacks
+    if (!isValidAdminKey(adminKey)) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Missing or invalid admin key' },
+        { status: 401 }
+      );
+    }
     
     if (!email) {
       return NextResponse.json(

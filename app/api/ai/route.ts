@@ -67,6 +67,12 @@ function checkDemoRateLimit(ip: string): boolean {
 }
 
 export async function POST(req: NextRequest) {
+  // Reject oversized payloads before parsing — prevents DoS via large base64 images or huge prompts
+  const contentLength = parseInt(req.headers.get('content-length') || '0', 10);
+  if (contentLength > 20_000_000) { // 20 MB limit
+    return NextResponse.json({ error: 'Request too large' }, { status: 413 });
+  }
+
   const body = await req.json();
   const { action, params, demoMode } = body;
 
@@ -276,7 +282,7 @@ export async function POST(req: NextRequest) {
       { error: userMessage, retryable: isOverloaded || isRateLimit },
       {
         status: httpStatus,
-        headers: isRateLimit ? { 'Retry-After': '30' } : {},
+        headers: isRateLimit ? { 'Retry-After': '30' } : isOverloaded ? { 'Retry-After': '10' } : {},
       }
     );
   }

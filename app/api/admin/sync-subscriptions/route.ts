@@ -4,8 +4,19 @@ import { getAdminApp } from '@/services/firebaseAdmin';
 import * as admin from 'firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
 import { validateSubscriptionDates, logValidationWarnings } from '@/utils/subscriptionValidation';
+import { timingSafeEqual } from 'crypto';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+
+function isValidAdminKey(provided: string | null): boolean {
+  const expected = process.env.SYNC_ADMIN_KEY;
+  if (!expected || !provided) return false;
+  try {
+    return timingSafeEqual(Buffer.from(provided), Buffer.from(expected));
+  } catch {
+    return false;
+  }
+}
 
 /**
  * ADMIN ENDPOINT - Sync subscription data from Stripe to Firestore
@@ -21,10 +32,10 @@ export async function POST(req: NextRequest) {
   try {
     // Get authorization header (should have admin token or special key)
     const authHeader = req.headers.get('Authorization');
-    const adminKey = process.env.SYNC_ADMIN_KEY;
+    const providedKey = authHeader?.replace(/^Bearer\s+/i, '') ?? null;
     
-    // Check if request has proper authorization
-    if (!authHeader?.includes(adminKey || 'ADMIN_KEY_NOT_SET')) {
+    // Use constant-time comparison to prevent timing attacks
+    if (!isValidAdminKey(providedKey)) {
       return NextResponse.json(
         { error: 'Unauthorized - Missing or invalid admin key' },
         { status: 401 }

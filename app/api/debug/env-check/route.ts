@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { timingSafeEqual } from 'crypto';
 
 /**
  * DEBUG ENDPOINT - Check environment variables
- * ONLY USE FOR DEBUGGING - Should be removed before deploying to production
- * 
+ * DISABLED IN PRODUCTION — Only available in non-production environments
  * This endpoint helps diagnose Firebase Admin service account issues
  */
 export async function GET(req: NextRequest) {
+  // Hard-disable in production to prevent sensitive info leakage
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+
   // Only allow from localhost or with admin key
   const adminKey = req.nextUrl.searchParams.get('key');
   const isLocalhost = req.nextUrl.hostname === 'localhost' || req.nextUrl.hostname === '127.0.0.1';
