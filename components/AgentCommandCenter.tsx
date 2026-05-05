@@ -319,7 +319,9 @@ const AgentCommandCenter: React.FC<AgentCommandCenterProps> = ({ onBack, isDemoM
         return msg.includes('high demand') || msg.includes('rate limit') ||
                msg.includes('overloaded') || msg.includes('503') || 
                msg.includes('429') || msg.includes('502') || msg.includes('504') ||
-               msg.includes('resource_exhausted') || msg.includes('unavailable');
+               msg.includes('resource_exhausted') || msg.includes('unavailable') ||
+               msg.includes('load failed') || msg.includes('failed to fetch') ||
+               msg.includes('network') || msg.includes('circuit breaker');
     };
 
     const waitWithCountdown = async (seconds: number, label: string): Promise<void> => {

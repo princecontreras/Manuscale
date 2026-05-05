@@ -1489,63 +1489,62 @@ export const generateBibliography = async (sources: {title: string, uri: string}
 
 export const generateImageFromPrompt = async (prompt: string, quality: 'fast' | 'high' = 'fast'): Promise<string | null> => {
     const ai = getAI();
-    let usedModel = MODEL_IMAGE; // gemini-3-pro-image for both quality levels
-    
-    try {
-        let response = await retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
-            model: usedModel,
-            contents: {
-                parts: [{ text: prompt }]
-            },
-            config: {
-                imageConfig: {
-                    aspectRatio: "3:4", // Book cover ratio usually
-                    imageSize: quality === 'high' ? "2K" : "1K"
-                }
-            }
-        }), 3, 2000);
-        
-        trackResponseUsage(response, usedModel);
 
+    // Helper to extract inline image data from a response
+    const extractImage = (response: GenerateContentResponse): string | null => {
         for (const part of response.candidates?.[0]?.content?.parts || []) {
             if (part.inlineData) {
                 return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
             }
         }
         return null;
-    } catch (e: any) {
-        const isQuotaErr = e?.status === 429 || e?.message?.includes('429') || e?.status === 503 || e?.error?.code === 503 || e?.message?.includes('503');
-        if (usedModel === MODEL_IMAGE && isQuotaErr) {
-            console.warn("⚠️ IMAGE 3.1 QUOTA EXCEEDED. Falling back to Image 2.5.");
-            try {
-                const fallbackModel = MODEL_IMAGE_STABLE;
-                const response = await retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
-                    model: fallbackModel,
-                    contents: {
-                        parts: [{ text: prompt }]
-                    },
-                    config: {
-                        imageConfig: {
-                            aspectRatio: "3:4",
-                            imageSize: "1K"
-                        }
-                    }
-                }), 3, 2000);
-                
-                trackResponseUsage(response, fallbackModel);
+    };
 
-                for (const part of response.candidates?.[0]?.content?.parts || []) {
-                    if (part.inlineData) {
-                        return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-                    }
+    // Try primary model with 1 retry (fast-fail to avoid Vercel 120s timeout)
+    try {
+        const response = await retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
+            model: MODEL_IMAGE,
+            contents: { parts: [{ text: prompt }] },
+            config: {
+                imageConfig: {
+                    aspectRatio: "3:4",
+                    imageSize: quality === 'high' ? "2K" : "1K"
                 }
-            } catch (e2) {
-                console.error("Image Fallback Failed", e2);
             }
-        }
-        console.error("Image Gen Failed", e);
-        return null;
+        }), 1, 2000); // 1 retry only — fast-fail to avoid exceeding 120s Vercel timeout
+
+        trackResponseUsage(response, MODEL_IMAGE);
+        const image = extractImage(response);
+        if (image) return image;
+
+        // Primary returned no image data — fall through to stable model
+        console.warn("⚠️ Primary image model returned no image data. Falling back to stable model.");
+    } catch (e: any) {
+        // Fall back on ANY primary model error, not just quota errors
+        console.warn(`⚠️ Primary image model failed (${e?.message || e?.status || 'unknown error'}). Falling back to stable model.`);
     }
+
+    // Fallback model with 1 retry
+    try {
+        const response = await retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
+            model: MODEL_IMAGE_STABLE,
+            contents: { parts: [{ text: prompt }] },
+            config: {
+                imageConfig: {
+                    aspectRatio: "3:4",
+                    imageSize: "1K"
+                }
+            }
+        }), 1, 2000); // 1 retry only
+
+        trackResponseUsage(response, MODEL_IMAGE_STABLE);
+        const image = extractImage(response);
+        if (image) return image;
+    } catch (e2: any) {
+        console.error("Image Fallback Failed", e2?.message || e2);
+    }
+
+    return null;
 };
 
 

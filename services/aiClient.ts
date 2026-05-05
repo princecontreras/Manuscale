@@ -5,7 +5,6 @@
 
 import { getAuth } from 'firebase/auth';
 import { ProjectBlueprint, ProjectMemory, OutlineItem, NarrativeProfile, MarketingAssets, AgentRole, DirectorDirective, ChapterMode } from '../types';
-import GlobalRequestThrottler from './globalRequestThrottler';
 
 // --- Shared utilities (client-safe, no API key needed) ---
 
@@ -56,62 +55,46 @@ async function getIdToken(): Promise<string | null> {
   }
 }
 
-async function callAI(action: string, params: Record<string, any>, signal?: AbortSignal, priority: 'critical' | 'high' | 'normal' | 'low' = 'normal'): Promise<any> {
-  const throttler = GlobalRequestThrottler.getInstance();
-  
-  // Determine priority based on action type
-  let requestPriority: 'critical' | 'high' | 'normal' | 'low' = priority;
-  if (action === 'agenticChapterGeneration' || action === 'streamChapterContent') {
-    requestPriority = 'critical'; // Chapter generation is most important
-  } else if (action.includes('breakDown') || action.includes('expandChapter') || action.includes('gatherChapterFacts')) {
-    requestPriority = 'high'; // Planning and research are important
-  } else if (action.includes('analyze') || action.includes('proofread') || action.includes('refine')) {
-    requestPriority = 'normal'; // Secondary operations
-  } else if (action.includes('generate') && !action.includes('Chapter')) {
-    requestPriority = 'low'; // Marketing, book mockups, etc.
-  }
+async function callAI(action: string, params: Record<string, any>, signal?: AbortSignal): Promise<any> {
+  const maxRetries = 3;
+  let lastError: Error | null = null;
 
-  return throttler.enqueue(async () => {
-    const maxRetries = 3;
-    let lastError: Error | null = null;
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    if (signal?.aborted) throw new Error('Request cancelled.');
 
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-      if (signal?.aborted) throw new Error('Request cancelled.');
+    const token = _isDemoMode ? null : await getIdToken();
+    const res = await fetch('/api/ai', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ action, params, ...(_isDemoMode ? { demoMode: true } : {}) }),
+      signal,
+    });
 
-      const token = _isDemoMode ? null : await getIdToken();
-      const res = await fetch('/api/ai', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ action, params, ...(_isDemoMode ? { demoMode: true } : {}) }),
-        signal,
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        return data.result;
-      }
-
-      const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}`, retryable: false }));
-      const isRetryable = errorData.retryable || res.status === 429 || res.status === 503 || res.status === 502 || res.status === 504;
-
-      if (isRetryable && attempt < maxRetries - 1) {
-        // Respect Retry-After header (in seconds) from 429 responses; otherwise exponential backoff
-        const retryAfterHeader = res.headers.get('Retry-After');
-        const delay = retryAfterHeader
-          ? parseInt(retryAfterHeader) * 1000
-          : 3000 * Math.pow(2, attempt) + Math.random() * 1000;
-        await new Promise(resolve => setTimeout(resolve, delay));
-        continue;
-      }
-
-      lastError = new Error(errorData.error || `AI request failed (${res.status})`);
+    if (res.ok) {
+      const data = await res.json();
+      return data.result;
     }
 
-    throw lastError || new Error('AI request failed');
-  }, action, requestPriority);
+    const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}`, retryable: false }));
+    const isRetryable = errorData.retryable || res.status === 429 || res.status === 503 || res.status === 502 || res.status === 504;
+
+    if (isRetryable && attempt < maxRetries - 1) {
+      // Respect Retry-After header (in seconds) from 429 responses; otherwise exponential backoff
+      const retryAfterHeader = res.headers.get('Retry-After');
+      const delay = retryAfterHeader
+        ? parseInt(retryAfterHeader) * 1000
+        : 3000 * Math.pow(2, attempt) + Math.random() * 1000;
+      await new Promise(resolve => setTimeout(resolve, delay));
+      continue;
+    }
+
+    lastError = new Error(errorData.error || `AI request failed (${res.status})`);
+  }
+
+  throw lastError || new Error('AI request failed');
 }
 
 // --- Proxied AI Functions ---
@@ -421,23 +404,7 @@ export const runSpecialistAgent = async (
   return callAI('runSpecialistAgent', { role, instruction, context }, signal);
 };
 
-// --- Global Request Throttler Status ---
 
-export const getThrottlerStatus = () => {
-  const throttler = GlobalRequestThrottler.getInstance();
-  return throttler.getStatus();
-};
-
-export const getAdaptiveInterChapterDelay = () => {
-  const status = getThrottlerStatus();
-  // Base delay: 5 seconds
-  // Increases based on queue length and error rate
-  const baseDelay = 5000;
-  const queuePenalty = status.queueLength * 1000; // +1s per queued request
-  const errorRatePenalty = status.errorRate * 100; // +0% to +50% based on error rate
-  const totalDelay = baseDelay + queuePenalty + errorRatePenalty;
-  return Math.min(totalDelay, 45000); // Cap at 45 seconds
-};
 
 // --- Marketing Image Generation (with client-side compression) ---
 
