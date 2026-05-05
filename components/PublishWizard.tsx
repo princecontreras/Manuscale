@@ -448,9 +448,13 @@ ${assets.adCopyExamples ? assets.adCopyExamples.map(ad => `[${ad.platform}]\n${a
                   ]);
 
                   let updatedAssets = { ...newAssets };
+                  
+                  // Start image generation in background (non-blocking)
+                  // Images will populate as they complete without blocking UI updates
                   if (updatedAssets && data.coverImage) {
-                      // Generate ALL images in parallel (not sequential)
-                      const [fbImages, socialImages, quoteImages] = await Promise.all([
+                      // Fire off image generation without awaiting
+                      // This lets the UI update immediately while images render in parallel
+                      Promise.all([
                           Promise.all((updatedAssets.facebookAdCreatives || []).map(c => 
                               generateMarketingImage(c.prompt, data.coverImage!, () => {})
                           )),
@@ -460,11 +464,17 @@ ${assets.adCopyExamples ? assets.adCopyExamples.map(ad => `[${ad.platform}]\n${a
                           Promise.all((updatedAssets.quoteGraphics || []).map(c => 
                               generateMarketingImage(c.quote, data.coverImage!, () => {})
                           ))
-                      ]);
-
-                      updatedAssets.facebookAdCreatives = (updatedAssets.facebookAdCreatives || []).map((c, i) => ({...c, image: fbImages[i]}));
-                      updatedAssets.socialMediaGraphics = (updatedAssets.socialMediaGraphics || []).map((c, i) => ({...c, image: socialImages[i]}));
-                      updatedAssets.quoteGraphics = (updatedAssets.quoteGraphics || []).map((c, i) => ({...c, image: quoteImages[i]}));
+                      ]).then(([fbImages, socialImages, quoteImages]) => {
+                          // Update assets once images complete
+                          updatedAssets.facebookAdCreatives = (updatedAssets.facebookAdCreatives || []).map((c, i) => ({...c, image: fbImages[i]}));
+                          updatedAssets.socialMediaGraphics = (updatedAssets.socialMediaGraphics || []).map((c, i) => ({...c, image: socialImages[i]}));
+                          updatedAssets.quoteGraphics = (updatedAssets.quoteGraphics || []).map((c, i) => ({...c, image: quoteImages[i]}));
+                          setAssets(updatedAssets);
+                          onUpdateData({ marketing: updatedAssets });
+                          setFinalDownloadableData(prev => prev ? { ...prev, marketing: updatedAssets } : null);
+                      }).catch((err) => {
+                          console.warn('Background image generation failed (non-critical):', err);
+                      });
                   }
 
                   if (updatedAssets) {
@@ -480,7 +490,6 @@ ${assets.adCopyExamples ? assets.adCopyExamples.map(ad => `[${ad.platform}]\n${a
                   const errorMsg = e instanceof Error ? e.message : "Failed to generate publishing assets. Please try again.";
                   console.error("Asset generation error:", e);
                   showToast(errorMsg, 'error');
-                  showToast("Background generation failed. Please try again.", 'error');
               } finally {
                   setIsGeneratingAssets(false);
               }

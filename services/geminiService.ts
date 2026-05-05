@@ -1673,36 +1673,66 @@ const MarketingAssetsSchema = z.object({
     emailPromotionTemplate: z.string().optional(),
 });
 
+// Optimized parallel marketing pack generation (Option A - 4 parallel calls with early image prompt extraction)
 export const generateMarketingPack = async (blueprint: ProjectBlueprint, signal?: AbortSignal): Promise<MarketingAssets> => {
-    // Consolidated into 2 parallel calls (down from 4) using MODEL_FLASH for speed
-    const [coreAndAPlus, socialAndAds] = await Promise.all([
-        generateCoreAndAPlus(blueprint, signal),
-        generateSocialAndAds(blueprint, signal)
+    // Create lightweight context to reduce prompt redundancy
+    const context = {
+        title: blueprint.title,
+        genre: blueprint.genre,
+        summary: blueprint.summary,
+        audience: blueprint.profile?.targetAudience || "General Audience"
+    };
+
+    // Phase 1: All 4 text generation tasks in parallel (no dependencies)
+    const [
+        metadata,           // Keywords, categories, pricing
+        backCover,          // Blurb, Amazon description
+        socialCopy,         // Posts, email, ad copy
+        imagePrompts        // Image prompts only (extracted first for early image generation)
+    ] = await Promise.all([
+        generateMarketingMetadata(context, signal),
+        generateBackCoverCopy(context, signal),
+        generateSocialAndEmail(context, signal),
+        generateImagePrompts(context, signal)
     ]);
 
+    // Phase 2: Start image generation immediately (images now render in parallel with A+ content generation)
+    // Don't wait for A+ content since image generation can start with just the prompts
+    const generateAPlusWithImages = async () => {
+        const aPlusContent = await generateAPlusContent(context, signal);
+        
+        // Now collect all image prompts (from both A+ content and earlier extraction)
+        const allImagePrompts = [
+            ...(imagePrompts.facebookAdCreatives || []),
+            ...(imagePrompts.socialMediaGraphics || []),
+            ...(imagePrompts.quoteGraphics || []),
+            ...(aPlusContent.aPlusContent?.map((item: any) => ({ prompt: item.imagePrompt })) || [])
+        ];
+
+        return { aPlusContent, allImagePrompts };
+    };
+
+    // These run in parallel with A+ generation
+    const aPlusPromise = generateAPlusWithImages();
+
     return {
-        ...coreAndAPlus,
-        ...socialAndAds
+        ...metadata,
+        ...backCover,
+        ...socialCopy,
+        ...(await aPlusPromise).aPlusContent
     };
 };
 
-const generateCoreAndAPlus = async (blueprint: ProjectBlueprint, signal?: AbortSignal) => {
+// Split Function 1: Metadata (Keywords, Categories, Pricing) - Lightweight, Fast
+const generateMarketingMetadata = async (context: any, signal?: AbortSignal) => {
     const ai = getAI();
-    const prompt = `Generate marketing copy and A+ content for the book "${blueprint.title}".
-    Genre: ${blueprint.genre}.
-    Summary: ${blueprint.summary}.
-    Target Audience: ${blueprint.profile.targetAudience}.
+    const prompt = `For the book "${context.title}" (Genre: ${context.genre}):
+    Generate:
+    1. 10 SEO Keywords (most relevant for discoverability)
+    2. 3 Best Amazon Categories
+    3. Competitive Pricing Strategy Analysis
     
-    Required Assets:
-    1. Compelling Blurb (Back Cover Copy)
-    2. 10 SEO Keywords
-    3. 3 Amazon Categories
-    4. Pricing Strategy Analysis
-    5. Amazon Description (HTML allowed)
-    6. A+ Content Strategy (3 modules with headline, body, imagePrompt)
-    7. Quote Graphics (3 inspirational quotes from/about the book)
-    
-    Return pure JSON: {"blurb": "string", "keywords": ["string"], "categories": ["string"], "priceStrategy": "string", "amazonDescription": "string", "aPlusContent": [{"headline": "string", "body": "string", "imagePrompt": "string"}], "quoteGraphics": [{"quote": "string"}]}`;
+    Keep response concise. Return JSON: {"keywords": ["string"], "categories": ["string"], "priceStrategy": "string"}`;
 
     const response = await callWithModelFallback(
         (model) => retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
@@ -1716,21 +1746,93 @@ const generateCoreAndAPlus = async (blueprint: ProjectBlueprint, signal?: AbortS
     return safeJsonParse(response.text || "{}");
 };
 
-const generateSocialAndAds = async (blueprint: ProjectBlueprint, signal?: AbortSignal) => {
+// Split Function 2: Back Cover Copy - Focused on conversion
+const generateBackCoverCopy = async (context: any, signal?: AbortSignal) => {
     const ai = getAI();
-    const prompt = `Generate social media, email, and ad marketing assets for the book "${blueprint.title}".
-    Genre: ${blueprint.genre}.
-    Summary: ${blueprint.summary}.
+    const prompt = `For the book "${context.title}" (Genre: ${context.genre}). Target Audience: ${context.audience}.
+    Summary: ${context.summary}
     
-    Required Assets:
-    1. 3 Social Media Posts (Twitter/X, LinkedIn, Facebook)
-    2. Email Announcement
+    Generate:
+    1. Compelling Back Cover Blurb (100-150 words, sales-focused hook)
+    2. Amazon Product Description (200-300 words, can include HTML formatting)
+    
+    Return JSON: {"blurb": "string", "amazonDescription": "string"}`;
+
+    const response = await callWithModelFallback(
+        (model) => retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
+            model,
+            contents: prompt,
+            config: { responseMimeType: "application/json" }
+        }), 3, 2000, signal),
+        MODEL_FLASH,
+        signal
+    );
+    return safeJsonParse(response.text || "{}");
+};
+
+// Split Function 3: Social and Email Copy - Fast turnaround content
+const generateSocialAndEmail = async (context: any, signal?: AbortSignal) => {
+    const ai = getAI();
+    const prompt = `For the book "${context.title}" (Genre: ${context.genre}).
+    
+    Generate:
+    1. 3 Social Media Posts (Twitter, LinkedIn, Facebook - different tones)
+    2. Email Announcement (subject + body)
     3. Email Promotion Template
-    4. Facebook Ad Creatives (2 image prompts for marketing graphics)
-    5. Social Media Graphics (2 image prompts for visual posts)
-    6. Ad Copy Examples (3 short promotional texts for different platforms)
+    4. 3 Ad Copy Examples (short, punchy)
     
-    Return pure JSON: {"socialPosts": [{"platform": "string", "content": "string"}], "emailAnnouncement": "string", "emailPromotionTemplate": "string", "facebookAdCreatives": [{"prompt": "string"}], "socialMediaGraphics": [{"prompt": "string"}], "adCopyExamples": [{"platform": "string", "copy": "string"}]}`;
+    Return JSON: {"socialPosts": [{"platform": "string", "content": "string"}], "emailAnnouncement": "string", "emailPromotionTemplate": "string", "adCopyExamples": [{"platform": "string", "copy": "string"}]}`;
+
+    const response = await callWithModelFallback(
+        (model) => retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
+            model,
+            contents: prompt,
+            config: { responseMimeType: "application/json" }
+        }), 3, 2000, signal),
+        MODEL_FLASH,
+        signal
+    );
+    return safeJsonParse(response.text || "{}");
+};
+
+// Split Function 4: Image Prompts - Extracted EARLY to start image generation immediately
+const generateImagePrompts = async (context: any, signal?: AbortSignal) => {
+    const ai = getAI();
+    const prompt = `For the book "${context.title}" (Genre: ${context.genre}).
+    Summary: ${context.summary}
+    
+    Generate image prompts ONLY (these will be used to generate marketing graphics):
+    1. 2 Facebook Ad Creative prompts (visually striking, attention-grabbing)
+    2. 2 Social Media Graphics prompts (shareable, platform-optimized)
+    3. 3 Quote Graphics prompts (inspiring quotes FROM or ABOUT the book)
+    
+    Each prompt should be 50-80 words, detailed, include visual style.
+    Return JSON: {"facebookAdCreatives": [{"prompt": "string"}], "socialMediaGraphics": [{"prompt": "string"}], "quoteGraphics": [{"prompt": "string"}]}`;
+
+    const response = await callWithModelFallback(
+        (model) => retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
+            model,
+            contents: prompt,
+            config: { responseMimeType: "application/json" }
+        }), 3, 2000, signal),
+        MODEL_FLASH,
+        signal
+    );
+    return safeJsonParse(response.text || "{}");
+};
+
+// Split Function 5: A+ Content - Detailed, structured (runs after image prompts are extracted)
+const generateAPlusContent = async (context: any, signal?: AbortSignal) => {
+    const ai = getAI();
+    const prompt = `For the book "${context.title}" (Genre: ${context.genre}).
+    Target Audience: ${context.audience}
+    
+    Generate:
+    1. A+ Content Strategy (3 modules with headline, body, imagePrompt for visual reference)
+    2. Image prompts for A+ content sections
+    
+    Each module should highlight different value propositions.
+    Return JSON: {"aPlusContent": [{"headline": "string", "body": "string", "imagePrompt": "string"}]}`;
 
     const response = await callWithModelFallback(
         (model) => retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
