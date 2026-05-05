@@ -63,18 +63,18 @@ const nextConfig: NextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              // Scripts: self + inline for Next.js hydration + CDN for JSZip/Mammoth
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' cdnjs.cloudflare.com cdn.jsdelivr.net",
-              // Styles: self + inline for Tailwind + Google Fonts
-              "style-src 'self' 'unsafe-inline' fonts.googleapis.com",
-              // Fonts: self + Google Fonts CDN
-              "font-src 'self' data: fonts.gstatic.com",
-              // Images: self + data URIs (for base64) + blobs (for generated exports) + HTTPS
-              "img-src 'self' data: blob: https:",
-              // Connections: self + Firebase + Gemini + Stripe + Resend
-              "connect-src 'self' https://firestore.googleapis.com https://firebase.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com wss://*.firebaseio.com https://*.googleapis.com https://api.stripe.com https://api.resend.com",
-              // Frames: Stripe payment iframe
-              "frame-src https://js.stripe.com https://hooks.stripe.com",
+              // Scripts: self + inline for Next.js hydration + CDN for JSZip/Mammoth + Google Auth
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' cdnjs.cloudflare.com cdn.jsdelivr.net apis.google.com accounts.google.com www.gstatic.com www.google.com",
+              // Styles: self + inline for Tailwind + Google Fonts + Google Auth UI
+              "style-src 'self' 'unsafe-inline' fonts.googleapis.com www.gstatic.com",
+              // Fonts: self + Google Fonts CDN + Google Font Static
+              "font-src 'self' data: fonts.gstatic.com www.gstatic.com",
+              // Images: self + data URIs (for base64) + blobs (for generated exports) + HTTPS + Google
+              "img-src 'self' data: blob: https: www.gstatic.com",
+              // Connections: self + Firebase + Gemini + Stripe + Resend + Google Auth
+              "connect-src 'self' https://firestore.googleapis.com https://firebase.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com wss://*.firebaseio.com https://*.googleapis.com https://api.stripe.com https://api.resend.com https://www.google.com https://accounts.google.com",
+              // Frames: Stripe payment iframe + Google Auth iframe
+              "frame-src https://js.stripe.com https://hooks.stripe.com https://accounts.google.com",
               // Workers: self + blob (for PDF/ZIP generation)
               "worker-src 'self' blob:",
               // Media (for audiobook TTS playback)
