@@ -261,24 +261,67 @@ export const generateBibliography = async (
   return callAI('generateBibliography', { sources }, signal);
 };
 
+// --- Client-side caching for image generation ---
+const imageGenerationCache = new Map<string, string>();
+
+// Generate a cache key from prompt and quality
+const getImageCacheKey = (prompt: string, quality: string): string => {
+  // Use a simple hash to avoid storing very long keys
+  // For privacy, we hash rather than store prompts directly
+  const key = `${prompt}_${quality}`;
+  let hash = 0;
+  for (let i = 0; i < key.length; i++) {
+    const char = key.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  return `img_${Math.abs(hash).toString(36)}`;
+};
+
 export const generateImageFromPrompt = async (
   prompt: string,
-  quality?: string
+  quality: string = 'fast',
+  signal?: AbortSignal
 ): Promise<string | null> => {
-  return callAI('generateImageFromPrompt', { prompt, quality });
+  // Check client-side cache first
+  const cacheKey = getImageCacheKey(prompt, quality);
+  const cached = imageGenerationCache.get(cacheKey);
+  if (cached) {
+    console.log('📦 Using cached cover image');
+    return cached;
+  }
+
+  // Call API
+  const result = await callAI('generateImageFromPrompt', { prompt, quality }, signal);
+  
+  // Cache the result if successful
+  if (result) {
+    imageGenerationCache.set(cacheKey, result);
+    // Limit cache size to prevent memory issues (keep last 20 images)
+    if (imageGenerationCache.size > 20) {
+      const firstKey = imageGenerationCache.keys().next().value;
+      if (firstKey !== undefined) {
+        imageGenerationCache.delete(firstKey);
+      }
+    }
+  }
+  
+  return result;
 };
 
 export const generateBookMockup = async (
   title: string,
-  coverImageBase64: string
+  coverImageBase64: string,
+  signal?: AbortSignal
 ): Promise<string | null> => {
-  return callAI('generateBookMockup', { title, coverImageBase64 });
+  return callAI('generateBookMockup', { title, coverImageBase64 }, signal);
 };
 
 export const generateMarketingPack = async (
-  blueprint: ProjectBlueprint
+  blueprint: ProjectBlueprint,
+  signal?: AbortSignal
 ): Promise<MarketingAssets> => {
-  return callAI('generateMarketingPack', { blueprint });
+  return callAI('generateMarketingPack', { blueprint }, signal);
 };
 
 export const generateAboutAuthor = async (

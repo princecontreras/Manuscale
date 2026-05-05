@@ -78,6 +78,7 @@ const ImageStudio: React.FC<ImageStudioProps> = ({
   
   // Refs
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const [showDownloadMenu, setShowDownloadMenu] = useState(false);
 
   // Initialize
@@ -170,18 +171,33 @@ const ImageStudio: React.FC<ImageStudioProps> = ({
   const handleGenerate = async () => {
       if (!subject) return;
       setLoading(true);
+      
+      // Create abort controller for this request
+      abortControllerRef.current = new AbortController();
+      
       try {
           const finalPrompt = constructPrompt();
-          const newImage = await generateImageFromPrompt(finalPrompt, 'fast'); // Default to fast for fluidity, can toggle quality
+          const newImage = await generateImageFromPrompt(finalPrompt, 'fast', abortControllerRef.current.signal);
           if (newImage) {
               setImage(newImage);
               setHistory(prev => [...prev, newImage]);
               setIs3DMode(false); // Reset to 2D to see result clearly first
           }
-      } catch (e) {
-          console.error(e);
-          alert("Generation failed");
+      } catch (e: any) {
+          if (e?.message !== 'The user aborted a request') {
+              console.error(e);
+              alert("Generation failed: " + (e?.message || "Unknown error"));
+          }
       } finally {
+          setLoading(false);
+          abortControllerRef.current = null;
+      }
+  };
+
+  // Allow cancellation of pending generation
+  const handleCancelGeneration = () => {
+      if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
           setLoading(false);
       }
   };
@@ -453,15 +469,25 @@ const ImageStudio: React.FC<ImageStudioProps> = ({
                      </button>
                  </div>
                  
-                 {/* Generate Button */}
-                 <button
-                    onClick={handleGenerate}
-                    disabled={loading || !subject}
-                    className="w-full py-4 bg-slate-900 hover:bg-slate-800 text-amber-500 border border-amber-500/30 rounded-xl font-black text-sm uppercase tracking-widest shadow-lg shadow-amber-900/10 transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                 >
-                     {loading ? <Loader2 className="animate-spin" size={16}/> : <Wand2 size={16}/>}
-                     {loading ? 'Creating...' : 'Generate Artwork'}
-                 </button>
+                 {/* Generate Button / Cancel Button */}
+                 {loading ? (
+                    <button
+                       onClick={handleCancelGeneration}
+                       className="w-full py-4 bg-red-900 hover:bg-red-800 text-white border border-red-500/30 rounded-xl font-black text-sm uppercase tracking-widest shadow-lg shadow-red-900/10 transition-all hover:scale-[1.02] flex items-center justify-center gap-2"
+                    >
+                        <Loader2 className="animate-spin" size={16}/>
+                        Cancel
+                    </button>
+                 ) : (
+                    <button
+                       onClick={handleGenerate}
+                       disabled={!subject}
+                       className="w-full py-4 bg-slate-900 hover:bg-slate-800 text-amber-500 border border-amber-500/30 rounded-xl font-black text-sm uppercase tracking-widest shadow-lg shadow-amber-900/10 transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                        <Wand2 size={16}/>
+                        Generate Artwork
+                    </button>
+                 )}
 
                  <div className="text-center">
                      <button onClick={() => fileInputRef.current?.click()} className="text-xs font-bold text-slate-500 hover:text-white transition-colors flex items-center justify-center gap-2 mx-auto">

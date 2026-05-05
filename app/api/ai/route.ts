@@ -127,16 +127,24 @@ export async function POST(req: NextRequest) {
         result = await generateBibliography(params.sources, signal);
         break;
 
-      case 'generateImageFromPrompt':
-        result = await generateImageFromPrompt(params.prompt, params.quality);
+      case 'generateImageFromPrompt': {
+        // Image generation has a 40s timeout (leaves 20s buffer for Vercel's 60s limit)
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 40000);
+        try {
+          result = await generateImageFromPrompt(params.prompt, params.quality, controller.signal);
+        } finally {
+          clearTimeout(timeoutId);
+        }
         break;
+      }
 
       case 'generateBookMockup':
-        result = await generateBookMockup(params.title, params.coverImageBase64);
+        result = await generateBookMockup(params.title, params.coverImageBase64, signal);
         break;
 
       case 'generateMarketingPack':
-        result = await generateMarketingPack(params.blueprint);
+        result = await generateMarketingPack(params.blueprint, signal);
         break;
 
       case 'generateAboutAuthor':

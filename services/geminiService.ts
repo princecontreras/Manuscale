@@ -1551,7 +1551,7 @@ export const generateBibliography = async (sources: {title: string, uri: string}
 
 // --- NEW EXPORTED FUNCTIONS ---
 
-export const generateImageFromPrompt = async (prompt: string, quality: 'fast' | 'high' = 'fast'): Promise<string | null> => {
+export const generateImageFromPrompt = async (prompt: string, quality: 'fast' | 'high' = 'fast', signal?: AbortSignal): Promise<string | null> => {
     const ai = getAI();
 
     // Helper to extract inline image data from a response
@@ -1564,7 +1564,11 @@ export const generateImageFromPrompt = async (prompt: string, quality: 'fast' | 
         return null;
     };
 
-    // Try primary model with 1 retry (fast-fail to avoid Vercel 120s timeout)
+    const imageSize = quality === 'high' ? "2K" : "1K";
+
+    // Try primary model with optimized retry strategy
+    // For image generation, we use fewer retries but faster fallback (to avoid 120s Vercel timeout)
+    // Total time budget: ~30-40s for both models combined
     try {
         const response = await retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
             model: MODEL_IMAGE,
@@ -1572,10 +1576,10 @@ export const generateImageFromPrompt = async (prompt: string, quality: 'fast' | 
             config: {
                 imageConfig: {
                     aspectRatio: "3:4",
-                    imageSize: quality === 'high' ? "2K" : "1K"
+                    imageSize: imageSize
                 }
             }
-        }), 1, 2000); // 1 retry only — fast-fail to avoid exceeding 120s Vercel timeout
+        }), 1, 1000, signal); // 1 retry with 1000ms initial delay (exponential backoff applies)
 
         trackResponseUsage(response, MODEL_IMAGE);
         const image = extractImage(response);
@@ -1588,7 +1592,7 @@ export const generateImageFromPrompt = async (prompt: string, quality: 'fast' | 
         console.warn(`⚠️ Primary image model failed (${e?.message || e?.status || 'unknown error'}). Falling back to stable model.`);
     }
 
-    // Fallback model with 1 retry
+    // Fallback model with optimized retry - use same quality for consistency
     try {
         const response = await retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
             model: MODEL_IMAGE_STABLE,
@@ -1596,10 +1600,10 @@ export const generateImageFromPrompt = async (prompt: string, quality: 'fast' | 
             config: {
                 imageConfig: {
                     aspectRatio: "3:4",
-                    imageSize: "1K"
+                    imageSize: imageSize  // Use same quality as primary, not hardcoded 1K
                 }
             }
-        }), 1, 2000); // 1 retry only
+        }), 1, 1000, signal); // 1 retry with 1000ms initial delay
 
         trackResponseUsage(response, MODEL_IMAGE_STABLE);
         const image = extractImage(response);
@@ -1612,7 +1616,7 @@ export const generateImageFromPrompt = async (prompt: string, quality: 'fast' | 
 };
 
 
-export const generateBookMockup = async (title: string, coverImageBase64: string): Promise<string | null> => {
+export const generateBookMockup = async (title: string, coverImageBase64: string, signal?: AbortSignal): Promise<string | null> => {
     const ai = getAI();
     const prompt = `Create a photorealistic 3D product shot of a hardcover book standing on a wooden table. The book cover should look exactly like the provided image. The book title is "${title}". Professional lighting, shadows, high resolution.`;
     
@@ -1634,8 +1638,9 @@ export const generateBookMockup = async (title: string, coverImageBase64: string
                         { text: prompt }
                     ]
                 }
-            }), 3, 2000),
-            MODEL_IMAGE
+            }), 1, 1000, signal),  // Optimized: 1 retry with 1000ms delay
+            MODEL_IMAGE,
+            signal
         );
 
         for (const part of response.candidates?.[0]?.content?.parts || []) {
@@ -1668,11 +1673,11 @@ const MarketingAssetsSchema = z.object({
     emailPromotionTemplate: z.string().optional(),
 });
 
-export const generateMarketingPack = async (blueprint: ProjectBlueprint): Promise<MarketingAssets> => {
+export const generateMarketingPack = async (blueprint: ProjectBlueprint, signal?: AbortSignal): Promise<MarketingAssets> => {
     // Consolidated into 2 parallel calls (down from 4) using MODEL_FLASH for speed
     const [coreAndAPlus, socialAndAds] = await Promise.all([
-        generateCoreAndAPlus(blueprint),
-        generateSocialAndAds(blueprint)
+        generateCoreAndAPlus(blueprint, signal),
+        generateSocialAndAds(blueprint, signal)
     ]);
 
     return {
@@ -1681,7 +1686,7 @@ export const generateMarketingPack = async (blueprint: ProjectBlueprint): Promis
     };
 };
 
-const generateCoreAndAPlus = async (blueprint: ProjectBlueprint) => {
+const generateCoreAndAPlus = async (blueprint: ProjectBlueprint, signal?: AbortSignal) => {
     const ai = getAI();
     const prompt = `Generate marketing copy and A+ content for the book "${blueprint.title}".
     Genre: ${blueprint.genre}.
@@ -1704,13 +1709,14 @@ const generateCoreAndAPlus = async (blueprint: ProjectBlueprint) => {
             model,
             contents: prompt,
             config: { responseMimeType: "application/json" }
-        }), 3, 2000),
-        MODEL_FLASH
+        }), 3, 2000, signal),
+        MODEL_FLASH,
+        signal
     );
     return safeJsonParse(response.text || "{}");
 };
 
-const generateSocialAndAds = async (blueprint: ProjectBlueprint) => {
+const generateSocialAndAds = async (blueprint: ProjectBlueprint, signal?: AbortSignal) => {
     const ai = getAI();
     const prompt = `Generate social media, email, and ad marketing assets for the book "${blueprint.title}".
     Genre: ${blueprint.genre}.
@@ -1731,8 +1737,9 @@ const generateSocialAndAds = async (blueprint: ProjectBlueprint) => {
             model,
             contents: prompt,
             config: { responseMimeType: "application/json" }
-        }), 3, 2000),
-        MODEL_FLASH
+        }), 3, 2000, signal),
+        MODEL_FLASH,
+        signal
     );
     return safeJsonParse(response.text || "{}");
 };
