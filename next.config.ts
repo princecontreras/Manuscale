@@ -64,17 +64,17 @@ const nextConfig: NextConfig = {
             value: [
               "default-src 'self'",
               // Scripts: self + inline for Next.js hydration + CDN for JSZip/Mammoth + Google/Firebase Auth
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' cdnjs.cloudflare.com cdn.jsdelivr.net apis.google.com accounts.google.com www.gstatic.com www.google.com *.firebaseapp.com",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' cdnjs.cloudflare.com cdn.jsdelivr.net apis.google.com accounts.google.com www.gstatic.com www.google.com *.firebaseapp.com *.typoscale.com",
               // Styles: self + inline for Tailwind + Google Fonts + Google Auth UI + Firebase domains
-              "style-src 'self' 'unsafe-inline' fonts.googleapis.com www.gstatic.com *.firebaseapp.com",
+              "style-src 'self' 'unsafe-inline' fonts.googleapis.com www.gstatic.com *.firebaseapp.com *.typoscale.com",
               // Fonts: self + Google Fonts CDN + Google Font Static
               "font-src 'self' data: fonts.gstatic.com www.gstatic.com",
               // Images: self + data URIs (for base64) + blobs (for generated exports) + HTTPS + Google + Firebase
               "img-src 'self' data: blob: https: www.gstatic.com *.firebaseapp.com",
-              // Connections: self + Firebase + Gemini + Stripe + Resend + Google Auth + all Firebase services
-              "connect-src 'self' https://firestore.googleapis.com https://firebase.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com wss://*.firebaseio.com https://*.googleapis.com https://api.stripe.com https://api.resend.com https://www.google.com https://accounts.google.com https://*.firebaseapp.com https://*.cloudfunctions.net",
-              // Frames: Stripe payment iframe + Google Auth iframes + Firebase auth + Google gstatic resources
-              "frame-src https://js.stripe.com https://hooks.stripe.com https://accounts.google.com https://*.firebaseapp.com www.gstatic.com accounts.google.com",
+              // Connections: self + Firebase + Gemini + Stripe + Resend + Google Auth + all Firebase services + typoscale
+              "connect-src 'self' https://firestore.googleapis.com https://firebase.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com wss://*.firebaseio.com https://*.googleapis.com https://api.stripe.com https://api.resend.com https://www.google.com https://accounts.google.com https://*.firebaseapp.com https://*.cloudfunctions.net https://*.typoscale.com",
+              // Frames: Stripe payment iframe + Google Auth iframes + Firebase auth + Google gstatic resources + typoscale subdomains (for auth.typoscale.com)
+              "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://accounts.google.com https://*.firebaseapp.com https://*.typoscale.com www.gstatic.com accounts.google.com",
               // Workers: self + blob (for PDF/ZIP generation)
               "worker-src 'self' blob:",
               // Media (for audiobook TTS playback)
