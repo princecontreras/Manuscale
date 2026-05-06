@@ -96,6 +96,11 @@ const PublishWizard: React.FC<PublishWizardProps> = ({ data, onUpdateData, onClo
   const [mockup, setMockup] = useState<string | null>(data.marketing?.mockupImage || null);
   
   const [finalDownloadableData, setFinalDownloadableData] = useState<EbookData | null>(null);
+  // Tracks whether background marketing-image generation is still in-flight.
+  // The download handler awaits this before building the zip so images are
+  // always included.
+  const marketingImagePromiseRef = useRef<Promise<void> | null>(null);
+  const [isMarketingImagesReady, setIsMarketingImagesReady] = useState(false);
   
   const [successTab, setSuccessTab] = useState<'downloads' | 'store' | 'amazon' | 'audio'>('downloads');
   const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -450,11 +455,12 @@ ${assets.adCopyExamples ? assets.adCopyExamples.map(ad => `[${ad.platform}]\n${a
                   let updatedAssets = { ...newAssets };
                   
                   // Start image generation in background (non-blocking)
-                  // Images will populate as they complete without blocking UI updates
+                  // Images will populate as they complete without blocking UI updates.
+                  // The promise is stored in a ref so the download handler can await
+                  // it, guaranteeing images are present in the zip.
                   if (updatedAssets && data.coverImage) {
-                      // Fire off image generation without awaiting
-                      // This lets the UI update immediately while images render in parallel
-                      Promise.all([
+                      setIsMarketingImagesReady(false);
+                      marketingImagePromiseRef.current = Promise.all([
                           Promise.all((updatedAssets.facebookAdCreatives || []).map(c => 
                               generateMarketingImage(c.prompt, data.coverImage!, () => {})
                           )),
@@ -472,9 +478,13 @@ ${assets.adCopyExamples ? assets.adCopyExamples.map(ad => `[${ad.platform}]\n${a
                           setAssets(updatedAssets);
                           onUpdateData({ marketing: updatedAssets });
                           setFinalDownloadableData(prev => prev ? { ...prev, marketing: updatedAssets } : null);
+                          setIsMarketingImagesReady(true);
                       }).catch((err) => {
                           console.warn('Background image generation failed (non-critical):', err);
+                          setIsMarketingImagesReady(true); // allow download even if images failed
                       });
+                  } else {
+                      setIsMarketingImagesReady(true);
                   }
 
                   if (updatedAssets) {
@@ -876,7 +886,21 @@ ${assets.adCopyExamples ? assets.adCopyExamples.map(ad => `[${ad.platform}]\n${a
                                                 <div>
                                                     <h4 className="font-bold text-lg mb-1">Promotional Kit Ready</h4>
                                                     <p className="text-sm text-slate-300 mb-4">Includes social media posts, A+ content, and sales copy.</p>
-                                                    <button onClick={() => finalDownloadableData && generateMarketingAssetsZip(finalDownloadableData)} className="bg-white text-slate-900 px-4 py-2 rounded-lg text-xs font-bold hover:bg-slate-200 transition-colors">Download All Assets</button>
+                                                    <button
+                                                        onClick={async () => {
+                                                            if (!finalDownloadableData) return;
+                                                            // Await background image generation so all images are in the zip
+                                                            if (marketingImagePromiseRef.current) {
+                                                                await marketingImagePromiseRef.current;
+                                                                marketingImagePromiseRef.current = null;
+                                                            }
+                                                            await generateMarketingAssetsZip(finalDownloadableData);
+                                                        }}
+                                                        disabled={!isMarketingImagesReady}
+                                                        className="bg-white text-slate-900 px-4 py-2 rounded-lg text-xs font-bold hover:bg-slate-200 transition-colors disabled:opacity-50 disabled:cursor-wait"
+                                                    >
+                                                        {isMarketingImagesReady ? 'Download All Assets' : 'Generating Images…'}
+                                                    </button>
                                                 </div>
                                             </div>
                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

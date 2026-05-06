@@ -211,6 +211,10 @@ const AgentCommandCenter: React.FC<AgentCommandCenterProps> = ({ onBack, isDemoM
     const contentContainerRef = useRef<HTMLDivElement>(null);
     const lastStateHash = useRef<string>("");
     const stagnationCount = useRef(0);
+    // Holds the in-flight marketing image generation promise so the publisher
+    // can await it before zipping assets, while still benefiting from the
+    // parallelism with copyright / bibliography tasks.
+    const marketingImagePromiseRef = useRef<Promise<void> | null>(null);
 
     // --- INITIALIZATION ---
     useEffect(() => {
@@ -623,15 +627,17 @@ CRITICAL: Do NOT duplicate the title. Only include the title text once.`;
                                     const coverImage = newState.coverImage;
                                     const title = newState.title;
 
-                                    // Fire off image generation in background (don't await yet)
-                                    // This allows the publisher to continue while images render in parallel
-                                    const imageGenerationPromise = Promise.all([
+                                    // Fire off image generation in background — images run in parallel
+                                    // with copyright/bibliography so total wall-clock time is reduced.
+                                    // We store the promise in a ref so the publisher can await it
+                                    // before building the zip, guaranteeing all images are present.
+                                    marketingImagePromiseRef.current = Promise.all([
                                         Promise.all((marketingAssets.facebookAdCreatives || []).map(c => generateMarketingImage(c.prompt, coverImage, () => {}))),
                                         Promise.all((marketingAssets.socialMediaGraphics || []).map(c => generateMarketingImage(c.prompt, coverImage, () => {}))),
                                         Promise.all((marketingAssets.quoteGraphics || []).map(c => generateMarketingImage(c.quote, coverImage, () => {}))),
                                         !marketingAssets.mockupImage ? generateBookMockup(title, coverImage) : Promise.resolve(marketingAssets.mockupImage)
                                     ]).then(([fbImages, socialImages, quoteImages, mockup]) => {
-                                        // Update assets once images are complete
+                                        // Mutate the shared newState.marketing so the zip picks up images
                                         if (newState.marketing) {
                                             newState.marketing.facebookAdCreatives = (marketingAssets.facebookAdCreatives || []).map((c, i) => ({...c, image: fbImages[i]}));
                                             newState.marketing.socialMediaGraphics = (marketingAssets.socialMediaGraphics || []).map((c, i) => ({...c, image: socialImages[i]}));
@@ -643,10 +649,6 @@ CRITICAL: Do NOT duplicate the title. Only include the title text once.`;
                                         console.error('Background image generation failed:', err);
                                         addLog('publisher', 'Some marketing images failed to generate (non-critical).', 'error');
                                     });
-
-                                    // Store the promise so it can be awaited before final completion if needed
-                                    // For now, continue processing while images render
-                                    // This achieves ~20-30% faster workflow since images don't block other tasks
                                 }
                             } catch (e) {
                                 const errorMsg = e instanceof Error ? e.message : "Failed to generate marketing assets. Please try again.";
@@ -726,6 +728,12 @@ CRITICAL: Do NOT duplicate the title. Only include the title text once.`;
                         await new Promise(r => setTimeout(r, 500)); // Small delay to prevent browser blocking multiple downloads
                         await generateDOCX(newState as EbookData);
                         await new Promise(r => setTimeout(r, 500));
+                        // Ensure all marketing images are ready before building the zip
+                        if (marketingImagePromiseRef.current) {
+                            addLog('publisher', 'Finalising marketing images for zip...', 'action');
+                            await marketingImagePromiseRef.current;
+                            marketingImagePromiseRef.current = null;
+                        }
                         await generateMarketingAssetsZip(newState as EbookData);
 
                         output = "EPUB, DOCX, and Marketing Assets Generated and Downloaded.";
