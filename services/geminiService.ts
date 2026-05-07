@@ -1719,6 +1719,7 @@ export const generateMarketingPack = async (blueprint: ProjectBlueprint, signal?
         ...metadata,
         ...backCover,
         ...socialCopy,
+        ...imagePrompts,                           // facebookAdCreatives, socialMediaGraphics, quoteGraphics prompts
         ...(await aPlusPromise).aPlusContent
     };
 };
