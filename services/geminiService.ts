@@ -3,6 +3,7 @@ import { GoogleGenAI, GenerateContentResponse, Type, FunctionDeclaration, Tool }
 import { z } from "zod";
 import { jsonrepair } from "jsonrepair";
 import { ProjectBlueprint, ProjectMemory, OutlineItem, NarrativeProfile, EbookData, MarketingAssets, AgentRole, DirectorDirective, ChapterMode } from "../types";
+import cacheService from "./cacheService";
 
 // --- Configuration ---
 
@@ -13,6 +14,44 @@ export const MODEL_FLASH_STABLE = 'gemini-2.5-flash-lite'; // Lightest stable fa
 export const MODEL_IMAGE = 'gemini-3-pro-image-preview'; // Premium image generation model
 export const MODEL_IMAGE_STABLE = 'gemini-2.5-flash-image'; // Image fallback (2.5 Flash)
 export const MODEL_TTS = 'gemini-2.5-flash-preview-tts';
+
+// --- Token-Aware Model Selection ---
+// Selects the most cost-efficient model based on task type
+// Token efficiency: PRO > FLASH > FLASH_STABLE (pro is more accurate, uses fewer tokens overall)
+// Cost efficiency: FLASH_STABLE < FLASH < PRO (by cost per 1M tokens)
+export const selectModelForTask = (taskType: string, underHighLoad: boolean = false): string => {
+  // Under high API load, prefer cheaper models
+  if (underHighLoad) {
+    switch (taskType) {
+      case 'metadata':        return MODEL_FLASH_STABLE;   // 5-10 min keywords, categories
+      case 'imagePrompt':     return MODEL_FLASH_STABLE;   // 5 min visual descriptions
+      case 'bibliography':    return MODEL_FLASH_STABLE;   // 5 min source formatting
+      case 'dedication':      return MODEL_FLASH;          // 10-15 min short text
+      case 'speech':          return MODEL_FLASH;          // 5 min TTS preparation
+      case 'outline':         return MODEL_FLASH;          // 30-40 min structured outline
+      case 'authority':       return MODEL_PRO;            // 60-120 min complex memory (needs quality)
+      case 'chapterContent':  return MODEL_PRO;            // 300-600 min chapter (needs quality)
+      case 'chapter':         return MODEL_PRO;            // Same as chapterContent
+      default:                return MODEL_FLASH;
+    }
+  }
+
+  // Under normal load, optimize for quality and token efficiency
+  switch (taskType) {
+    case 'metadata':        return MODEL_FLASH_STABLE;   // Keywords, categories (very straightforward)
+    case 'imagePrompt':     return MODEL_FLASH_STABLE;   // Visual descriptions (concise format)
+    case 'bibliography':    return MODEL_FLASH_STABLE;   // Source formatting (structured task)
+    case 'dedication':      return MODEL_FLASH;          // Short, stylistic text (~500 tokens)
+    case 'speech':          return MODEL_FLASH;          // TTS preparation (~300 tokens)
+    case 'chapterContext':  return MODEL_FLASH;          // Gather facts for chapter (~1000 tokens)
+    case 'outline':         return MODEL_PRO;            // Complex structured outline (needs reasoning)
+    case 'authority':       return MODEL_PRO;            // Build project memory (needs deep understanding)
+    case 'chapterContent':  return MODEL_PRO;            // High-quality chapter content (needs creativity)
+    case 'chapter':         return MODEL_PRO;            // Same as chapterContent
+    case 'marketing':       return MODEL_FLASH;          // Marketing copy (proven good quality with Flash)
+    default:                return MODEL_FLASH;
+  }
+};
 
 // Helper to get API Key (server-side only)
 const getApiKey = (): string => {
@@ -519,6 +558,14 @@ export const analyzeTopicAndConfigure = async (
     signal?: AbortSignal,
     onProgress?: (msg: string) => void
 ): Promise<ProjectBlueprint> => {
+    // Check cache first (15 minute TTL)
+    const cacheKey = { topic, type, genre };
+    const cached = cacheService.get<ProjectBlueprint>('analyzeTopicAndConfigure', cacheKey);
+    if (cached) {
+        if (onProgress) onProgress("Using cached blueprint...");
+        return cached;
+    }
+
     const ai = getAI();
 
     // Extract explicit chapter count from user input (e.g. "2 chapter book about AI")
@@ -789,7 +836,10 @@ export const analyzeTopicAndConfigure = async (
                 }
             }
             
-            return { ...data, mode: mode as 'Instructional' | 'Narrative' };
+            const result = { ...data, mode: mode as 'Instructional' | 'Narrative' };
+            // Cache the result for future use
+            cacheService.set('analyzeTopicAndConfigure', cacheKey, result);
+            return result;
         } catch (e) {
             console.warn(`Blueprint analysis attempt ${attempt + 1} failed`, e);
             if (e instanceof z.ZodError) {
@@ -812,6 +862,13 @@ const ChapterModeSchema = z.object({
 });
 
 export const generateProjectOutline = async (blueprint: ProjectBlueprint, memory?: ProjectMemory, signal?: AbortSignal): Promise<{ outline: OutlineItem[], modes: ChapterMode[] }> => {
+    // Check cache first (15 minute TTL)
+    const cacheKey = { blueprintId: blueprint.title, blueprintHash: blueprint.profile.chapterCount };
+    const cached = cacheService.get<{ outline: OutlineItem[], modes: ChapterMode[] }>('generateProjectOutline', cacheKey);
+    if (cached) {
+        return cached;
+    }
+
     const ai = getAI();
     const context = memory ? `Context from memory: ${JSON.stringify(memory.concepts.slice(0, 10))} ${JSON.stringify(memory.research.slice(0, 5))}` : "";
     const thesisContext = blueprint.centralThesis ? `Central Thesis to Prove: "${blueprint.centralThesis}"` : "";
@@ -994,7 +1051,10 @@ export const generateProjectOutline = async (blueprint: ProjectBlueprint, memory
         status: 'draft' as const
     }));
 
-    return { outline, modes: generatedModes };
+    const result = { outline, modes: generatedModes };
+    // Cache the result
+    cacheService.set('generateProjectOutline', cacheKey, result);
+    return result;
 };
 
 export const generateAuthorityBible = async (blueprint: ProjectBlueprint, outline: OutlineItem[], initialMemory?: ProjectMemory, signal?: AbortSignal): Promise<ProjectMemory> => {
@@ -1675,6 +1735,13 @@ const MarketingAssetsSchema = z.object({
 
 // Optimized parallel marketing pack generation (Option A - 4 parallel calls with early image prompt extraction)
 export const generateMarketingPack = async (blueprint: ProjectBlueprint, signal?: AbortSignal): Promise<MarketingAssets> => {
+    // Check cache first (10 minute TTL for marketing - more dynamic)
+    const cacheKey = { blueprintId: blueprint.title, genre: blueprint.genre };
+    const cached = cacheService.get<MarketingAssets>('generateMarketingPack', cacheKey);
+    if (cached) {
+        return cached;
+    }
+
     // Create lightweight context to reduce prompt redundancy
     const context = {
         title: blueprint.title,
@@ -1715,13 +1782,17 @@ export const generateMarketingPack = async (blueprint: ProjectBlueprint, signal?
     // These run in parallel with A+ generation
     const aPlusPromise = generateAPlusWithImages();
 
-    return {
+    const result = {
         ...metadata,
         ...backCover,
         ...socialCopy,
         ...imagePrompts,                           // facebookAdCreatives, socialMediaGraphics, quoteGraphics prompts
         ...(await aPlusPromise).aPlusContent
     };
+
+    // Cache the result
+    cacheService.set('generateMarketingPack', cacheKey, result);
+    return result;
 };
 
 // Split Function 1: Metadata (Keywords, Categories, Pricing) - Lightweight, Fast
@@ -1735,13 +1806,16 @@ const generateMarketingMetadata = async (context: any, signal?: AbortSignal) => 
     
     Keep response concise. Return JSON: {"keywords": ["string"], "categories": ["string"], "priceStrategy": "string"}`;
 
+    // Use token-efficient model for metadata (FLASH_STABLE for simplicity)
+    const model = selectModelForTask('metadata', apiStressLevel > 40);
+
     const response = await callWithModelFallback(
         (model) => retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
             model,
             contents: prompt,
             config: { responseMimeType: "application/json" }
         }), 3, 2000, signal),
-        MODEL_FLASH,
+        model,
         signal
     );
     return safeJsonParse(response.text || "{}");
@@ -1759,13 +1833,16 @@ const generateBackCoverCopy = async (context: any, signal?: AbortSignal) => {
     
     Return JSON: {"blurb": "string", "amazonDescription": "string"}`;
 
+    // Use FLASH for copy - good quality/cost balance
+    const model = selectModelForTask('marketing', apiStressLevel > 40);
+
     const response = await callWithModelFallback(
         (model) => retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
             model,
             contents: prompt,
             config: { responseMimeType: "application/json" }
         }), 3, 2000, signal),
-        MODEL_FLASH,
+        model,
         signal
     );
     return safeJsonParse(response.text || "{}");
@@ -1784,13 +1861,15 @@ const generateSocialAndEmail = async (context: any, signal?: AbortSignal) => {
     
     Return JSON: {"socialPosts": [{"platform": "string", "content": "string"}], "emailAnnouncement": "string", "emailPromotionTemplate": "string", "adCopyExamples": [{"platform": "string", "copy": "string"}]}`;
 
+    const model = selectModelForTask('marketing', apiStressLevel > 40);
+
     const response = await callWithModelFallback(
         (model) => retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
             model,
             contents: prompt,
             config: { responseMimeType: "application/json" }
         }), 3, 2000, signal),
-        MODEL_FLASH,
+        model,
         signal
     );
     return safeJsonParse(response.text || "{}");
@@ -1810,13 +1889,15 @@ const generateImagePrompts = async (context: any, signal?: AbortSignal) => {
     Each prompt should be 50-80 words, detailed, include visual style.
     Return JSON: {"facebookAdCreatives": [{"prompt": "string"}], "socialMediaGraphics": [{"prompt": "string"}], "quoteGraphics": [{"quote": "string"}]}`;
 
+    const model = selectModelForTask('imagePrompt', apiStressLevel > 40);
+
     const response = await callWithModelFallback(
         (model) => retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
             model,
             contents: prompt,
             config: { responseMimeType: "application/json" }
         }), 3, 2000, signal),
-        MODEL_FLASH,
+        model,
         signal
     );
     return safeJsonParse(response.text || "{}");
@@ -1835,6 +1916,8 @@ const generateAPlusContent = async (context: any, signal?: AbortSignal) => {
     Each module should highlight different value propositions.
     Return JSON: {"aPlusContent": [{"headline": "string", "body": "string", "imagePrompt": "string"}]}`;
 
+    const model = selectModelForTask('marketing', apiStressLevel > 40);
+
     const response = await callWithModelFallback(
         (model) => retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
             model,
@@ -1848,37 +1931,61 @@ const generateAPlusContent = async (context: any, signal?: AbortSignal) => {
 };
 
 export const generateAboutAuthor = async (authorName: string, bookSummary: string): Promise<string> => {
+    // Check cache first (1 hour TTL)
+    const cacheKey = { authorName, bookSummary };
+    const cached = cacheService.get<string>('generateAboutAuthor', cacheKey);
+    if (cached) return cached;
+
     const ai = getAI();
     const prompt = `Write a professional "About the Author" bio for ${authorName}.
     Context: They wrote a book about: ${bookSummary}.
     Tone: Authoritative but approachable. 150 words max.`;
     
-    const response = await callWithModelFallback(
-        (model) => retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
-            model,
-            contents: prompt
-        }), 3, 2000),
-        MODEL_FLASH
-    );
-    trackResponseUsage(response, MODEL_FLASH);
-    return stripMarkdownFormatting(response.text || "");
-};
-
-export const generateDedication = async (bookTitle: string, bookSummary: string): Promise<string> => {
-    const ai = getAI();
-    const prompt = `Write a short, meaningful dedication for the book "${bookTitle}".
-    Context: The book is about: ${bookSummary}.
-    Tone: Sincere, inspiring, or appreciative. Keep it to 1-2 sentences. Do not include quotes or formatting.`;
+    // Use FLASH for short, straightforward text
+    const model = selectModelForTask('dedication', apiStressLevel > 40);
     
     const response = await callWithModelFallback(
         (model) => retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
             model,
             contents: prompt
         }), 3, 2000),
-        MODEL_FLASH
+        model
     );
-    trackResponseUsage(response, MODEL_FLASH);
-    return stripMarkdownFormatting(response.text || "").trim();
+    trackResponseUsage(response, model);
+    const result = stripMarkdownFormatting(response.text || "");
+    
+    // Cache the result
+    cacheService.set('generateAboutAuthor', cacheKey, result);
+    return result;
+};
+
+export const generateDedication = async (bookTitle: string, bookSummary: string): Promise<string> => {
+    // Check cache first (1 hour TTL)
+    const cacheKey = { bookTitle, bookSummary };
+    const cached = cacheService.get<string>('generateDedication', cacheKey);
+    if (cached) return cached;
+
+    const ai = getAI();
+    const prompt = `Write a short, meaningful dedication for the book "${bookTitle}".
+    Context: The book is about: ${bookSummary}.
+    Tone: Sincere, inspiring, or appreciative. Keep it to 1-2 sentences. Do not include quotes or formatting.`;
+    
+    // Use FLASH for short, straightforward text
+    const model = selectModelForTask('dedication', apiStressLevel > 40);
+    
+    const response = await callWithModelFallback(
+        (model) => retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
+            model,
+            contents: prompt
+        }), 3, 2000),
+        model
+    );
+    trackResponseUsage(response, model);
+    const result = stripMarkdownFormatting(response.text || "").trim();
+    
+    // Cache the result
+    cacheService.set('generateDedication', cacheKey, result);
+    return result;
 };
 
 export const generateCopyright = (authorName: string): string => {
