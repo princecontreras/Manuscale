@@ -6,6 +6,7 @@ import { consultDirector, runSpecialistAgent, generateProjectOutline, streamChap
 import { saveProject, loadLocal, saveLocal, getProjectMemoryKey, loadFromDB, saveToDB, STORAGE_KEYS } from '../services/storage';
 import { paginateContent } from '../utils/pagination';
 import { generateEPUB, generateDOCX, generateMarketingAssetsZip } from '../services/publisher';
+import { validateExportData } from '../utils/exportValidator';
 import { 
     Play, Square, Pause, StepForward,
     Target, Shield, Activity, Zap, 
@@ -738,9 +739,43 @@ CRITICAL: Do NOT duplicate the title. Only include the title text once.`;
                         }
 
                         addLog('publisher', 'Compiling and Downloading Files...', 'action');
-                        await generateEPUB(newState as EbookData);
+
+                        // Pre-flight validation before generating files
+                        const exportValidation = validateExportData(newState as EbookData);
+                        if (!exportValidation.isValid) {
+                            const reason = exportValidation.errors[0] || 'No valid chapters to export.';
+                            addLog('publisher', `Export validation failed: ${reason}`, 'error');
+                            showToast(reason, 'error');
+                            throw new Error(reason);
+                        }
+                        if (exportValidation.skippedChapters.length > 0) {
+                            const skippedMsg = `${exportValidation.skippedChapters.length} chapter(s) skipped (incomplete or invalid content).`;
+                            addLog('publisher', skippedMsg, 'error');
+                            showToast(skippedMsg, 'warning');
+                        }
+
+                        // Generate EPUB with individual error handling
+                        try {
+                            await generateEPUB(newState as EbookData);
+                            addLog('publisher', `EPUB ready (${exportValidation.completedChapters}/${exportValidation.totalChapters} chapters).`, 'success');
+                        } catch (epubErr: any) {
+                            const msg = epubErr?.message || 'EPUB generation failed.';
+                            addLog('publisher', `EPUB error: ${msg}`, 'error');
+                            showToast(`EPUB export error: ${msg}`, 'error');
+                        }
+
                         await new Promise(r => setTimeout(r, 500)); // Small delay to prevent browser blocking multiple downloads
-                        await generateDOCX(newState as EbookData);
+
+                        // Generate DOCX with individual error handling
+                        try {
+                            await generateDOCX(newState as EbookData);
+                            addLog('publisher', `DOCX ready (${exportValidation.completedChapters}/${exportValidation.totalChapters} chapters).`, 'success');
+                        } catch (docxErr: any) {
+                            const msg = docxErr?.message || 'DOCX generation failed.';
+                            addLog('publisher', `DOCX error: ${msg}`, 'error');
+                            showToast(`DOCX export error: ${msg}`, 'error');
+                        }
+
                         await new Promise(r => setTimeout(r, 500));
                         // Ensure all marketing images are ready before building the zip
                         if (marketingImagePromiseRef.current) {
@@ -750,7 +785,7 @@ CRITICAL: Do NOT duplicate the title. Only include the title text once.`;
                         }
                         await generateMarketingAssetsZip(newState as EbookData);
 
-                        output = "EPUB, DOCX, and Marketing Assets Generated and Downloaded.";
+                        output = `EPUB, DOCX, and Marketing Assets Generated and Downloaded (${exportValidation.completedChapters}/${exportValidation.totalChapters} chapters).`;
                         newState.status = 'published';
                         setIsRunning(false); // Done
                         stopRef.current = true; // Stop the director loop

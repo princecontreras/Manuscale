@@ -8,6 +8,7 @@ import { generateEPUB, generateDOCX, generateAudiobookZip, generateMarketingAsse
 import { paginateContent } from '../utils/pagination';
 import { trackEvent } from '../services/analytics';
 import { logActivity } from '../services/storage';
+import { validateExportData } from '../utils/exportValidator';
 import { CheckCircle2, AlertTriangle, Book, Share2, ArrowRight, Loader2, Sparkles, X, FileText, Image as ImageIcon, Tag, ShoppingCart, Copy, Check, Palette, List, Printer, Mic, Headphones, Play, Square, Volume2, ChevronDown } from 'lucide-react';
 import { useToast } from './ToastContext';
 import { MobileReader } from './MobileReader';
@@ -96,6 +97,8 @@ const PublishWizard: React.FC<PublishWizardProps> = ({ data, onUpdateData, onClo
   const [mockup, setMockup] = useState<string | null>(data.marketing?.mockupImage || null);
   
   const [finalDownloadableData, setFinalDownloadableData] = useState<EbookData | null>(null);
+  const [isDownloadingEPUB, setIsDownloadingEPUB] = useState(false);
+  const [isDownloadingDOCX, setIsDownloadingDOCX] = useState(false);
   // Tracks whether background marketing-image generation is still in-flight.
   // The download handler awaits this before building the zip so images are
   // always included.
@@ -122,6 +125,59 @@ const PublishWizard: React.FC<PublishWizardProps> = ({ data, onUpdateData, onClo
 
   const handleNext = () => setStep(s => s + 1);
   const handleBack = () => setStep(s => s - 1);
+
+  const handleDownloadEPUB = async () => {
+    if (!finalDownloadableData || isDownloadingEPUB) return;
+
+    // Pre-flight validation
+    const validation = validateExportData(finalDownloadableData);
+    if (!validation.isValid) {
+      showToast(validation.errors[0] || 'Cannot export: no valid chapters found.', 'error');
+      return;
+    }
+    if (validation.warnings.length > 0) {
+      // Non-blocking warning (skipped chapters)
+      showToast(validation.warnings[0], 'warning');
+    }
+
+    setIsDownloadingEPUB(true);
+    try {
+      await generateEPUB(finalDownloadableData);
+      trackEvent('download_epub', { title: finalDownloadableData.title });
+      showToast(`EPUB downloaded — ${validation.completedChapters} of ${validation.totalChapters} chapters included.`, 'success');
+    } catch (e: any) {
+      console.error('EPUB download error:', e);
+      showToast(e.message || 'Failed to generate EPUB. Please try again.', 'error');
+    } finally {
+      setIsDownloadingEPUB(false);
+    }
+  };
+
+  const handleDownloadDOCX = async () => {
+    if (!finalDownloadableData || isDownloadingDOCX) return;
+
+    // Pre-flight validation
+    const validation = validateExportData(finalDownloadableData);
+    if (!validation.isValid) {
+      showToast(validation.errors[0] || 'Cannot export: no valid chapters found.', 'error');
+      return;
+    }
+    if (validation.warnings.length > 0) {
+      showToast(validation.warnings[0], 'warning');
+    }
+
+    setIsDownloadingDOCX(true);
+    try {
+      await generateDOCX(finalDownloadableData);
+      trackEvent('download_docx', { title: finalDownloadableData.title });
+      showToast(`DOCX downloaded — ${validation.completedChapters} of ${validation.totalChapters} chapters included.`, 'success');
+    } catch (e: any) {
+      console.error('DOCX download error:', e);
+      showToast(e.message || 'Failed to generate DOCX. Please try again.', 'error');
+    } finally {
+      setIsDownloadingDOCX(false);
+    }
+  };
 
   const handleGenBio = async () => {
       setIsGeneratingBio(true);
@@ -772,15 +828,27 @@ ${assets.adCopyExamples ? assets.adCopyExamples.map(ad => `[${ad.platform}]\n${a
                     <div className="flex-grow overflow-y-auto px-4">
                         {successTab === 'downloads' && (
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl mx-auto">
-                                <button onClick={() => finalDownloadableData && generateEPUB(finalDownloadableData)} className="p-6 bg-slate-50 border border-slate-200 rounded-2xl hover:border-primary-300 hover:bg-primary-50 transition-all group text-left">
-                                    <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center mb-4 text-slate-400 group-hover:text-primary-600"><Book size={24}/></div>
-                                    <div className="font-bold text-slate-900 mb-1">Download EPUB</div>
+                                <button
+                                    onClick={handleDownloadEPUB}
+                                    disabled={isDownloadingEPUB || !finalDownloadableData}
+                                    className="p-6 bg-slate-50 border border-slate-200 rounded-2xl hover:border-primary-300 hover:bg-primary-50 transition-all group text-left disabled:opacity-60 disabled:cursor-not-allowed"
+                                >
+                                    <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center mb-4 text-slate-400 group-hover:text-primary-600">
+                                        {isDownloadingEPUB ? <Loader2 size={24} className="animate-spin" /> : <Book size={24}/>}
+                                    </div>
+                                    <div className="font-bold text-slate-900 mb-1">{isDownloadingEPUB ? 'Building EPUB...' : 'Download EPUB'}</div>
                                     <div className="text-xs text-slate-500">Standard ebook format for Kindle, Apple Books, Kobo.</div>
                                 </button>
 
-                                <button onClick={() => finalDownloadableData && generateDOCX(finalDownloadableData)} className="p-6 bg-slate-50 border border-slate-200 rounded-2xl hover:border-blue-300 hover:bg-blue-50 transition-all group text-left">
-                                    <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center mb-4 text-slate-400 group-hover:text-blue-600"><FileText size={24}/></div>
-                                    <div className="font-bold text-slate-900 mb-1">Download DOCX</div>
+                                <button
+                                    onClick={handleDownloadDOCX}
+                                    disabled={isDownloadingDOCX || !finalDownloadableData}
+                                    className="p-6 bg-slate-50 border border-slate-200 rounded-2xl hover:border-blue-300 hover:bg-blue-50 transition-all group text-left disabled:opacity-60 disabled:cursor-not-allowed"
+                                >
+                                    <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center mb-4 text-slate-400 group-hover:text-blue-600">
+                                        {isDownloadingDOCX ? <Loader2 size={24} className="animate-spin" /> : <FileText size={24}/>}
+                                    </div>
+                                    <div className="font-bold text-slate-900 mb-1">{isDownloadingDOCX ? 'Building DOCX...' : 'Download DOCX'}</div>
                                     <div className="text-xs text-slate-500">Word document for editing or print layout.</div>
                                 </button>
                             </div>

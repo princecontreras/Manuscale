@@ -1,6 +1,7 @@
 
 import { EbookData, DesignSettings } from "../types";
 import { generateSpeech } from "./aiClient";
+import { validateExportData, verifyEPUBIntegrity, verifyDOCXIntegrity, sanitizeChapterForExport } from "../utils/exportValidator";
 
 // Helper to convert dataURI to Blob
 const dataURItoUint8Array = (dataURI: string) => {
@@ -222,9 +223,19 @@ export const getDOCXUint8Array = async (data: EbookData): Promise<Uint8Array | n
   if (data.outline) {
       for (const chapter of data.outline) {
           if (chapter.content) {
-              content += `<div style="page-break-before: always;"></div>`;
-              content += await extractAndEmbedImages(chapter.content, zip);
-              content += `<br style="page-break-before:always" />`;
+              try {
+                  const sanitized = sanitizeChapterForExport(chapter.content);
+                  content += `<div style="page-break-before: always;"></div>`;
+                  content += await extractAndEmbedImages(sanitized, zip);
+                  content += `<br style="page-break-before:always" />`;
+              } catch (e) {
+                  console.error(`[DOCX] Failed to process chapter "${chapter.title}", skipping.`, e);
+                  // Add an error placeholder so the chapter isn't silently absent
+                  content += `<div style="page-break-before: always; padding: 2em; color: #94a3b8; font-style: italic;">`;
+                  content += `<h1>${escapeXML(chapter.title)}</h1>`;
+                  content += `<p>[This chapter could not be rendered. Please regenerate it and re-export.]</p></div>`;
+                  content += `<br style="page-break-before:always" />`;
+              }
           }
       }
   } else {
@@ -283,8 +294,21 @@ export const getDOCXUint8Array = async (data: EbookData): Promise<Uint8Array | n
 };
 
 export const generateDOCX = async (data: EbookData) => {
+  // Pre-flight validation
+  const validation = validateExportData(data);
+  if (!validation.isValid) {
+    throw new Error(validation.errors.join('\n'));
+  }
+
   const u8 = await getDOCXUint8Array(data);
   if (!u8) return;
+
+  // Integrity check
+  const integrity = await verifyDOCXIntegrity(u8);
+  if (!integrity.ok) {
+    throw new Error(`DOCX generation failed: ${integrity.reason}`);
+  }
+
   const blob = new Blob([u8 as any], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
@@ -293,6 +317,8 @@ export const generateDOCX = async (data: EbookData) => {
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+  // Revoke after a short delay to ensure the download has started
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
 };
 
 export const getEPUBUint8Array = async (data: EbookData): Promise<Uint8Array | null> => {
@@ -354,16 +380,27 @@ export const getEPUBUint8Array = async (data: EbookData): Promise<Uint8Array | n
       data.outline.forEach((chapter, index) => {
           if (chapter.content) {
               const filename = `chapter_${index + 1}.xhtml`;
-              // Extract base64 images into separate files
-              const { html: processedHtml, manifestEntries } = extractAndEmbedImagesForEPUB(chapter.content, oebps, index);
-              manifestEntries.forEach(entry => { manifestItems += entry; });
-              const sanitizedContent = fixXHTML(processedHtml);
-              const safeChapterTitle = escapeXML(chapter.title);
-              const chapterContent = `<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html><html xmlns="http://www.w3.org/1999/xhtml"><head><title>${safeChapterTitle}</title><link rel="stylesheet" type="text/css" href="styles.css"/></head><body>${sanitizedContent}</body></html>`;
-              oebps.file(filename, chapterContent);
-              manifestItems += `<item id="ch${index + 1}" href="${filename}" media-type="application/xhtml+xml"/>`;
-              spineRefs += `<itemref idref="ch${index + 1}"/>`;
-              tocNav += `<li><a href="${filename}">${safeChapterTitle}</a></li>`;
+              try {
+                  const sanitized = sanitizeChapterForExport(chapter.content);
+                  // Extract base64 images into separate files
+                  const { html: processedHtml, manifestEntries } = extractAndEmbedImagesForEPUB(sanitized, oebps, index);
+                  manifestEntries.forEach(entry => { manifestItems += entry; });
+                  const sanitizedContent = fixXHTML(processedHtml);
+                  const safeChapterTitle = escapeXML(chapter.title);
+                  const chapterContent = `<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html><html xmlns="http://www.w3.org/1999/xhtml"><head><title>${safeChapterTitle}</title><link rel="stylesheet" type="text/css" href="styles.css"/></head><body>${sanitizedContent}</body></html>`;
+                  oebps.file(filename, chapterContent);
+                  manifestItems += `<item id="ch${index + 1}" href="${filename}" media-type="application/xhtml+xml"/>`;
+                  spineRefs += `<itemref idref="ch${index + 1}"/>`;
+                  tocNav += `<li><a href="${filename}">${safeChapterTitle}</a></li>`;
+              } catch (e) {
+                  console.error(`[EPUB] Failed to process chapter "${chapter.title}", adding error placeholder.`, e);
+                  const safeChapterTitle = escapeXML(chapter.title);
+                  const errorContent = `<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html><html xmlns="http://www.w3.org/1999/xhtml"><head><title>${safeChapterTitle}</title><link rel="stylesheet" type="text/css" href="styles.css"/></head><body><h1>${safeChapterTitle}</h1><p style="color:#94a3b8;font-style:italic;">[This chapter could not be rendered. Please regenerate it and re-export.]</p></body></html>`;
+                  oebps.file(filename, errorContent);
+                  manifestItems += `<item id="ch${index + 1}" href="${filename}" media-type="application/xhtml+xml"/>`;
+                  spineRefs += `<itemref idref="ch${index + 1}"/>`;
+                  tocNav += `<li><a href="${filename}">${safeChapterTitle}</a></li>`;
+              }
           }
       });
   }
@@ -420,8 +457,21 @@ if (data.backMatter?.includeBibliography && data.backMatter?.bibliography) final
 };
 
 export const generateEPUB = async (data: EbookData) => {
+  // Pre-flight validation
+  const validation = validateExportData(data);
+  if (!validation.isValid) {
+    throw new Error(validation.errors.join('\n'));
+  }
+
   const u8 = await getEPUBUint8Array(data);
   if (!u8) return;
+
+  // Integrity check
+  const integrity = await verifyEPUBIntegrity(u8);
+  if (!integrity.ok) {
+    throw new Error(`EPUB generation failed: ${integrity.reason}`);
+  }
+
   const blob = new Blob([u8 as any], { type: "application/epub+zip" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
@@ -430,6 +480,8 @@ export const generateEPUB = async (data: EbookData) => {
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+  // Revoke after a short delay to ensure the download has started
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
 };
 
 export const generateMarketingAssetsZip = async (data: EbookData) => {
