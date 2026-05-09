@@ -130,7 +130,7 @@ const PricingPage: React.FC = () => {
   }
 
   const isSubscribed = subscription.isSubscribed;
-  const yearlyDiscount = Math.round(((19 * 12 - 169) / (19 * 12)) * 100);
+  const yearlyDiscount = Math.round(((26.99 * 12 - 269.99) / (26.99 * 12)) * 100);
 
   if (showFeatures) {
     return (
@@ -212,7 +212,7 @@ const PricingPage: React.FC = () => {
             
             <div className="mb-8">
               <div className="flex items-baseline gap-2">
-                <span className="font-heading text-5xl font-bold text-slate-900">$19</span>
+                <span className="font-heading text-5xl font-bold text-slate-900">$26.99</span>
                 <span className="text-slate-600">/month</span>
               </div>
               <p className="text-sm text-slate-500 mt-2">AUD • Billed monthly</p>
@@ -271,11 +271,11 @@ const PricingPage: React.FC = () => {
             
             <div className="mb-8">
               <div className="flex items-baseline gap-2">
-                <span className="font-heading text-5xl font-bold text-primary-600">$169</span>
+                <span className="font-heading text-5xl font-bold text-primary-600">$269.99</span>
                 <span className="text-slate-600">/year</span>
               </div>
               <p className="text-sm text-slate-500 mt-2">AUD • Billed annually</p>
-              <p className="text-sm font-semibold text-primary-600 mt-1">Only $14.08/month</p>
+              <p className="text-sm font-semibold text-primary-600 mt-1">Only $22.50/month</p>
             </div>
 
             <ul className="space-y-4 mb-8">
