@@ -460,29 +460,43 @@ ${assets.adCopyExamples ? assets.adCopyExamples.map(ad => `[${ad.platform}]\n${a
                   // it, guaranteeing images are present in the zip.
                   if (updatedAssets && data.coverImage) {
                       setIsMarketingImagesReady(false);
-                      marketingImagePromiseRef.current = Promise.all([
-                          Promise.all((updatedAssets.facebookAdCreatives || []).map(c => 
-                              generateMarketingImage(c.prompt, data.coverImage!, () => {})
-                          )),
-                          Promise.all((updatedAssets.socialMediaGraphics || []).map(c => 
-                              generateMarketingImage(c.prompt, data.coverImage!, () => {})
-                          )),
-                          Promise.all((updatedAssets.quoteGraphics || []).map(c => 
-                              generateMarketingImage(c.quote, data.coverImage!, () => {})
-                          ))
-                      ]).then(([fbImages, socialImages, quoteImages]) => {
-                          // Update assets once images complete
-                          updatedAssets.facebookAdCreatives = (updatedAssets.facebookAdCreatives || []).map((c, i) => ({...c, image: fbImages[i]}));
-                          updatedAssets.socialMediaGraphics = (updatedAssets.socialMediaGraphics || []).map((c, i) => ({...c, image: socialImages[i]}));
-                          updatedAssets.quoteGraphics = (updatedAssets.quoteGraphics || []).map((c, i) => ({...c, image: quoteImages[i]}));
-                          setAssets(updatedAssets);
-                          onUpdateData({ marketing: updatedAssets });
-                          setFinalDownloadableData(prev => prev ? { ...prev, marketing: updatedAssets } : null);
-                          setIsMarketingImagesReady(true);
-                      }).catch((err) => {
-                          console.warn('Background image generation failed (non-critical):', err);
-                          setIsMarketingImagesReady(true); // allow download even if images failed
-                      });
+                      // Run each batch sequentially with a small gap to avoid hitting
+                      // Gemini rate limits when firing 7 image requests simultaneously.
+                      marketingImagePromiseRef.current = (async () => {
+                          const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
+                          try {
+                              const fbImages = await Promise.all(
+                                  (updatedAssets.facebookAdCreatives || []).map(c =>
+                                      generateMarketingImage(c.prompt, data.coverImage!, () => {})
+                                  )
+                              );
+                              updatedAssets.facebookAdCreatives = (updatedAssets.facebookAdCreatives || []).map((c, i) => ({...c, image: fbImages[i]}));
+
+                              await delay(400);
+                              const socialImages = await Promise.all(
+                                  (updatedAssets.socialMediaGraphics || []).map(c =>
+                                      generateMarketingImage(c.prompt, data.coverImage!, () => {})
+                                  )
+                              );
+                              updatedAssets.socialMediaGraphics = (updatedAssets.socialMediaGraphics || []).map((c, i) => ({...c, image: socialImages[i]}));
+
+                              await delay(400);
+                              const quoteImages = await Promise.all(
+                                  (updatedAssets.quoteGraphics || []).map(c =>
+                                      generateMarketingImage(c.quote, data.coverImage!, () => {})
+                                  )
+                              );
+                              updatedAssets.quoteGraphics = (updatedAssets.quoteGraphics || []).map((c, i) => ({...c, image: quoteImages[i]}));
+
+                              setAssets(updatedAssets);
+                              onUpdateData({ marketing: updatedAssets });
+                              setFinalDownloadableData(prev => prev ? { ...prev, marketing: updatedAssets } : null);
+                          } catch (err) {
+                              console.warn('Background image generation failed (non-critical):', err);
+                          } finally {
+                              setIsMarketingImagesReady(true);
+                          }
+                      })();
                   } else {
                       setIsMarketingImagesReady(true);
                   }

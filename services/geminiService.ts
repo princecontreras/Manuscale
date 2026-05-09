@@ -1808,7 +1808,7 @@ const generateImagePrompts = async (context: any, signal?: AbortSignal) => {
     3. 3 Quote Graphics prompts (inspiring quotes FROM or ABOUT the book)
     
     Each prompt should be 50-80 words, detailed, include visual style.
-    Return JSON: {"facebookAdCreatives": [{"prompt": "string"}], "socialMediaGraphics": [{"prompt": "string"}], "quoteGraphics": [{"prompt": "string"}]}`;
+    Return JSON: {"facebookAdCreatives": [{"prompt": "string"}], "socialMediaGraphics": [{"prompt": "string"}], "quoteGraphics": [{"quote": "string"}]}`;
 
     const response = await callWithModelFallback(
         (model) => retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({

@@ -631,24 +631,38 @@ CRITICAL: Do NOT duplicate the title. Only include the title text once.`;
                                     // with copyright/bibliography so total wall-clock time is reduced.
                                     // We store the promise in a ref so the publisher can await it
                                     // before building the zip, guaranteeing all images are present.
-                                    marketingImagePromiseRef.current = Promise.all([
-                                        Promise.all((marketingAssets.facebookAdCreatives || []).map(c => generateMarketingImage(c.prompt, coverImage, () => {}))),
-                                        Promise.all((marketingAssets.socialMediaGraphics || []).map(c => generateMarketingImage(c.prompt, coverImage, () => {}))),
-                                        Promise.all((marketingAssets.quoteGraphics || []).map(c => generateMarketingImage(c.quote, coverImage, () => {}))),
-                                        !marketingAssets.mockupImage ? generateBookMockup(title, coverImage) : Promise.resolve(marketingAssets.mockupImage)
-                                    ]).then(([fbImages, socialImages, quoteImages, mockup]) => {
-                                        // Mutate the shared newState.marketing so the zip picks up images
-                                        if (newState.marketing) {
-                                            newState.marketing.facebookAdCreatives = (marketingAssets.facebookAdCreatives || []).map((c, i) => ({...c, image: fbImages[i]}));
-                                            newState.marketing.socialMediaGraphics = (marketingAssets.socialMediaGraphics || []).map((c, i) => ({...c, image: socialImages[i]}));
-                                            newState.marketing.quoteGraphics = (marketingAssets.quoteGraphics || []).map((c, i) => ({...c, image: quoteImages[i]}));
-                                            if (mockup) newState.marketing.mockupImage = mockup;
+                                    // Run each batch sequentially with a small gap to avoid hitting
+                                    // Gemini rate limits when firing all image requests simultaneously.
+                                    marketingImagePromiseRef.current = (async () => {
+                                        const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
+                                        try {
+                                            const [fbImages, mockup] = await Promise.all([
+                                                Promise.all((marketingAssets.facebookAdCreatives || []).map(c => generateMarketingImage(c.prompt, coverImage, () => {}))),
+                                                !marketingAssets.mockupImage ? generateBookMockup(title, coverImage) : Promise.resolve(marketingAssets.mockupImage)
+                                            ]);
+
+                                            await delay(400);
+                                            const socialImages = await Promise.all(
+                                                (marketingAssets.socialMediaGraphics || []).map(c => generateMarketingImage(c.prompt, coverImage, () => {}))
+                                            );
+
+                                            await delay(400);
+                                            const quoteImages = await Promise.all(
+                                                (marketingAssets.quoteGraphics || []).map(c => generateMarketingImage(c.quote, coverImage, () => {}))
+                                            );
+
+                                            if (newState.marketing) {
+                                                newState.marketing.facebookAdCreatives = (marketingAssets.facebookAdCreatives || []).map((c, i) => ({...c, image: fbImages[i]}));
+                                                newState.marketing.socialMediaGraphics = (marketingAssets.socialMediaGraphics || []).map((c, i) => ({...c, image: socialImages[i]}));
+                                                newState.marketing.quoteGraphics = (marketingAssets.quoteGraphics || []).map((c, i) => ({...c, image: quoteImages[i]}));
+                                                if (mockup) newState.marketing.mockupImage = mockup;
+                                            }
+                                            addLog('publisher', 'Marketing images generated successfully.', 'success');
+                                        } catch (err) {
+                                            console.error('Background image generation failed:', err);
+                                            addLog('publisher', 'Some marketing images failed to generate (non-critical).', 'error');
                                         }
-                                        addLog('publisher', 'Marketing images generated successfully.', 'success');
-                                    }).catch((err) => {
-                                        console.error('Background image generation failed:', err);
-                                        addLog('publisher', 'Some marketing images failed to generate (non-critical).', 'error');
-                                    });
+                                    })();
                                 }
                             } catch (e) {
                                 const errorMsg = e instanceof Error ? e.message : "Failed to generate marketing assets. Please try again.";
