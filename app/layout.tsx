@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Space_Grotesk } from 'next/font/google';
+import { Analytics } from '@vercel/analytics/react';
 import { AuthProvider } from '../components/AuthProvider';
 import { DemoProvider } from '../components/DemoContext';
 import MobileBanner from '../components/MobileBanner';
@@ -57,6 +58,7 @@ export default function RootLayout({
             {children}
           </DemoProvider>
         </AuthProvider>
+        <Analytics />
       </body>
     </html>
   );
