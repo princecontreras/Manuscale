@@ -174,6 +174,52 @@ const validateChapterContent = (html: string): string => {
     return html;
 };
 
+// Strip common AI-generated filler phrases from chapter HTML content.
+// Operates on visible text — does not alter HTML tags or attributes.
+const humanizeContent = (html: string): string => {
+    const replacements: [RegExp, string][] = [
+        // Sentence-opening AI clichés (remove the phrase, let the next word lead)
+        [/\bInterestingly,?\s+/g, ''],
+        [/\bNotably,?\s+/g, ''],
+        [/\bImportantly,?\s+/g, ''],
+        [/\bSignificantly,?\s+/g, ''],
+        [/\bRemarkably,?\s+/g, ''],
+        [/\bIt is worth noting that\s+/gi, ''],
+        [/\bIt is important to note that\s+/gi, ''],
+        [/\bIt is noteworthy that\s+/gi, ''],
+        [/\bIt should be noted that\s+/gi, ''],
+        [/\bIt is noted that\s+/gi, ''],
+        [/\bNeedless to say,?\s+/gi, ''],
+        [/\bIt goes without saying (?:that\s+)?/gi, ''],
+        [/\bAs previously mentioned,?\s+/gi, ''],
+        [/\bAs (?:we |I )?(?:discussed|noted|mentioned) (?:earlier|above|before),?\s+/gi, ''],
+        [/\bCircling back (?:to this|to that),?\s+/gi, ''],
+        [/\bAt the end of the day,?\s+/gi, ''],
+        [/\bIn the realm of\s+/gi, 'In '],
+        [/\bIn the world of\s+/gi, 'In '],
+        [/\bIn the context of\s+/gi, 'In '],
+        // Weak paragraph-opener conjunctions (strip when opening a new sentence)
+        [/(>|\.\s+)Furthermore,?\s+/g, '$1'],
+        [/(>|\.\s+)Moreover,?\s+/g, '$1'],
+        [/(>|\.\s+)Additionally,?\s+/g, '$1'],
+        // Forward-looking chapter transitions (remove entire sentence)
+        [/In the (?:next|following) chapter,?[^<.!?]*[.!?]\s*/gi, ''],
+        [/(?:Next|Coming up) (?:in this (?:chapter|book)|we will)[^<.!?]*[.!?]\s*/gi, ''],
+        [/Stay tuned[^<.!?]*[.!?]\s*/gi, ''],
+        // AI hedge phrases
+        [/\bone might (?:argue|suggest|say) that\s+/gi, ''],
+        [/\bsome might (?:argue|say) that\s+/gi, ''],
+        // Clean up double spaces left behind
+        [/  +/g, ' '],
+    ];
+
+    let result = html;
+    for (const [pattern, replacement] of replacements) {
+        result = result.replace(pattern, replacement);
+    }
+    return result;
+};
+
 // Helper: Strip markdown formatting from plain text (for text-only outputs like dedications, bios)
 const stripMarkdownFormatting = (text: string): string => {
     let clean = text;
@@ -929,9 +975,9 @@ export const generateProjectOutline = async (blueprint: ProjectBlueprint, memory
        - Revisiting the central thesis with final proof
        - Providing a definitive closing thought or call to action
        Do NOT place a conclusion or summary in any chapter other than the last.
-    5. Non-final chapters should each end with a natural transition hook into the next chapter's topic.
+    5. Each non-final chapter must end with its own decisive, complete thought. Do NOT write transition hooks, forward-looking sentences, or "in the next chapter" language. Each chapter ends on its own terms.
     6. Ensure a logical progression: early chapters build foundations, middle chapters develop depth, final chapters synthesize.
-    7. Set targetWordCount to a MINIMUM of 2500 words per chapter. Chapters covering deep conceptual or instructional content should be set to 3000-4000 words. Never set targetWordCount below 2500.`;
+    7. Set targetWordCount to a reasonable target per chapter (typically 2000-3000 words). Prioritize depth and quality — do NOT inflate word counts artificially. A focused, well-developed chapter is better than a padded one.`;
 
     const [modeResult, outlineResult] = await Promise.allSettled([
         callWithModelFallback(
@@ -1259,13 +1305,13 @@ export const streamChapterContent = async (
     // --- FLOW CONTINUITY GUIDE ---
     let flowGuide = "";
     if (isFirstChapter) {
-        flowGuide = `FLOW GUIDE: This is the OPENING chapter. Set the stage, introduce the core premise, and build reader curiosity. End with a natural bridge that makes the reader want to continue to the next chapter.`;
+        flowGuide = `FLOW GUIDE: This is the OPENING chapter. Set the stage, introduce the core premise, and build reader curiosity. End decisively — let the chapter's final insight stand on its own. Do NOT write "in the next chapter" or any explicit forward-looking transition.`;
     } else if (isLastChapter) {
         flowGuide = `FLOW GUIDE: This is the FINAL chapter (Chapter ${chapter.chapterNumber} of ${totalChapters}). Begin by connecting to the thread from the previous chapter, then build toward a powerful synthesis. The ending of this chapter IS the ending of the entire book.`;
     } else if (isSecondToLast) {
-        flowGuide = `FLOW GUIDE: This is the SECOND-TO-LAST chapter. Build momentum toward the book's climax. Do NOT conclude or summarize the book here — that belongs in the final chapter. End by setting up the final chapter's payoff.`;
+        flowGuide = `FLOW GUIDE: This is the SECOND-TO-LAST chapter. Build momentum toward the book's climax. Do NOT conclude or summarize the book here — that belongs in the final chapter. End with a strong, decisive thought that naturally primes the reader's mind — but do NOT explicitly point them to the next chapter.`;
     } else {
-        flowGuide = `FLOW GUIDE: This is chapter ${chapter.chapterNumber} of ${totalChapters} (${progressPercent}% through the book). Open by naturally connecting to the previous chapter's thread without repeating its content. Close with a bridge that flows into the next topic.`;
+        flowGuide = `FLOW GUIDE: This is chapter ${chapter.chapterNumber} of ${totalChapters} (${progressPercent}% through the book). Open by naturally connecting to the previous chapter's thread without repeating its content. End decisively with a strong concluding thought — do NOT write transition bridges or "in the next chapter" language.`;
     }
 
     // INJECT STRATEGIC DNA
@@ -1336,7 +1382,7 @@ export const streamChapterContent = async (
     } else {
         endingInstruction = `
     TRANSITION RULE: Do NOT write a conclusion or summary for the entire book. This is chapter ${chapter.chapterNumber} of ${totalChapters}.
-    End this chapter with a natural bridge or hook into the next topic: "${nextContext}".  
+    End this chapter decisively with a strong, complete thought. Do NOT write "In the next chapter", "Next, we will explore", "Stay tuned", or any forward-looking transition.
     Do NOT use concluding language like "In conclusion", "To sum up", or "Overall" at the end of this chapter.`;
     }
 
@@ -1346,7 +1392,7 @@ export const streamChapterContent = async (
     const contentBlocksInstruction = selectDynamicContentBlocks(chapter, blueprint, chapterPosition, assignedMode);
 
     const prompt = `Write Chapter ${chapter.chapterNumber}: "${chapter.title}" for the book "${blueprint.title}".
-    LENGTH GOAL: ${targetWords} words MINIMUM. This is a hard floor — the chapter MUST reach at least ${targetWords} words. Shorter output is considered incomplete. Aim for ${Math.round(targetWords * 1.2)} words to ensure full coverage.
+    LENGTH GOAL: Target approximately ${targetWords} words. Prioritize quality, depth, and genuine insight over hitting a word count. Do not pad, repeat, or inflate content to reach a number — a focused, well-developed chapter is far better than a bloated one. Stop when the chapter is complete.
     Style Guide: ${profile.voice}, ${profile.archetype}.
     Book Progress: Chapter ${chapter.chapterNumber} of ${totalChapters} (${progressPercent}%).
     
@@ -1396,6 +1442,16 @@ export const streamChapterContent = async (
        - If you accidentally use markdown (**, *, _, #, -, etc.), the output will be broken and unreadable.
     
     6. FINAL CHECK before responding: Search your response for these characters: * _ # - and make sure they are ONLY used inside HTML tags, never as markdown formatting.
+    
+    7. ACTIVE VOICE: Write in active voice at least 85% of the time. Avoid passive constructions like "it was found that", "has been shown", "is considered", "was discovered", "it is noted that". Instead write: "researchers found", "evidence shows", "experts consider", "scientists discovered".
+    
+    8. NATURAL LANGUAGE: Write the way a knowledgeable human author would. Avoid these AI-typical filler phrases:
+       - "Interestingly", "Importantly", "Notably", "It is worth noting that"
+       - "Furthermore", "Moreover", "Additionally" (as paragraph openers)
+       - "In the realm of", "In the world of", "At the end of the day"
+       - "It goes without saying", "Needless to say", "One might argue"
+       - "As previously mentioned", "As we discussed", "Circling back to"
+       Start sentences and paragraphs with the actual subject of the idea instead.
     
     CHAPTER STRUCTURE REQUIREMENTS:
     - Break the chapter into clearly defined SECTIONS using <h2> and <h3> headings.
@@ -1500,7 +1556,7 @@ export const streamChapterContent = async (
         }
     }
     trackResponseUsage({ usageMetadata: { promptTokenCount: 0, candidatesTokenCount: 0 } }, usedModel);
-    const result_html = validateChapterContent(validateAndRepairHtml(convertMarkdownToHtml(stripHtmlWrapper(fullText))));
+    const result_html = humanizeContent(validateChapterContent(validateAndRepairHtml(convertMarkdownToHtml(stripHtmlWrapper(fullText)))));
     // Allow fullText to be garbage collected
     fullText = "";
     return result_html;
