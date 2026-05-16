@@ -1908,12 +1908,25 @@ const generateBackCoverCopy = async (context: any, signal?: AbortSignal) => {
 const generateSocialAndEmail = async (context: any, signal?: AbortSignal) => {
     const ai = getAI();
     const prompt = `For the book "${context.title}" (Genre: ${context.genre}).
+    Target Audience: ${context.audience}
+    Summary: ${context.summary}
+    
+    CRITICAL MARKETING RULES:
+    - Write BENEFIT-FIRST copy: What does the reader GAIN? What transformation do they achieve?
+    - NEVER write feature-first: Not "Learn X strategies" but "Get [specific result] in [timeframe]"
+    - Use SPECIFICITY: Numbers, outcomes, and concrete results outperform vague claims
+    - Write for: ${context.audience} — match their voice, aspirations, and pain points
+    - Every piece of copy must include an implied or explicit CALL TO ACTION
+    - Create a CURIOSITY GAP: hint at the benefit but make the reader want to learn more
     
     Generate:
-    1. 3 Social Media Posts (Twitter, LinkedIn, Facebook - different tones)
-    2. Email Announcement (subject + body)
-    3. Email Promotion Template
-    4. 3 Ad Copy Examples (short, punchy)
+    1. 3 Social Media Posts (Twitter, LinkedIn, Facebook — different tones, tailored to each platform):
+       - Twitter: Punchy curiosity hook, under 280 chars, benefit-first
+       - LinkedIn: Professional, ROI/results-focused, thought leadership angle
+       - Facebook: Conversational, transformation story, emotional resonance
+    2. Email Announcement (benefit-focused subject line that drives opens + body)
+    3. Email Promotion Template (urgency-driven, outcome-focused)
+    4. 3 Ad Copy Examples (benefit headline + outcome statement, short and punchy)
     
     Return JSON: {"socialPosts": [{"platform": "string", "content": "string"}], "emailAnnouncement": "string", "emailPromotionTemplate": "string", "adCopyExamples": [{"platform": "string", "copy": "string"}]}`;
 
@@ -1934,15 +1947,37 @@ const generateSocialAndEmail = async (context: any, signal?: AbortSignal) => {
 // Split Function 4: Image Prompts - Extracted EARLY to start image generation immediately
 const generateImagePrompts = async (context: any, signal?: AbortSignal) => {
     const ai = getAI();
-    const prompt = `For the book "${context.title}" (Genre: ${context.genre}).
+    const prompt = `For the non-fiction book "${context.title}" (Genre: ${context.genre}).
+    Target Audience: ${context.audience}
     Summary: ${context.summary}
     
-    Generate image prompts ONLY (these will be used to generate marketing graphics):
-    1. 2 Facebook Ad Creative prompts (visually striking, attention-grabbing)
-    2. 2 Social Media Graphics prompts (shareable, platform-optimized)
-    3. 3 Quote Graphics prompts (inspiring quotes FROM or ABOUT the book)
+    Generate high-converting marketing image prompts. These will be rendered as actual marketing visuals.
     
-    Each prompt should be 50-80 words, detailed, include visual style.
+    CORE MARKETING PRINCIPLES to apply in EVERY prompt:
+    - EMOTIONAL HOOK: Evoke aspiration, transformation, or confidence — the emotion the target reader wants to feel AFTER reading
+    - BENEFIT-FIRST: Lead with the reader's outcome/transformation, not the book topic (what they GAIN, not what the book covers)
+    - TARGET AUDIENCE: Every visual element must resonate with: ${context.audience}
+    - TRUST SIGNALS: Professional, authoritative aesthetic — clean design, credibility-signaling color palette, no amateur elements
+    - CURIOSITY GAP: Create desire to learn more without fully revealing the solution
+    - LEGIBILITY: All text overlays must be readable at 200px thumbnail size; high contrast text on background; avoid thin fonts
+    
+    Generate:
+    1. 2 Facebook Ad Creative prompts
+       - Format: Vertical composition (4:5 ratio), bold headline-first layout
+       - Show the TRANSFORMATION or OUTCOME the reader achieves (before/after implied)
+       - Include a bold benefit-focused hook text suggestion (e.g., "Stop [Pain Point]. Start [Desired Outcome].")
+       - Scroll-stopping imagery designed for ${context.audience}
+    2. 2 Social Media Graphics prompts
+       - Format: Square composition (1:1 ratio), optimized for LinkedIn/Instagram feed
+       - Professional aesthetic matching ${context.audience} demographics
+       - Show aspirational result, not just book imagery
+    3. 3 Quote Graphics prompts
+       - Inspiring, actionable quotes from the book's core message
+       - Include the exact quote text to overlay on the image
+       - Clean, high-contrast background; quote should make the viewer want to read the full book
+       - Curiosity-driven: the quote hints at the solution without fully revealing it
+    
+    Each image prompt should be 50-80 words, include visual style, color palette, and composition.
     Return JSON: {"facebookAdCreatives": [{"prompt": "string"}], "socialMediaGraphics": [{"prompt": "string"}], "quoteGraphics": [{"quote": "string"}]}`;
 
     const model = selectModelForTask('imagePrompt', apiStressLevel > 40);
@@ -1962,14 +1997,24 @@ const generateImagePrompts = async (context: any, signal?: AbortSignal) => {
 // Split Function 5: A+ Content - Detailed, structured (runs after image prompts are extracted)
 const generateAPlusContent = async (context: any, signal?: AbortSignal) => {
     const ai = getAI();
-    const prompt = `For the book "${context.title}" (Genre: ${context.genre}).
+    const prompt = `For the non-fiction book "${context.title}" (Genre: ${context.genre}).
     Target Audience: ${context.audience}
+    Summary: ${context.summary}
     
-    Generate:
-    1. A+ Content Strategy (3 modules with headline, body, imagePrompt for visual reference)
-    2. Image prompts for A+ content sections
+    Generate Amazon A+ Content Strategy with BENEFIT-FIRST, ROI-focused copy.
     
-    Each module should highlight different value propositions.
+    RULES:
+    - Each module must lead with a SPECIFIC OUTCOME or RESULT, not a feature
+    - Use concrete numbers, timeframes, or transformations where possible
+    - Speak directly to ${context.audience}'s pain points and desired outcomes
+    - Headlines must be benefit-driven (e.g., "Get [Result] in [Timeframe]" not "Chapter About [Topic]")
+    
+    Generate 3 A+ Content modules, each highlighting a DIFFERENT benefit/value proposition:
+    - Module 1: Primary transformation/outcome this book delivers
+    - Module 2: Specific skill or insight the reader gains
+    - Module 3: Trust/credibility — why this book and why now
+    
+    Each module: headline (benefit-focused), body (outcome-driven, 50-80 words), imagePrompt (visual that reinforces the benefit).
     Return JSON: {"aPlusContent": [{"headline": "string", "body": "string", "imagePrompt": "string"}]}`;
 
     const model = selectModelForTask('marketing', apiStressLevel > 40);

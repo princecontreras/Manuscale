@@ -587,10 +587,15 @@ const AgentCommandCenter: React.FC<AgentCommandCenterProps> = ({ onBack, isDemoM
 
                     const hasAuthor = (authorName || newState.author) && (authorName || newState.author) !== 'The Author';
                     
+                    // Extract target audience for design relevance
+                    const targetAudience = newState.blueprint?.profile?.targetAudience || 'General Audience';
+                    
                     // USE COVER STUDIO TEMPLATE
                     const finalPrompt = `STRICT 2D FLAT BOOK COVER ART. Aspect Ratio 3:4. FULL BLEED, NO BORDERS, EDGE-TO-EDGE COMPOSITION. 
 Visual Description: ${basePrompt}. 
+TARGET AUDIENCE: ${targetAudience}. Design visual elements, color palette, and typography to resonate with this specific audience.
 TYPOGRAPHY: Include Book Title: "${newState.title || 'Untitled'}"${newState.blueprint?.subtitle ? `, Subtitle: "${newState.blueprint.subtitle}"` : ''}${hasAuthor ? `, and Author Name: "${authorName || newState.author}"` : '. DO NOT INCLUDE ANY AUTHOR NAME.'}. 
+THUMBNAIL LEGIBILITY: Title and subtitle must be readable at small sizes (200px width). Use strong contrast between text and background. Avoid thin fonts or low-contrast color combinations.
 High resolution, detailed, professional publishing quality. 
 Avoid repetitive cyan color schemes; use a unique and striking color palette related to the book's theme. 
 STRICTLY GENERATE ONLY THE COVER ARTWORK ITSELF. DO NOT GENERATE A BOOK MOCKUP, DO NOT SHOW A PHYSICAL BOOK. JUST THE COVER ART DESIGN.
