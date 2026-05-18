@@ -116,9 +116,16 @@ const RemixEngine: React.FC<RemixEngineProps> = ({ onBack, onCreateProject }) =>
                                 <span className="text-label text-slate-400 flex items-center gap-2">
                                     <FileText size={14}/> Raw Source
                                 </span>
-                                <span className={`text-micro font-bold px-2 py-1 rounded-md transition-colors ${text.length > 5000 ? 'bg-primary-50 text-primary-700' : 'bg-slate-200 text-slate-500'}`}>
-                                    {text.length.toLocaleString()} characters
-                                </span>
+                                <div className="flex items-center gap-2">
+                                    {text.length > 15000 && (
+                                        <span className="text-micro font-semibold px-2 py-1 rounded-md bg-amber-50 text-amber-600 border border-amber-200">
+                                            ⚠ Only first ~15,000 chars analyzed
+                                        </span>
+                                    )}
+                                    <span className={`text-micro font-bold px-2 py-1 rounded-md transition-colors ${text.length > 5000 ? 'bg-primary-50 text-primary-700' : 'bg-slate-200 text-slate-500'}`}>
+                                        {text.length.toLocaleString()} characters
+                                    </span>
+                                </div>
                             </div>
 
                             {/* Paper Body */}

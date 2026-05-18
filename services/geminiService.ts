@@ -1105,7 +1105,30 @@ export const generateProjectOutline = async (blueprint: ProjectBlueprint, memory
 
 export const generateAuthorityBible = async (blueprint: ProjectBlueprint, outline: OutlineItem[], initialMemory?: ProjectMemory, signal?: AbortSignal): Promise<ProjectMemory> => {
     const ai = getAI();
-    const prompt = `Generate an initial 'Authority Bible' (Knowledge Base) for the book "${blueprint.title}".
+
+    // If source material exists (from Remix Engine), extract structured knowledge from it
+    const sourceEntry = initialMemory?.research?.find(r => r.id === 'source-material');
+    const sourceMaterialText = blueprint.sourceMaterial || sourceEntry?.description || '';
+
+    const prompt = sourceMaterialText
+        ? `Generate an 'Authority Bible' (Knowledge Base) for the book "${blueprint.title}" based on the ACTUAL SOURCE MATERIAL provided below.
+Extract real concepts, key figures, glossary terms, and research facts that appear in the source. Do NOT invent content.
+
+SOURCE MATERIAL:
+${sourceMaterialText.substring(0, 12000)}
+
+BOOK SUMMARY: ${blueprint.summary}
+CHAPTER OUTLINE: ${JSON.stringify(outline.map(o => o.title).slice(0, 5))}...
+
+Return pure JSON with this structure:
+{
+    "research": [{"name": "string", "description": "string", "category": "string"}],
+    "keyFigures": [{"name": "string", "description": "string", "category": "string"}],
+    "glossary": [{"name": "string", "description": "string", "category": "string"}],
+    "concepts": [{"name": "string", "description": "string", "category": "string"}]
+}
+Ensure the JSON is complete and valid.`
+        : `Generate an initial 'Authority Bible' (Knowledge Base) for the book "${blueprint.title}".
     Based on the summary: ${blueprint.summary}
     And outline: ${JSON.stringify(outline.map(o => o.title).slice(0, 5))}...
     
@@ -2492,23 +2515,27 @@ export const analyzeRemixContent = async (text: string, signal?: AbortSignal): P
     let specificSchemaProperties: any = {};
 
     if (mode === 'Narrative') {
-        specificPrompt = `Perform a deep NARRATIVE ANALYSIS and BIOGRAPHICAL PROFILE on the following source material to create a book blueprint.
-        Analyze the key events, milestones, emotional resonance, and the overarching legacy or mystery involved.
-        
+        specificPrompt = `You are transforming the following source material into a structured narrative ebook. Your blueprint must be DIRECTLY DERIVED from the actual content, events, and themes present in the source — do NOT generate a generic or invented story.
+
         Source Material:
         ${text.substring(0, 15000)}
         
-        TASK 1: VOICE DNA INVENTION
-        Analyze the tone of the source material and INVENT a specific persona that fits it.
+        TASK 1: VOICE DNA EXTRACTION
+        Identify and preserve the writing style, tone, and voice already present in the source material. Build a persona description that captures this authentic voice.
         
         TASK 2: NARRATIVE ARCHITECTURE
-        Design a custom 'Book Structure Archetype' (Macro-Structure) based on the source material.
-        Break the book into 3-5 distinct Phases.
+        Design a 'Book Structure Archetype' (Macro-Structure) that organizes the real content found in the source.
+        Break the material into 3-5 distinct Phases that reflect the actual arc of the source content.
         
         Required Specifics:
-        - controllingIdea: The core theme, lesson, or biographical thesis.
-        - readerPersona: Target reader's curiosity and emotional payoff.
-        - structure: The high-level phases.
+        - title: A compelling title that reflects the actual subject of the source material.
+        - subtitle: A subtitle that clarifies the book's core promise.
+        - type: One of "Non-Fiction", "Memoir", "Textbook", "Guide", or "Fiction" — choose the best fit.
+        - genre: The specific genre (e.g. "Personal Memoir", "Narrative Non-Fiction", "Biography").
+        - summary: A 2-3 sentence summary of the actual content being structured into the ebook.
+        - controllingIdea: The core theme, lesson, or biographical thesis extracted from the source.
+        - readerPersona: Target reader's curiosity and emotional payoff based on the content.
+        - structure: The high-level phases that reflect the source material's narrative arc.
         
         Return valid JSON.`;
 
@@ -2525,22 +2552,27 @@ export const analyzeRemixContent = async (text: string, signal?: AbortSignal): P
             structure: structureSchema
         };
     } else {
-        specificPrompt = `Perform a deep STRATEGIC ANALYSIS on the following source material to create a book blueprint.
-        
+        specificPrompt = `You are transforming the following source material into a structured instructional ebook. Your blueprint must be DIRECTLY DERIVED from the actual content, ideas, and arguments present in the source — do NOT generate a generic or invented framework.
+
         Source Material:
         ${text.substring(0, 15000)}
         
-        TASK 1: VOICE DNA INVENTION
-        Analyze the tone of the source material and INVENT a specific persona that fits it.
+        TASK 1: VOICE DNA EXTRACTION
+        Identify and preserve the writing style, tone, and voice already present in the source material. Build a persona description that captures this authentic voice.
         
         TASK 2: INSTRUCTIONAL ARCHITECTURE
-        Design a custom 'Book Structure Archetype' (Macro-Structure) based on the source material.
-        Break the book into 3-5 distinct Phases.
+        Design a 'Book Structure Archetype' (Macro-Structure) that organizes the real content found in the source.
+        Break the material into 3-5 distinct Phases that reflect the actual progression of ideas in the source content.
         
         Required Specifics:
-        - centralThesis: The main argument or theme of the source material.
-        - readerPersona: Pain Point & Desired Outcome.
-        - structure: The high-level phases.
+        - title: A compelling title that reflects the actual subject of the source material.
+        - subtitle: A subtitle that clarifies the book's core promise.
+        - type: One of "Non-Fiction", "Memoir", "Textbook", "Guide", or "Fiction" — choose the best fit.
+        - genre: The specific genre (e.g. "Business Strategy", "Self-Help", "How-To Guide").
+        - summary: A 2-3 sentence summary of the actual content being structured into the ebook.
+        - centralThesis: The main argument or central claim extracted directly from the source material.
+        - readerPersona: The target reader's pain point and desired outcome based on what the source material teaches.
+        - structure: The high-level phases that reflect how the source material's ideas should be organized.
         
         Return valid JSON.`;
 
@@ -2595,7 +2627,7 @@ export const analyzeRemixContent = async (text: string, signal?: AbortSignal): P
         if (!data.structuralSignature) data.structuralSignature = [];
         if (!data.chapterModes) data.chapterModes = [];
         
-        const blueprint = { ...data, mode: mode as 'Instructional' | 'Narrative' };
+        const blueprint = { ...data, mode: mode as 'Instructional' | 'Narrative', sourceMaterial: text.substring(0, 15000) };
         
         // Create memory from the source text
         const memory: ProjectMemory = {
