@@ -475,7 +475,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, onCreateNew, onOpe
                             <PenTool size={28} />
                         </div>
                         <h3 className="text-2xl font-heading font-bold text-slate-900 mb-2">Manuscript Workshop</h3>
-                        <p className="text-slate-500 mb-6 max-w-sm text-sm">The interactive workshop. Choose how you want to build your e-book.</p>
+                        <p className="text-slate-500 mb-6 max-w-sm text-sm">The interactive workshop. Choose how you want to build your e-books.</p>
                         <div className="mt-auto">
                             <span className="inline-flex items-center gap-2 font-bold text-slate-900 text-sm">
                                 {showStudioOptions ? 'Select an option below' : 'Enter Studio'} 
