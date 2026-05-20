@@ -84,6 +84,19 @@ const NARRATIVE_KEYWORDS = [
     'travel writing', 'adventure story',
     'civil rights', 'war story', 'battle of',
     'rise and fall', 'story of', 'life of',
+    // personal & essay formats
+    'personal essay', 'narrative essay', 'personal narrative',
+    'diary', 'journal entry', 'journal',
+    'first-person', 'first person',
+    'letter', 'open letter',
+    'anecdote', 'anecdotal',
+    // interview / transcript / profile forms
+    'interview', 'transcript', 'profile of',
+    'feature story', 'investigative',
+    'speech', 'commencement',
+    // identity / experience markers common in blog posts and rough notes
+    'my story', 'my experience', 'my journey',
+    'i was', 'i grew up', 'i remember',
 ];
 export const classifyTopicHeuristic = (topic: string, genre?: string): 'Narrative' | 'Instructional' => {
     const combined = `${topic} ${genre ?? ''}`.toLowerCase();
@@ -326,11 +339,13 @@ const estimateTokenCount = (text: string): number => {
     return Math.ceil(text.length / 3.5); // Conservative estimate
 };
 
-// Format context items concisely to reduce token count
+// Format context items concisely to reduce token count.
+// The 'source-material' entry (from Remix Engine) gets a larger slice so that
+// actual source passages reach the chapter-generation prompt instead of 100 chars.
 const formatContextSlim = (item: any): string => {
     if (!item) return '';
-    // Only include name and brief description, skip nested details
-    return `${item.name || ''}${item.description ? ': ' + item.description.substring(0, 100) : ''}`;
+    const maxLen = item.id === 'source-material' ? 2500 : 100;
+    return `${item.name || ''}${item.description ? ': ' + item.description.substring(0, maxLen) : ''}`;
 };
 
 // Create optimized context block that's human-readable but token-efficient
@@ -937,6 +952,12 @@ export const generateProjectOutline = async (blueprint: ProjectBlueprint, memory
     const isNarrative = blueprint.mode === 'Narrative';
     let generatedModes: ChapterMode[] = [];
 
+    // Provide the original source material to ground chapter beats in actual content.
+    // Limit to 6000 chars to keep the outline prompt manageable without overloading the model.
+    const sourceMaterialBlock = blueprint.sourceMaterial
+        ? `\nSOURCE MATERIAL (ground every chapter beat in actual ideas, events, and facts found in this text — do NOT invent content that is absent from the source):\n${blueprint.sourceMaterial.substring(0, 6000)}`
+        : "";
+
     // STEP 1 & 2: Generate Modes AND Outline in PARALLEL (saves ~1-2s vs sequential)
     // The outline is generated without mode-ID assignments first; modes are merged in a
     // very fast post-processing step below, avoiding a sequential dependency.
@@ -959,6 +980,7 @@ export const generateProjectOutline = async (blueprint: ProjectBlueprint, memory
     Summary: ${blueprint.summary}.
     ${thesisContext}
     ${themeContext}
+    ${sourceMaterialBlock}
     
     ${structureInstruction}
     
