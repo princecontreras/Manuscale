@@ -7,18 +7,18 @@ import cacheService from "./cacheService";
 
 // --- Configuration ---
 
-export const MODEL_PRO = 'gemini-2.5-pro';          // Best quality, stable
-export const MODEL_PRO_STABLE = 'gemini-2.5-flash'; // Fast stable fallback
-export const MODEL_FLASH = 'gemini-2.5-flash';       // Fast & stable primary
-export const MODEL_FLASH_STABLE = 'gemini-2.5-flash-lite'; // Lightest stable fallback
+export const MODEL_PRO = 'gemini-3.5-flash';          // Best quality, primary
+export const MODEL_PRO_STABLE = 'gemini-2.5-flash'; // Stable fallback (cheaper)
+export const MODEL_FLASH = 'gemini-3.5-flash';       // Fast & stable primary
+export const MODEL_FLASH_STABLE = 'gemini-2.5-flash'; // Stable fallback (cheaper)
 export const MODEL_IMAGE = 'gemini-3-pro-image-preview'; // Premium image generation model
 export const MODEL_IMAGE_STABLE = 'gemini-2.5-flash-image'; // Image fallback (2.5 Flash)
-export const MODEL_TTS = 'gemini-2.5-flash-preview-tts';
+export const MODEL_TTS = 'gemini-2.5-pro-preview-tts';
 
 // --- Token-Aware Model Selection ---
 // Selects the most cost-efficient model based on task type
-// Token efficiency: PRO > FLASH > FLASH_STABLE (pro is more accurate, uses fewer tokens overall)
-// Cost efficiency: FLASH_STABLE < FLASH < PRO (by cost per 1M tokens)
+// Primary: gemini-3.5-flash for complex tasks
+// Stable Fallback: gemini-2.5-flash for consistency under high load (cheaper, stable alternative)
 export const selectModelForTask = (taskType: string, underHighLoad: boolean = false): string => {
   // Under high API load, prefer cheaper models
   if (underHighLoad) {
@@ -49,6 +49,11 @@ export const selectModelForTask = (taskType: string, underHighLoad: boolean = fa
     case 'chapterContent':  return MODEL_PRO;            // High-quality chapter content (needs creativity)
     case 'chapter':         return MODEL_PRO;            // Same as chapterContent
     case 'marketing':       return MODEL_FLASH;          // Marketing copy (proven good quality with Flash)
+    case 'proofread':       return MODEL_FLASH;          // Grammar/spelling check (straightforward)
+    case 'research':        return MODEL_FLASH;          // Research queries (web search capable)
+    case 'aftermath':       return MODEL_FLASH;          // Chapter analysis (simple extraction)
+    case 'compression':     return MODEL_FLASH;          // Summary compression (straightforward)
+    case 'remixAnalysis':   return MODEL_PRO;            // Remix engine (needs deep reasoning)
     default:                return MODEL_FLASH;
   }
 };
@@ -1512,7 +1517,7 @@ export const streamChapterContent = async (
     console.log("Generating chapter content. Prompt length:", prompt.length);
     
     let result;
-    let usedModel = MODEL_PRO;
+    let usedModel = selectModelForTask('chapterContent', apiStressLevel > 40);
 
     const timeoutController = new AbortController();
     const timeout = setTimeout(() => {
@@ -1528,7 +1533,7 @@ export const streamChapterContent = async (
         console.log("API Stress Level:", apiStressLevel);
         console.log("Calling ai.models.generateContentStream...");
         result = await retryWithBackoff(() => ai.models.generateContentStream({
-            model: MODEL_FLASH,
+            model: usedModel,
             contents: prompt
         }), 2, 2000, combinedSignal);
         console.log("ai.models.generateContentStream call returned.");
@@ -2070,7 +2075,7 @@ const generateAPlusContent = async (context: any, signal?: AbortSignal) => {
             contents: prompt,
             config: { responseMimeType: "application/json" }
         }), 3, 2000, signal),
-        MODEL_FLASH,
+        model,
         signal
     );
     return safeJsonParse(response.text || "{}");
@@ -2254,6 +2259,7 @@ export const analyzeChapterAftermath = async (content: string, memory: any, type
     - summary: A 1-2 sentence summary.
     - newLore: Object containing arrays of new 'research', 'keyFigures', 'glossary', 'concepts', 'characters', 'world', 'plot'. Each item should have 'name', 'description', and 'category'.`;
 
+    const model = selectModelForTask('aftermath', apiStressLevel > 40);
     for (let attempt = 0; attempt < 3; attempt++) {
         try {
             const response = await callWithModelFallback(
@@ -2264,7 +2270,7 @@ export const analyzeChapterAftermath = async (content: string, memory: any, type
                         responseMimeType: "application/json",
                     }
                 }), 3, 2000, signal),
-                MODEL_FLASH,
+                model,
                 signal
             );
             
@@ -2315,13 +2321,14 @@ export const compressGlobalSummary = async (s: string, e: string, signal?: Abort
     
     Return ONLY the compressed summary text.`;
 
+    const model = selectModelForTask('compression', apiStressLevel > 40);
     try {
         const response = await callWithModelFallback(
             (model) => retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
                 model,
                 contents: prompt
             }), 3, 2000, signal),
-            MODEL_FLASH,
+            model,
             signal
         );
         return stripMarkdownFormatting(response.text?.trim() || s + "\n" + e);
@@ -2460,6 +2467,7 @@ export const performMagicRefinement = async (text: string, instruction: string, 
 export const proofreadChapter = async (content: string, signal?: AbortSignal) => {
     const ai = getAI();
     if (!ai) return content;
+    const model = selectModelForTask('proofread', apiStressLevel > 40);
     try {
         const response = await callWithModelFallback(
             (model) => retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
@@ -2472,7 +2480,7 @@ export const proofreadChapter = async (content: string, signal?: AbortSignal) =>
                     temperature: 0.2
                 }
             }), 3, 2000, signal),
-            MODEL_FLASH,
+            model,
             signal
         );
         
@@ -2675,6 +2683,7 @@ export const analyzeRemixContent = async (text: string, signal?: AbortSignal): P
 };
 export const performResearch = async (q: string, signal?: AbortSignal): Promise<{ facts: string[], sources: any[] }> => {
     const ai = getAI();
+    const model = selectModelForTask('research', apiStressLevel > 40);
     try {
         const response = await callWithModelFallback(
             (model) => retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
@@ -2684,7 +2693,7 @@ export const performResearch = async (q: string, signal?: AbortSignal): Promise<
                     tools: [{ googleSearch: {} }]
                 }
             }), 3, 2000, signal),
-            MODEL_FLASH,
+            model,
             signal
         );
         
@@ -2771,6 +2780,7 @@ Return valid JSON matching this schema:
   }
 }`;
 
+    const model = selectModelForTask('remixAnalysis', apiStressLevel > 40);
     try {
         const response = await callWithModelFallback(
             (model) => retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
@@ -2780,7 +2790,7 @@ Return valid JSON matching this schema:
                     responseMimeType: "application/json",
                 }
             }), 3, 2000, signal),
-            MODEL_FLASH,
+            model,
             signal
         );
 
@@ -2915,15 +2925,17 @@ export const runSpecialistAgent = async (role: AgentRole, instruction: string, c
     const ai = getAI();
     let config: any = {};
     let promptSuffix = "";
-    let usedModel = role === 'scholar' ? MODEL_FLASH : MODEL_PRO;
+    let usedModel = role === 'scholar' ? selectModelForTask('research', apiStressLevel > 40) : selectModelForTask('remixAnalysis', apiStressLevel > 40);
 
     if (role === 'scholar') {
         config = { tools: [{ googleSearch: {} }] };
         promptSuffix = " RESEARCH PROTOCOL: Prioritize official primary sources. Verify claims.";
+        usedModel = selectModelForTask('research', apiStressLevel > 40);
     }
 
     if (role === 'editor') {
         promptSuffix = " EDITING PROTOCOL: You are a Copy Editor. Focus on prose, tone, grammar. Do NOT request structural changes.";
+        usedModel = selectModelForTask('proofread', apiStressLevel > 40);
     }
 
     if (role === 'designer') {
@@ -2945,18 +2957,18 @@ export const runSpecialistAgent = async (role: AgentRole, instruction: string, c
         - Focus on professional publishing quality, non-fiction design, and striking visual impact.
         - Remove any elements related to fiction, fantasy, or overly dramatic imagery.
         - Return ONLY the final assembled visual prompt.`;
+        usedModel = selectModelForTask('imagePrompt', apiStressLevel > 40);
     }
 
     let response;
     try {
-        const modelToUse = (role === 'scholar' || role === 'designer') ? MODEL_FLASH : usedModel;
         response = await callWithModelFallback(
             (model) => retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
                 model,
                 contents: `Act as ${role}. Instruction: ${instruction}.${promptSuffix} Context: ${JSON.stringify(context)}.`,
                 config: config
             }), 3, 2000, signal),
-            modelToUse,
+            usedModel,
             signal
         );
     } catch (e: any) {
@@ -2964,6 +2976,13 @@ export const runSpecialistAgent = async (role: AgentRole, instruction: string, c
     }
 
     trackResponseUsage(response, usedModel);
+    
+    // For specialist roles, ensure model is properly recorded
+    if (role === 'scholar' && !usedModel) {
+        usedModel = selectModelForTask('research', apiStressLevel > 40);
+    } else if (!usedModel) {
+        usedModel = MODEL_FLASH;
+    }
     
     let text = response.text || "";
     if (role === 'scholar' && response.candidates?.[0]?.groundingMetadata?.groundingChunks) {
