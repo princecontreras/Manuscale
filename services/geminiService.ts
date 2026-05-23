@@ -7,17 +7,20 @@ import cacheService from "./cacheService";
 
 // --- Configuration ---
 
-export const MODEL_PRO = 'gemini-3.5-flash';          // Best quality, primary
-export const MODEL_PRO_STABLE = 'gemini-2.5-flash'; // Stable fallback (cheaper)
-export const MODEL_FLASH = 'gemini-3.5-flash';       // Fast & stable primary
-export const MODEL_FLASH_STABLE = 'gemini-2.5-flash'; // Stable fallback (cheaper)
+export const MODEL_PRO = 'gemini-3.5-flash';          // TIER 1: Best quality, primary
+export const MODEL_PRO_STABLE = 'gemini-2.5-flash'; // TIER 1 Fallback (cheaper)
+export const MODEL_FLASH = 'gemini-3.5-flash';       // TIER 1: Fast & stable primary
+export const MODEL_FLASH_STABLE = 'gemini-2.5-flash'; // TIER 2: Stable standard (cheaper)
+export const MODEL_LITE = 'gemini-3.1-flash-lite';  // TIER 3: Ultra-cheap for simple tasks (~$0.15 / 1M input)
+export const MODEL_LITE_STABLE = 'gemini-3.1-flash-lite'; // TIER 3 Fallback (same model)
 export const MODEL_IMAGE = 'gemini-3-pro-image-preview'; // Premium image generation model
 export const MODEL_IMAGE_STABLE = 'gemini-2.5-flash-image'; // Image fallback (2.5 Flash)
 export const MODEL_TTS = 'gemini-2.5-pro-preview-tts';
 
-// --- 3-Tier Model Strategy for Cost Optimization ---
+// --- 4-Tier Model Strategy for Cost Optimization ---
 // TIER 1 (3.5-flash): ULTRA - Complex reasoning, creativity, high-ROI tasks (~$2.50 / 1M input)
-// TIER 2 (2.5-flash): STANDARD - Most structured tasks, proven quality (~$1.50 / 1M input)  
+// TIER 2 (2.5-flash): STANDARD - Most structured tasks, proven quality (~$1.50 / 1M input)
+// TIER 3 (3.1-flash-lite): LITE - Simple extraction/formatting (~$0.15 / 1M input, -90% cost!)  
 // TIER 3 (2.5-flash): LITE - Simple extraction, formatting (~$1.50 / 1M input)
 // SAVINGS: ~50% cost reduction by downgrading low-complexity tasks
 
@@ -31,7 +34,7 @@ interface TaskProfile {
 
 // RECOMMENDATION #3: Complexity-Aware Model Selection
 // Returns model based on task type and complexity level
-// Cost savings: 40-50% by intelligently routing tasks to appropriate models
+// Cost savings: 50-90% by intelligently routing tasks to appropriate models
 export const selectModelForTask = (
   taskType: string,
   underHighLoad: boolean = false,
@@ -52,11 +55,6 @@ export const selectModelForTask = (
     'outline': true,             // Structured outline (DOWNGRADED from 3.5: works well)
     'authority': true,           // Knowledge extraction (DOWNGRADED from 3.5: works well)
     'marketing': true,           // Template-based copy (proven good quality)
-    'imagePrompt': true,         // Structured descriptions (simple task)
-    'bibliography': true,        // Structured formatting (simple task)
-    'metadata': true,            // Simple extraction (simple task)
-    'dedication': true,          // Short stylistic text (simple task)
-    'speech': true,              // TTS preparation (simple task)
     'chapterContext': true,      // Fact gathering (simple task)
     'proofread': true,           // Grammar checking (simple task)
     'research': true,            // Web search capable (simple task)
@@ -66,13 +64,28 @@ export const selectModelForTask = (
     'breakdown': true,           // Structured decomposition (simple task)
   };
 
+  // LITE-TIER (3.1-flash-lite) - Ultra-simple extraction/formatting tasks (-90% cost)
+  // These tasks have minimal reasoning requirements and are proven to work with lite models
+  const liteTierTasks: {[key: string]: boolean} = {
+    'metadata': true,            // Keywords/categories extraction (<500 tokens)
+    'imagePrompt': true,         // Visual descriptions (<2000 tokens, template-based)
+    'dedication': true,          // Short text generation (<300 tokens)
+    'aboutAuthor': true,         // Bio generation (<500 tokens)
+    'bibliography': true,        // Citation formatting (<1000 tokens)
+    'speech': true,              // TTS preparation (<500 tokens)
+  };
+
   // Under high load, aggressively prefer cheaper models
   if (underHighLoad) {
     if (ultraTierTasks[taskType]) {
       // Even high-complexity tasks downgrade under extreme load
       return complexity === 'HIGH' ? MODEL_PRO : MODEL_FLASH_STABLE;
     }
-    // Everything else goes to 2.5-flash under load
+    if (liteTierTasks[taskType]) {
+      // Lite tasks stay lite (already cheapest)
+      return MODEL_LITE;
+    }
+    // Standard tasks go to 2.5-flash under load
     return MODEL_FLASH_STABLE;
   }
 
@@ -82,7 +95,12 @@ export const selectModelForTask = (
     return MODEL_PRO;
   }
   
-  // STANDARD-TIER tasks use 2.5-flash (proven quality, 40% cheaper)
+  // LITE-TIER tasks use 3.1-flash-lite (90% cheaper, proven for simple tasks)
+  if (liteTierTasks[taskType]) {
+    return MODEL_LITE;
+  }
+
+  // STANDARD-TIER tasks use 2.5-flash (proven quality, 40% cheaper than 3.5)
   if (standardTierTasks[taskType]) {
     return MODEL_FLASH_STABLE;
   }
@@ -93,12 +111,16 @@ export const selectModelForTask = (
 
 // RECOMMENDATION #4: Smart Token Budgeting Model Selection
 // Routes models based on expected token usage and complexity
-// Provides fine-grained cost control for specific use cases
+// Provides fine-grained cost control for specific use cases (50-90% savings)
 export const selectByTokenBudget = (profile: TaskProfile): string => {
-  // Low tokens (< 2000): Always use 2.5-flash
-  // Examples: metadata, image prompts, bibliography (~100-500 tokens)
+  // LITE tier (< 2000 tokens): Always use 3.1-flash-lite for maximum savings (-90%)
+  // Examples: metadata, image prompts, bios, dedications (~100-1800 tokens)
   if (profile.expectedTokens < 2000) {
-    return MODEL_FLASH_STABLE;
+    // Even if MEDIUM complexity but small tokens, lite is acceptable
+    if (profile.complexity === 'HIGH' && profile.requiresCreativity) {
+      return MODEL_FLASH_STABLE; // Upgrade to 2.5-flash only if truly high-complexity AND creative
+    }
+    return MODEL_LITE; // Use ultra-cheap lite for everything else under 2K tokens
   }
 
   // Medium tokens (2000-10000): Use 2.5-flash unless HIGH complexity + creativity required
