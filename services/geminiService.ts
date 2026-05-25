@@ -7,20 +7,19 @@ import cacheService from "./cacheService";
 
 // --- Configuration ---
 
-export const MODEL_PRO = 'gemini-3.5-flash';          // TIER 1: Best quality, primary
-export const MODEL_PRO_STABLE = 'gemini-2.5-flash'; // TIER 1 Fallback (cheaper)
-export const MODEL_FLASH = 'gemini-3.5-flash';       // TIER 1: Fast & stable primary
-export const MODEL_FLASH_STABLE = 'gemini-2.5-flash'; // TIER 2: Stable standard (cheaper)
-export const MODEL_LITE = 'gemini-3.1-flash-lite';  // TIER 3: Ultra-cheap for simple tasks (~$0.15 / 1M input)
-export const MODEL_LITE_STABLE = 'gemini-3.1-flash-lite'; // TIER 3 Fallback (same model)
+export const MODEL_PRO = 'gemini-2.5-flash';          // TIER 1: Unified standard model (was 3.5)
+export const MODEL_PRO_STABLE = 'gemini-2.5-flash'; // TIER 1 Stable fallback
+export const MODEL_FLASH = 'gemini-2.5-flash';       // TIER 1: Unified standard model (was 3.5)
+export const MODEL_FLASH_STABLE = 'gemini-2.5-flash'; // TIER 1 Stable (same model)
+export const MODEL_LITE = 'gemini-3.1-flash-lite';  // TIER 2: Ultra-cheap for simple tasks (~$0.15 / 1M input)
+export const MODEL_LITE_STABLE = 'gemini-3.1-flash-lite'; // TIER 2 Fallback (same model)
 export const MODEL_IMAGE = 'gemini-3-pro-image-preview'; // Premium image generation model
 export const MODEL_IMAGE_STABLE = 'gemini-2.5-flash-image'; // Image fallback (2.5 Flash)
 export const MODEL_TTS = 'gemini-2.5-pro-preview-tts';
 
-// --- 4-Tier Model Strategy for Cost Optimization ---
-// TIER 1 (3.5-flash): ULTRA - Complex reasoning, creativity, high-ROI tasks (~$2.50 / 1M input)
-// TIER 2 (2.5-flash): STANDARD - Most structured tasks, proven quality (~$1.50 / 1M input)
-// TIER 3 (3.1-flash-lite): LITE - Simple extraction/formatting (~$0.15 / 1M input, -90% cost!)  
+// --- 2-Tier Model Strategy for Maximum Cost Reduction ---
+// TIER 1 (2.5-flash): Standard - All complex tasks, reasoning, creativity (~$1.50 / 1M input)
+// TIER 2 (3.1-flash-lite): Lite - Simple extraction/formatting (~$0.15 / 1M input, -90% cost!)  
 // TIER 3 (2.5-flash): LITE - Simple extraction, formatting (~$1.50 / 1M input)
 // SAVINGS: ~50% cost reduction by downgrading low-complexity tasks
 
@@ -32,40 +31,35 @@ interface TaskProfile {
   requiresCreativity: boolean;
 }
 
-// RECOMMENDATION #3: Complexity-Aware Model Selection
+// Simplified model selection after removing 3.5-flash
 // Returns model based on task type and complexity level
-// Cost savings: 50-90% by intelligently routing tasks to appropriate models
+// Cost savings: 55-65% total (removed expensive 3.5-flash)
 export const selectModelForTask = (
   taskType: string,
   underHighLoad: boolean = false,
   complexity: TaskComplexity = 'MEDIUM'
 ): string => {
-  // HIGH COMPLEXITY & CREATIVITY (ULTRA-TIER) - Reserve 3.5-flash for true high-ROI tasks only
-  const ultraTierTasks: {[key: string]: boolean} = {
-    'chapterContent': true,      // 300-600 min tokens, needs creativity & reasoning
-    'chapter': true,             // Same as chapterContent
-    'synthesizeBlueprintFromMemory': true,  // Complex synthesis
-    'analyzeRemixContent': true, // Deep content understanding
-    'remixAnalysis': true,       // Complex reasoning
-  };
-
-  // STANDARD-TIER (2.5-flash) - Structured tasks that work perfectly with 2.5-flash
-  // These have been tested and proven to work well with 2.5-flash
+  // All complex tasks now use 2.5-flash (unified tier)
+  // These tasks were previously on 3.5-flash, now optimized with better prompts
   const standardTierTasks: {[key: string]: boolean} = {
-    'outline': true,             // Structured outline (DOWNGRADED from 3.5: works well)
-    'authority': true,           // Knowledge extraction (DOWNGRADED from 3.5: works well)
-    'marketing': true,           // Template-based copy (proven good quality)
-    'chapterContext': true,      // Fact gathering (simple task)
-    'proofread': true,           // Grammar checking (simple task)
-    'research': true,            // Web search capable (simple task)
-    'aftermath': true,           // Simple analysis (simple task)
-    'compression': true,         // Summarization (simple task)
-    'expand': true,              // Structured expansion (simple task)
-    'breakdown': true,           // Structured decomposition (simple task)
+    'chapterContent': true,      // Chapter generation (moved from ultra, enhanced prompts)
+    'chapter': true,             // Same as chapterContent
+    'synthesizeBlueprintFromMemory': true,  // Complex synthesis (moved from ultra)
+    'analyzeRemixContent': true, // Deep content understanding (moved from ultra)
+    'remixAnalysis': true,       // Complex reasoning (moved from ultra)
+    'outline': true,             // Structured outline
+    'authority': true,           // Knowledge extraction
+    'marketing': true,           // Template-based copy
+    'chapterContext': true,      // Fact gathering
+    'proofread': true,           // Grammar checking
+    'research': true,            // Web search capable
+    'aftermath': true,           // Simple analysis
+    'compression': true,         // Summarization
+    'expand': true,              // Structured expansion
+    'breakdown': true,           // Structured decomposition
   };
 
   // LITE-TIER (3.1-flash-lite) - Ultra-simple extraction/formatting tasks (-90% cost)
-  // These tasks have minimal reasoning requirements and are proven to work with lite models
   const liteTierTasks: {[key: string]: boolean} = {
     'metadata': true,            // Keywords/categories extraction (<500 tokens)
     'imagePrompt': true,         // Visual descriptions (<2000 tokens, template-based)
@@ -75,70 +69,40 @@ export const selectModelForTask = (
     'speech': true,              // TTS preparation (<500 tokens)
   };
 
-  // Under high load, aggressively prefer cheaper models
+  // Under high load, prefer lite model for simple tasks
   if (underHighLoad) {
-    if (ultraTierTasks[taskType]) {
-      // Even high-complexity tasks downgrade under extreme load
-      return complexity === 'HIGH' ? MODEL_PRO : MODEL_FLASH_STABLE;
-    }
     if (liteTierTasks[taskType]) {
-      // Lite tasks stay lite (already cheapest)
-      return MODEL_LITE;
+      return MODEL_LITE; // Already cheapest
     }
-    // Standard tasks go to 2.5-flash under load
+    // Standard tasks stay on 2.5-flash (only option now)
     return MODEL_FLASH_STABLE;
   }
 
-  // Normal load - optimize for cost while maintaining quality
-  if (ultraTierTasks[taskType]) {
-    // HIGH complexity & creativity tasks MUST use 3.5-flash
-    return MODEL_PRO;
-  }
-  
-  // LITE-TIER tasks use 3.1-flash-lite (90% cheaper, proven for simple tasks)
+  // Normal load - optimize for cost
   if (liteTierTasks[taskType]) {
+    // Ultra-simple tasks use 3.1-flash-lite (90% cheaper)
     return MODEL_LITE;
   }
 
-  // STANDARD-TIER tasks use 2.5-flash (proven quality, 40% cheaper than 3.5)
-  if (standardTierTasks[taskType]) {
-    return MODEL_FLASH_STABLE;
-  }
-
-  // Fallback to 2.5-flash for unknown tasks
+  // All other tasks use 2.5-flash (unified tier)
+  // This includes former ultra-tier tasks (chapter, synthesis, remix)
+  // Enhanced prompts compensate for quality difference
   return MODEL_FLASH_STABLE;
 };
 
-// RECOMMENDATION #4: Smart Token Budgeting Model Selection
-// Routes models based on expected token usage and complexity
-// Provides fine-grained cost control for specific use cases (50-90% savings)
+// Simplified token budgeting after removing 3.5-flash
+// Routes models based on expected token usage
+// Provides cost control for specific use cases (55-65% savings total)
 export const selectByTokenBudget = (profile: TaskProfile): string => {
   // LITE tier (< 2000 tokens): Always use 3.1-flash-lite for maximum savings (-90%)
   // Examples: metadata, image prompts, bios, dedications (~100-1800 tokens)
   if (profile.expectedTokens < 2000) {
-    // Even if MEDIUM complexity but small tokens, lite is acceptable
-    if (profile.complexity === 'HIGH' && profile.requiresCreativity) {
-      return MODEL_FLASH_STABLE; // Upgrade to 2.5-flash only if truly high-complexity AND creative
-    }
-    return MODEL_LITE; // Use ultra-cheap lite for everything else under 2K tokens
+    return MODEL_LITE; // Ultra-cheap
   }
 
-  // Medium tokens (2000-10000): Use 2.5-flash unless HIGH complexity + creativity required
-  // Examples: outlines, authority bible, marketing copy (~2000-8000 tokens)
-  if (profile.expectedTokens < 10000) {
-    if (profile.complexity === 'HIGH' && profile.requiresCreativity) {
-      return MODEL_PRO; // Needs 3.5-flash for quality
-    }
-    return MODEL_FLASH_STABLE; // 2.5-flash is sufficient
-  }
-
-  // High tokens (10000+ tokens): Use 3.5-flash for creativity-required tasks
-  // Examples: chapter generation, deep synthesis (~10000-50000+ tokens)
-  if (profile.complexity === 'HIGH' && profile.requiresCreativity) {
-    return MODEL_PRO;
-  }
-  
-  // Even with many tokens, if not creative, 2.5-flash works fine
+  // Everything else (2000+ tokens): Use 2.5-flash
+  // This includes outlines, authority bible, marketing, synthesis, chapters
+  // Enhanced prompts compensate for removing 3.5-flash
   return MODEL_FLASH_STABLE;
 };
 
@@ -1609,6 +1573,24 @@ export const streamChapterContent = async (
     let result;
     let usedModel = selectModelForTask('chapterContent', apiStressLevel > 40);
 
+    // System prompt to enhance 2.5-flash quality for chapter generation
+    // Compensates for moving from 3.5-flash by emphasizing depth and quality
+    const systemPrompt = `You are an expert book author and writing coach. Your role is to produce:
+- Detailed, comprehensive, well-researched chapters
+- Vivid, specific examples and case studies (not generic placeholders)
+- Clear narrative flow with strong logical progression
+- Authoritative, engaging tone that captivates readers
+- Deep explanations that don't skim the surface
+- Seamless integration of multiple perspectives and insights
+
+CRITICAL: This is the final chapter content. Produce your absolute best work:
+1. Prioritize depth over speed - develop each concept fully
+2. Use specific, memorable examples (not vague references)
+3. Build logical connections between ideas
+4. Write with confidence and authority
+5. Create natural transitions between sections
+6. End strongly with clear, memorable conclusions`;
+
     const timeoutController = new AbortController();
     const timeout = setTimeout(() => {
         console.error("Generation timed out after 180 seconds");
@@ -1621,10 +1603,15 @@ export const streamChapterContent = async (
     try {
         console.log("Generating chapter content. Prompt tokens (estimate):", estimateTokenCount(prompt));
         console.log("API Stress Level:", apiStressLevel);
+        console.log("Using model:", usedModel, "(enhanced prompts for quality compensation)");
         console.log("Calling ai.models.generateContentStream...");
         result = await retryWithBackoff(() => ai.models.generateContentStream({
             model: usedModel,
-            contents: prompt
+            contents: prompt,
+            config: {
+                systemInstruction: systemPrompt,
+                temperature: 0.7 // Slightly higher for creativity
+            }
         }), 2, 2000, combinedSignal);
         console.log("ai.models.generateContentStream call returned.");
     } catch (e: any) {
@@ -1653,7 +1640,11 @@ export const streamChapterContent = async (
                 usedModel = MODEL_FLASH_STABLE;
                 result = await retryWithBackoff(() => ai.models.generateContentStream({
                     model: MODEL_FLASH_STABLE,
-                    contents: prompt
+                    contents: prompt,
+                    config: {
+                        systemInstruction: systemPrompt,
+                        temperature: 0.7
+                    }
                 }), 2, 5000, combinedSignal); // Increased delay to 5s
             } catch (e2: any) {
                 console.warn('⚠️ Stable flash also overloaded. Trying Pro Stable with even longer delays...');
@@ -2776,21 +2767,41 @@ export const analyzeRemixContent = async (text: string, signal?: AbortSignal): P
         }
     };
 
+    // Enhanced system prompt for remix analysis (compensates for 2.5-flash vs 3.5-flash)
+    const systemPrompt = `You are an expert content analyst and book architect. Your task is to deeply understand source material and extract its core structure and voice.
+
+ANALYSIS METHODOLOGY:
+1. Deep reading: Understand the actual content, not assumptions
+2. Voice extraction: Identify authentic writing style and tone
+3. Theme identification: Extract the core thesis or narrative arc
+4. Structure design: Organize content into logical phases
+5. Persona creation: Define target reader based on actual content
+
+CRITICAL PRINCIPLES:
+- Ground everything in the actual source material provided
+- Do NOT invent or assume information not in the source
+- Preserve the authentic voice and intent
+- Create structure that reflects how the content actually flows
+- Ensure target audience matches the material's actual focus`;
+
     try {
+        const model = selectModelForTask('analyzeRemixContent', apiStressLevel > 40);
         const response = await callWithModelFallback(
             (model) => retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
                 model,
                 contents: specificPrompt,
                 config: {
                     responseMimeType: "application/json",
-                    responseSchema: fullSchema
+                    responseSchema: fullSchema,
+                    systemInstruction: systemPrompt,
+                    temperature: 0.6 // Moderate for balanced analysis
                 }
             }), 3, 2000, signal),
-            MODEL_FLASH,
+            model,
             signal
         );
         
-        trackResponseUsage(response, MODEL_FLASH);
+        trackResponseUsage(response, model);
         
         const rawText = response.text || "{}";
         const cleanJson = stripMarkdownWrapper(rawText);
@@ -2876,6 +2887,14 @@ ${conceptsSummary || 'None'}
 GLOSSARY TERMS:
 ${glossarySummary || 'None'}
 
+BLUEPRINT SYNTHESIS METHODOLOGY:
+1. Analyze the thesis and identify its core pillars
+2. Map research facts to each pillar
+3. Identify key figures' roles in supporting the thesis
+4. Organize concepts hierarchically
+5. Create a logical book structure that proves the thesis
+6. Ensure each phase builds toward proof of the thesis
+
 Generate a complete book blueprint with:
 - A compelling title and subtitle
 - Book type (Non-Fiction)
@@ -2922,6 +2941,23 @@ Return valid JSON matching this schema:
   }
 }`;
 
+    // Enhanced system prompt for synthesis (compensates for 2.5-flash vs 3.5-flash)
+    const systemPrompt = `You are an expert book architect and strategic thinker. Your task is to synthesize research into a coherent, compelling book blueprint.
+
+SYNTHESIS PRINCIPLES:
+1. Logical coherence: Ensure the thesis flows logically through all phases
+2. Research grounding: Every phase should be supported by provided research
+3. Reader focus: Design structure around reader transformation
+4. Clear progression: Build from foundation to thesis proof
+5. Narrative arc: Create compelling journey for the reader
+
+Produce a blueprint that is:
+- Strategically sound and logically airtight
+- Deeply rooted in provided research and facts
+- Compelling and memorable for target audience
+- Comprehensive yet focused
+- Ready to guide chapter creation`;
+
     const model = selectModelForTask('remixAnalysis', apiStressLevel > 40);
     try {
         const response = await callWithModelFallback(
@@ -2930,13 +2966,15 @@ Return valid JSON matching this schema:
                 contents: prompt,
                 config: {
                     responseMimeType: "application/json",
+                    systemInstruction: systemPrompt,
+                    temperature: 0.6 // Moderate for balanced reasoning
                 }
             }), 3, 2000, signal),
             model,
             signal
         );
 
-        trackResponseUsage(response, MODEL_FLASH);
+        trackResponseUsage(response, model);
 
         const rawText = response.text || "{}";
         const cleanJson = stripMarkdownWrapper(rawText);
