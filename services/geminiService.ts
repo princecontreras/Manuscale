@@ -15,7 +15,7 @@ export const MODEL_LITE = 'gemini-3.1-flash-lite';  // TIER 2: Ultra-cheap for s
 export const MODEL_LITE_STABLE = 'gemini-3.1-flash-lite'; // TIER 2 Fallback (same model)
 export const MODEL_IMAGE = 'gemini-3-pro-image-preview'; // Premium image generation model
 export const MODEL_IMAGE_STABLE = 'gemini-2.5-flash-image'; // Image fallback (2.5 Flash)
-export const MODEL_TTS = 'gemini-2.5-pro-preview-tts';
+export const MODEL_TTS = 'gemini-2.5-pro-tts';
 
 // --- 2-Tier Model Strategy for Maximum Cost Reduction ---
 // TIER 1 (2.5-flash): Standard - All complex tasks, reasoning, creativity (~$1.50 / 1M input)
@@ -987,6 +987,18 @@ export const generateProjectOutline = async (blueprint: ProjectBlueprint, memory
     const context = memory ? `Context from memory: ${JSON.stringify(memory.concepts.slice(0, 10))} ${JSON.stringify(memory.research.slice(0, 5))}` : "";
     const thesisContext = blueprint.centralThesis ? `Central Thesis to Prove: "${blueprint.centralThesis}"` : "";
     const themeContext = blueprint.controllingIdea ? `Controlling Idea/Theme: "${blueprint.controllingIdea}"` : "";
+    const voiceDnaContext = `Voice DNA: ${blueprint.profile.voice || ''}. Archetype: ${blueprint.profile.archetype || ''}. POV: ${blueprint.profile.pov || ''}.`;
+    const personaContext = blueprint.readerPersona
+        ? (blueprint.mode === 'Narrative'
+            ? `Reader Persona: Intellectual curiosity — "${blueprint.readerPersona.intellectualCuriosity}". Emotional payoff — "${blueprint.readerPersona.emotionalPayoff}".`
+            : `Reader Persona: Pain point — "${blueprint.readerPersona.primaryPainPoint}". Desired outcome — "${blueprint.readerPersona.desiredOutcome}".`)
+        : "";
+    const editorialContext = blueprint.editorialRules && blueprint.editorialRules.length > 0
+        ? `Editorial Rules:\n- ${blueprint.editorialRules.join('\n- ')}`
+        : "";
+    const structureDescription = blueprint.structure?.description
+        ? `Structure Rationale: ${blueprint.structure.description}`
+        : "";
     
     // Construct Structure Context if available
     let structureInstruction = "";
@@ -1020,6 +1032,9 @@ export const generateProjectOutline = async (blueprint: ProjectBlueprint, memory
     Target Audience: ${blueprint.profile.targetAudience}.
     ${thesisContext}
     ${themeContext}
+    ${blueprint.structure ? `Book Structure Archetype: '${blueprint.structure.archetype}' — ${blueprint.structure.description || ''}.` : ''}
+    ${voiceDnaContext}
+    ${personaContext}
     
     Create 3 re-usable templates for chapters in this book.
     Examples for Non-Fiction: 'The Concept Deep Dive', 'The Tactical Guide', 'The Case Study'.
@@ -1033,6 +1048,10 @@ export const generateProjectOutline = async (blueprint: ProjectBlueprint, memory
     Summary: ${blueprint.summary}.
     ${thesisContext}
     ${themeContext}
+    ${voiceDnaContext}
+    ${personaContext}
+    ${structureDescription}
+    ${editorialContext}
     ${sourceMaterialBlock}
     
     ${structureInstruction}
@@ -1428,7 +1447,7 @@ export const streamChapterContent = async (
         for (const phase of blueprint.structure.phases) {
             currentChapterCount += phase.chapterCount;
             if (chapter.chapterNumber <= currentChapterCount) {
-                currentPhaseContext = `CURRENT PHASE: "${phase.title}"\nPhase Goal: ${phase.intent}`;
+                currentPhaseContext = `BOOK STRUCTURE: '${blueprint.structure!.archetype}'\nCURRENT PHASE: "${phase.title}"\nPhase Goal: ${phase.intent}`;
                 break;
             }
         }
@@ -1496,8 +1515,9 @@ export const streamChapterContent = async (
     const contentBlocksInstruction = selectDynamicContentBlocks(chapter, blueprint, chapterPosition, assignedMode);
 
     const prompt = `Write Chapter ${chapter.chapterNumber}: "${chapter.title}" for the book "${blueprint.title}".
+    Book Overview: ${blueprint.summary}
     LENGTH GOAL: Target approximately ${targetWords} words. Prioritize quality, depth, and genuine insight over hitting a word count. Do not pad, repeat, or inflate content to reach a number — a focused, well-developed chapter is far better than a bloated one. Stop when the chapter is complete.
-    Style Guide: ${profile.voice}, ${profile.archetype}.
+    Style Guide: ${profile.voice}, ${profile.archetype}. Write in ${profile.pov || 'second person'} perspective, ${profile.tense || 'present'} tense, for: ${profile.targetAudience || 'general readers'}.
     Book Progress: Chapter ${chapter.chapterNumber} of ${totalChapters} (${progressPercent}%).
     
     EXPANSIVE NON-FICTION INSTRUCTION: Write a detailed, comprehensive, and authoritative chapter. Do not use fictional characters, invented scenarios, or fabricated dialogues. All narrative elements—including scenes, dialogues, and actions—must be strictly grounded in documented historical facts, real-world events, and actual people. For instructional content, use real-world case studies and clear factual analysis. Focus on depth, clarity, and accuracy. Every section must be developed with full explanations, examples, and analysis — do NOT truncate or summarise sections. Each <h2> section should contain at least 4-6 substantial paragraphs.
