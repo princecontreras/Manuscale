@@ -1,15 +1,16 @@
 
 "use client";
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { EbookData, FrontMatter, MarketingAssets, BackMatter, OutlineItem } from '../types';
 import { generateMarketingPack, generateBookMockup, generateAboutAuthor, generateCopyright, generateSpeech, generateBibliography, generateDedication, generateMarketingImage } from '../services/aiClient';
 import { generateEPUB, generateDOCX, generateAudiobookZip, generateMarketingAssetsZip } from '../services/publisher';
 
+import DOMPurify from 'dompurify';
 import { paginateContent } from '../utils/pagination';
 import { trackEvent } from '../services/analytics';
 import { logActivity } from '../services/storage';
 import { validateExportData } from '../utils/exportValidator';
-import { CheckCircle2, AlertTriangle, Book, Share2, ArrowRight, Loader2, Sparkles, X, FileText, Image as ImageIcon, Tag, ShoppingCart, Copy, Check, Palette, List, Printer, Mic, Headphones, Play, Square, Volume2, ChevronDown } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, Book, Share2, ArrowRight, Loader2, Sparkles, X, FileText, Image as ImageIcon, Tag, ShoppingCart, Copy, Check, Palette, List, Mic, Headphones, Play, Square, Volume2, ChevronDown, Smartphone, Tablet, Monitor, ChevronLeft, ChevronRight, BookOpen } from 'lucide-react';
 import { useToast } from './ToastContext';
 import { MobileReader } from './MobileReader';
 
@@ -87,102 +88,236 @@ const getReadingTime = (wordCount: number): string => {
     return rem > 0 ? `${hrs}h ${rem}m` : `${hrs}h`;
 };
 
-const FullBookPreview: React.FC<{
+const KDPPreview: React.FC<{
     title: string;
+    subtitle?: string;
     author?: string;
     coverImage?: string | null;
     frontMatter: FrontMatter;
     backMatter: BackMatter;
     outline: OutlineItem[];
     design?: any;
-}> = ({ title, author, coverImage, frontMatter, backMatter, outline, design }) => {
-    const completedChapters = outline.filter(c => c.status === 'completed' && c.content);
-    const totalWords = completedChapters.reduce((sum, c) => sum + getWordCount(c.content!), 0);
-    const readingTime = getReadingTime(totalWords);
-    const draftChapters = outline.filter(c => c.status !== 'completed' || !c.content);
+}> = ({ title, subtitle, author, coverImage, frontMatter, backMatter, outline, design }) => {
+    const [device, setDevice] = useState<'phone' | 'tablet' | 'desktop'>('phone');
+    const [activeIdx, setActiveIdx] = useState(0);
+    const [showTOC, setShowTOC] = useState(false);
 
-    const defaultDesign = {
-        fontFamily: "'Inter', sans-serif",
-        fontSize: "11pt",
-        lineHeight: "1.8",
+    const completedChapters = useMemo(() =>
+        outline.filter(c => c.status === 'completed' && c.content),
+    [outline]);
+
+    const totalWords = useMemo(() =>
+        completedChapters.reduce((sum, c) => sum + getWordCount(c.content!), 0),
+    [completedChapters]);
+
+    const fullOutline = useMemo((): OutlineItem[] => {
+        const pages: OutlineItem[] = [];
+
+        pages.push({
+            id: '__kdp_title__',
+            chapterNumber: 0,
+            title: 'Title Page',
+            beat: '',
+            targetWordCount: 0,
+            status: 'completed',
+            content: `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;text-align:center;padding:2em 1em;">
+                ${coverImage ? `<img src="${coverImage}" alt="Cover" style="max-height:200px;border-radius:6px;box-shadow:0 8px 30px rgba(0,0,0,0.2);margin-bottom:2em;"/>` : ''}
+                <h1 style="font-size:1.8em;font-weight:700;line-height:1.2;margin-bottom:0.4em;">${title}</h1>
+                ${subtitle ? `<p style="font-size:1em;color:#94a3b8;margin-bottom:0.5em;font-style:italic;">${subtitle}</p>` : ''}
+                ${author ? `<p style="font-size:0.9em;color:#64748b;margin-top:1.5em;">by <strong>${author}</strong></p>` : ''}
+            </div>`
+        });
+
+        if (frontMatter.copyright) {
+            pages.push({
+                id: '__kdp_copyright__',
+                chapterNumber: 0,
+                title: 'Copyright',
+                beat: '',
+                targetWordCount: 0,
+                status: 'completed',
+                content: `<div style="font-size:0.75em;text-align:center;padding:3em 1em;color:#94a3b8;line-height:1.6;">${frontMatter.copyright.replace(/\n/g, '<br/>')}</div>`
+            });
+        }
+
+        if (frontMatter.dedication) {
+            pages.push({
+                id: '__kdp_dedication__',
+                chapterNumber: 0,
+                title: 'Dedication',
+                beat: '',
+                targetWordCount: 0,
+                status: 'completed',
+                content: `<div style="font-style:italic;text-align:center;padding:4em 2em;font-size:1.05em;line-height:1.8;">${frontMatter.dedication}</div>`
+            });
+        }
+
+        completedChapters.forEach(c => pages.push(c));
+
+        if (frontMatter.aboutAuthor) {
+            pages.push({
+                id: '__kdp_about__',
+                chapterNumber: 0,
+                title: 'About the Author',
+                beat: '',
+                targetWordCount: 0,
+                status: 'completed',
+                content: `<div style="padding:1em 0;"><h2 style="font-size:1.3em;font-weight:700;margin-bottom:1em;padding-bottom:0.5em;border-bottom:1px solid #e2e8f0;">About the Author</h2><p style="line-height:1.7;">${frontMatter.aboutAuthor}</p></div>`
+            });
+        }
+
+        return pages;
+    }, [title, subtitle, author, coverImage, frontMatter, completedChapters]);
+
+    const currentEntry = fullOutline[Math.min(activeIdx, fullOutline.length - 1)] || fullOutline[0];
+
+    const sanitizedContent = useMemo(() => {
+        if (!currentEntry?.content) return '';
+        return DOMPurify.sanitize(currentEntry.content, {
+            ALLOWED_TAGS: ['h1','h2','h3','h4','h5','h6','p','br','hr','div','span',
+                           'strong','b','em','i','u','mark','ol','ul','li',
+                           'blockquote','img','a'],
+            ALLOWED_ATTR: ['style','class','src','alt','href']
+        });
+    }, [currentEntry]);
+
+    const designStyles: React.CSSProperties = {
+        fontFamily: design?.fontFamily || "'Georgia', serif",
+        fontSize: design?.fontSize || '11pt',
+        lineHeight: design?.lineHeight || '1.75',
     };
-    const styles = design || defaultDesign;
+
+    const DEVICES = [
+        { id: 'phone' as const, label: 'Phone', Icon: Smartphone },
+        { id: 'tablet' as const, label: 'Tablet', Icon: Tablet },
+        { id: 'desktop' as const, label: 'Desktop', Icon: Monitor },
+    ];
+
+    const progressPct = fullOutline.length > 1 ? (activeIdx / (fullOutline.length - 1)) * 100 : 100;
+
+    const ReaderContent = () => (
+        <div className="flex flex-col h-full bg-[#faf9f7]">
+            <div className="flex items-center justify-between px-5 py-2.5 bg-white border-b border-slate-200 shrink-0">
+                <span className="text-xs font-semibold text-slate-500 truncate max-w-[45%]">{title}</span>
+                <span className="text-xs text-slate-400 font-medium truncate max-w-[45%]">{currentEntry?.title}</span>
+            </div>
+            <div className="flex-grow overflow-y-auto px-8 md:px-14 py-8 text-slate-800">
+                <div className="max-w-prose mx-auto" style={designStyles}
+                    dangerouslySetInnerHTML={{ __html: sanitizedContent }}
+                />
+            </div>
+            <div className="shrink-0 bg-white border-t border-slate-200">
+                <div className="h-1 bg-slate-100">
+                    <div className="h-full bg-primary-400 transition-all duration-300" style={{ width: `${progressPct}%` }} />
+                </div>
+                <div className="flex items-center justify-between px-5 py-2.5">
+                    <button onClick={() => setActiveIdx(i => Math.max(0, i - 1))} disabled={activeIdx === 0}
+                        className="flex items-center gap-1 text-xs font-semibold text-slate-600 disabled:opacity-30 hover:text-slate-900 transition-colors">
+                        <ChevronLeft size={14} /> Previous
+                    </button>
+                    <span className="text-xs text-slate-400 font-mono">{activeIdx + 1} / {fullOutline.length}</span>
+                    <button onClick={() => setActiveIdx(i => Math.min(fullOutline.length - 1, i + 1))} disabled={activeIdx >= fullOutline.length - 1}
+                        className="flex items-center gap-1 text-xs font-semibold text-slate-600 disabled:opacity-30 hover:text-slate-900 transition-colors">
+                        Next <ChevronRight size={14} />
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
 
     return (
-        <div className="space-y-6">
-            {/* Stats Header */}
+        <div className="space-y-4">
+            {/* Stats bar */}
             <div className="grid grid-cols-3 gap-3 bg-gradient-to-r from-primary-50 to-blue-50 p-4 rounded-xl border border-primary-100">
                 <div className="text-center">
-                    <div className="text-xs text-slate-500 uppercase font-bold">Total Words</div>
-                    <div className="text-lg font-bold text-slate-900 mt-1">{totalWords.toLocaleString()}</div>
+                    <div className="text-xs text-slate-500 uppercase font-bold tracking-wider">Total Words</div>
+                    <div className="text-xl font-bold text-slate-900 mt-1">{totalWords.toLocaleString()}</div>
                 </div>
                 <div className="text-center">
-                    <div className="text-xs text-slate-500 uppercase font-bold">Reading Time</div>
-                    <div className="text-lg font-bold text-slate-900 mt-1">{readingTime}</div>
+                    <div className="text-xs text-slate-500 uppercase font-bold tracking-wider">Reading Time</div>
+                    <div className="text-xl font-bold text-slate-900 mt-1">{getReadingTime(totalWords)}</div>
                 </div>
                 <div className="text-center">
-                    <div className="text-xs text-slate-500 uppercase font-bold">Chapters</div>
-                    <div className="text-lg font-bold text-slate-900 mt-1">{completedChapters.length}/{outline.length}</div>
-                    {draftChapters.length > 0 && <div className="text-xs text-amber-600 mt-0.5">({draftChapters.length} draft)</div>}
+                    <div className="text-xs text-slate-500 uppercase font-bold tracking-wider">Chapters</div>
+                    <div className="text-xl font-bold text-slate-900 mt-1">
+                        {completedChapters.length}<span className="text-sm font-normal text-slate-400"> / {outline.length}</span>
+                    </div>
                 </div>
             </div>
 
-            {/* Full Book Preview */}
-            <div className="bg-white border border-slate-200 rounded-xl p-6 max-h-96 overflow-y-auto text-sm text-slate-600 space-y-6 font-serif" style={{ fontFamily: styles.fontFamily, fontSize: styles.fontSize, lineHeight: styles.lineHeight }}>
-                {/* Title Page */}
-                <div className="text-center pb-6 border-b">
-                    {coverImage && <img src={coverImage} alt="Cover" className="w-20 h-auto mx-auto mb-4 rounded shadow" />}
-                    <h1 className="text-2xl font-bold text-slate-900 mb-2">{title}</h1>
-                    {author && <p className="text-slate-600">by {author}</p>}
+            {/* KDP-style device toolbar */}
+            <div className="flex items-center justify-between bg-slate-900 rounded-xl px-3 py-2">
+                <div className="flex bg-slate-800 rounded-lg p-0.5 gap-0.5">
+                    {DEVICES.map(({ id, label, Icon }) => (
+                        <button key={id} onClick={() => setDevice(id)}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all duration-200 ${device === id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-white'}`}
+                        >
+                            <Icon size={13} /> <span className="hidden sm:inline">{label}</span>
+                        </button>
+                    ))}
                 </div>
+                <span className="text-xs text-slate-500 truncate max-w-[30%] hidden md:block">{title}</span>
+                <button onClick={() => setShowTOC(t => !t)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${showTOC ? 'bg-primary-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-700'}`}
+                >
+                    <BookOpen size={13} /> <span className="hidden sm:inline">Contents</span>
+                </button>
+            </div>
 
-                {/* Dedication */}
-                {frontMatter.dedication && (
-                    <div className="text-center italic py-4 border-b">
-                        <p className="text-xs font-bold uppercase text-slate-400 mb-2">Dedication</p>
-                        <p className="text-slate-600">{frontMatter.dedication}</p>
+            {/* Preview area */}
+            <div className="relative bg-slate-300 rounded-xl flex overflow-hidden" style={{ minHeight: 680 }}>
+                {/* TOC Sidebar */}
+                {showTOC && (
+                    <div className="w-56 bg-white border-r border-slate-200 flex flex-col z-20 shrink-0">
+                        <div className="px-4 py-3 border-b bg-slate-50 shrink-0">
+                            <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider">Table of Contents</h3>
+                            <p className="text-xs text-slate-500 mt-0.5">{fullOutline.length} sections</p>
+                        </div>
+                        <div className="flex-grow overflow-y-auto">
+                            {fullOutline.map((ch, i) => (
+                                <button key={ch.id} onClick={() => setActiveIdx(i)}
+                                    className={`w-full text-left px-4 py-2.5 text-xs transition-colors border-l-2 ${i === activeIdx ? 'bg-primary-50 text-primary-700 font-semibold border-primary-500' : 'text-slate-600 hover:bg-slate-50 border-transparent'}`}
+                                >
+                                    <span className="block truncate">
+                                        {ch.chapterNumber > 0 && <span className="text-slate-400 mr-1.5 font-mono">{ch.chapterNumber}.</span>}
+                                        {ch.title}
+                                    </span>
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 )}
 
-                {/* Copyright */}
-                {frontMatter.includeCopyright && frontMatter.copyright && (
-                    <div className="text-xs text-slate-500 py-4 border-b whitespace-pre-wrap">
-                        <p className="font-bold uppercase text-slate-400 mb-2">Copyright</p>
-                        <p>{frontMatter.copyright.split('\n').slice(0, 3).join('\n')}...</p>
-                    </div>
-                )}
-
-                {/* Chapter List Summary */}
-                <div>
-                    <p className="font-bold text-slate-700 mb-3 text-xs uppercase">Chapters ({completedChapters.length})</p>
-                    <div className="space-y-1">
-                        {completedChapters.slice(0, 5).map((ch, i) => {
-                            const wc = getWordCount(ch.content!);
-                            return (
-                                <div key={ch.id} className="flex justify-between text-xs">
-                                    <span className="text-slate-600">{ch.chapterNumber}. {ch.title}</span>
-                                    <span className="text-slate-400">{wc.toLocaleString()} words</span>
+                {/* Device frame */}
+                <div className="flex-grow flex items-center justify-center p-4 sm:p-8 overflow-auto">
+                    {device === 'phone' && (
+                        <MobileReader title={title} outline={fullOutline} design={design} />
+                    )}
+                    {device === 'tablet' && (
+                        <div className="mx-auto rounded-[1.5rem] border-[10px] border-slate-700 shadow-2xl overflow-hidden flex flex-col"
+                            style={{ width: 660, height: 600, maxWidth: '100%' }}>
+                            <ReaderContent />
+                        </div>
+                    )}
+                    {device === 'desktop' && (
+                        <div className="w-full max-w-4xl mx-auto rounded-xl overflow-hidden shadow-2xl border border-slate-400 flex flex-col"
+                            style={{ height: 600 }}>
+                            <div className="flex items-center gap-1.5 px-3 h-9 bg-slate-800 shrink-0">
+                                <div className="w-3 h-3 rounded-full bg-red-400 opacity-80" />
+                                <div className="w-3 h-3 rounded-full bg-yellow-400 opacity-80" />
+                                <div className="w-3 h-3 rounded-full bg-green-400 opacity-80" />
+                                <div className="flex-grow flex justify-center">
+                                    <div className="bg-slate-700 text-slate-300 text-[10px] px-4 py-0.5 rounded-full truncate max-w-xs">
+                                        Manuscale eBook Preview
+                                    </div>
                                 </div>
-                            );
-                        })}
-                        {completedChapters.length > 5 && <p className="text-xs text-slate-400 mt-2">... and {completedChapters.length - 5} more chapters</p>}
-                    </div>
+                            </div>
+                            <div className="flex-grow flex min-h-0">
+                                <ReaderContent />
+                            </div>
+                        </div>
+                    )}
                 </div>
-
-                {/* About Author */}
-                {frontMatter.aboutAuthor && (
-                    <div className="text-xs py-4 border-t">
-                        <p className="font-bold text-slate-700 mb-2 uppercase">About the Author</p>
-                        <p className="text-slate-600">{frontMatter.aboutAuthor.substring(0, 150)}...</p>
-                    </div>
-                )}
-            </div>
-
-            <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg flex gap-2 items-start">
-                <span className="text-blue-600 text-lg">ℹ️</span>
-                <p className="text-xs text-blue-800">
-                    <strong>Preview:</strong> This is a summary of your complete book with all front matter, back matter, and {completedChapters.length} completed chapters ready for publication.
-                </p>
             </div>
         </div>
     );
@@ -704,42 +839,6 @@ ${assets.adCopyExamples ? assets.adCopyExamples.map(ad => `[${ad.platform}]\n${a
       { id: 'Fenrir', label: 'Fenrir (Male, Deep)', desc: 'Good for history & biographies' },
   ];
 
-  // Construct Preview Data for Step 4
-  const previewOutline: OutlineItem[] = [
-        {
-            id: 'title-page',
-            chapterNumber: 0,
-            title: 'Title Page',
-            beat: '',
-            targetWordCount: 0,
-            status: 'completed',
-            content: `<div style="text-align: center; margin-top: 30%;">
-                <h1 style="font-family: 'Playfair Display', serif; font-size: 2.2em; font-weight: 700; line-height: 1.1;">${metadata.title}</h1>
-                <p style="font-size:1.5em; font-style:italic; color: #64748b; margin-top: 1em;">${metadata.subtitle}</p>
-                <p style="margin-top:2em; font-size: 1.2em;">by ${metadata.author}</p>
-            </div>`
-        },
-        ...(frontMatter.copyright ? [{
-            id: 'copyright',
-            chapterNumber: 0,
-            title: 'Copyright',
-            beat: '',
-            targetWordCount: 0,
-            status: 'completed',
-            content: `<div style="font-size: 0.8em; text-align: center; margin-top: 50%;"><p>${frontMatter.copyright.replace(/\n/g, '<br />')}</p></div>`
-        } as OutlineItem] : []),
-        ...(frontMatter.dedication ? [{
-            id: 'dedication',
-            chapterNumber: 0,
-            title: 'Dedication',
-            beat: '',
-            targetWordCount: 0,
-            status: 'completed',
-            content: `<div style="font-style: italic; text-align: center; margin-top: 30%;"><p>${frontMatter.dedication}</p></div>`
-        } as OutlineItem] : []),
-        ...(data.outline || []).filter(c => c.status === 'completed'),
-  ];
-
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
       <div className="bg-white rounded-3xl w-full max-w-5xl shadow-2xl overflow-hidden flex flex-col max-h-[100dvh]">
@@ -882,13 +981,14 @@ ${assets.adCopyExamples ? assets.adCopyExamples.map(ad => `[${ad.platform}]\n${a
 
             {/* STEP 4: PREVIEW */}
             {step === 4 && (
-                <div className="max-w-3xl mx-auto space-y-6 animate-in slide-in-from-right-4">
+                <div className="max-w-5xl mx-auto space-y-4 animate-in slide-in-from-right-4">
                     <div>
-                        <h3 className="text-lg font-bold text-slate-800 mb-2">Final Preview</h3>
-                        <p className="text-sm text-slate-500">Review your complete book before publishing. All front matter, chapters, and back matter are included below.</p>
+                        <h3 className="text-lg font-bold text-slate-800 mb-1">Final Preview</h3>
+                        <p className="text-sm text-slate-500">Preview your ebook across Phone, Tablet, and Desktop. Use the Contents panel to jump to any section.</p>
                     </div>
-                    <FullBookPreview
+                    <KDPPreview
                         title={metadata.title}
+                        subtitle={metadata.subtitle}
                         author={metadata.author}
                         coverImage={data.coverImage}
                         frontMatter={frontMatter}
