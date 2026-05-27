@@ -72,6 +72,122 @@ const createWavBlob = (base64PCM: string): Blob => {
     return new Blob([header, bytes], { type: 'audio/wav' });
 };
 
+// --- FULL BOOK PREVIEW COMPONENTS ---
+
+const getWordCount = (html: string): number => {
+    const text = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    return text.length > 0 ? text.split(' ').length : 0;
+};
+
+const getReadingTime = (wordCount: number): string => {
+    const mins = Math.ceil(wordCount / 250);
+    if (mins < 60) return `${mins} min`;
+    const hrs = Math.floor(mins / 60);
+    const rem = mins % 60;
+    return rem > 0 ? `${hrs}h ${rem}m` : `${hrs}h`;
+};
+
+const FullBookPreview: React.FC<{
+    title: string;
+    author?: string;
+    coverImage?: string | null;
+    frontMatter: FrontMatter;
+    backMatter: BackMatter;
+    outline: OutlineItem[];
+    design?: any;
+}> = ({ title, author, coverImage, frontMatter, backMatter, outline, design }) => {
+    const completedChapters = outline.filter(c => c.status === 'completed' && c.content);
+    const totalWords = completedChapters.reduce((sum, c) => sum + getWordCount(c.content!), 0);
+    const readingTime = getReadingTime(totalWords);
+    const draftChapters = outline.filter(c => c.status !== 'completed' || !c.content);
+
+    const defaultDesign = {
+        fontFamily: "'Inter', sans-serif",
+        fontSize: "11pt",
+        lineHeight: "1.8",
+    };
+    const styles = design || defaultDesign;
+
+    return (
+        <div className="space-y-6">
+            {/* Stats Header */}
+            <div className="grid grid-cols-3 gap-3 bg-gradient-to-r from-primary-50 to-blue-50 p-4 rounded-xl border border-primary-100">
+                <div className="text-center">
+                    <div className="text-xs text-slate-500 uppercase font-bold">Total Words</div>
+                    <div className="text-lg font-bold text-slate-900 mt-1">{totalWords.toLocaleString()}</div>
+                </div>
+                <div className="text-center">
+                    <div className="text-xs text-slate-500 uppercase font-bold">Reading Time</div>
+                    <div className="text-lg font-bold text-slate-900 mt-1">{readingTime}</div>
+                </div>
+                <div className="text-center">
+                    <div className="text-xs text-slate-500 uppercase font-bold">Chapters</div>
+                    <div className="text-lg font-bold text-slate-900 mt-1">{completedChapters.length}/{outline.length}</div>
+                    {draftChapters.length > 0 && <div className="text-xs text-amber-600 mt-0.5">({draftChapters.length} draft)</div>}
+                </div>
+            </div>
+
+            {/* Full Book Preview */}
+            <div className="bg-white border border-slate-200 rounded-xl p-6 max-h-96 overflow-y-auto text-sm text-slate-600 space-y-6 font-serif" style={{ fontFamily: styles.fontFamily, fontSize: styles.fontSize, lineHeight: styles.lineHeight }}>
+                {/* Title Page */}
+                <div className="text-center pb-6 border-b">
+                    {coverImage && <img src={coverImage} alt="Cover" className="w-20 h-auto mx-auto mb-4 rounded shadow" />}
+                    <h1 className="text-2xl font-bold text-slate-900 mb-2">{title}</h1>
+                    {author && <p className="text-slate-600">by {author}</p>}
+                </div>
+
+                {/* Dedication */}
+                {frontMatter.dedication && (
+                    <div className="text-center italic py-4 border-b">
+                        <p className="text-xs font-bold uppercase text-slate-400 mb-2">Dedication</p>
+                        <p className="text-slate-600">{frontMatter.dedication}</p>
+                    </div>
+                )}
+
+                {/* Copyright */}
+                {frontMatter.includeCopyright && frontMatter.copyright && (
+                    <div className="text-xs text-slate-500 py-4 border-b whitespace-pre-wrap">
+                        <p className="font-bold uppercase text-slate-400 mb-2">Copyright</p>
+                        <p>{frontMatter.copyright.split('\n').slice(0, 3).join('\n')}...</p>
+                    </div>
+                )}
+
+                {/* Chapter List Summary */}
+                <div>
+                    <p className="font-bold text-slate-700 mb-3 text-xs uppercase">Chapters ({completedChapters.length})</p>
+                    <div className="space-y-1">
+                        {completedChapters.slice(0, 5).map((ch, i) => {
+                            const wc = getWordCount(ch.content!);
+                            return (
+                                <div key={ch.id} className="flex justify-between text-xs">
+                                    <span className="text-slate-600">{ch.chapterNumber}. {ch.title}</span>
+                                    <span className="text-slate-400">{wc.toLocaleString()} words</span>
+                                </div>
+                            );
+                        })}
+                        {completedChapters.length > 5 && <p className="text-xs text-slate-400 mt-2">... and {completedChapters.length - 5} more chapters</p>}
+                    </div>
+                </div>
+
+                {/* About Author */}
+                {frontMatter.aboutAuthor && (
+                    <div className="text-xs py-4 border-t">
+                        <p className="font-bold text-slate-700 mb-2 uppercase">About the Author</p>
+                        <p className="text-slate-600">{frontMatter.aboutAuthor.substring(0, 150)}...</p>
+                    </div>
+                )}
+            </div>
+
+            <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg flex gap-2 items-start">
+                <span className="text-blue-600 text-lg">ℹ️</span>
+                <p className="text-xs text-blue-800">
+                    <strong>Preview:</strong> This is a summary of your complete book with all front matter, back matter, and {completedChapters.length} completed chapters ready for publication.
+                </p>
+            </div>
+        </div>
+    );
+};
+
 const PublishWizard: React.FC<PublishWizardProps> = ({ data, onUpdateData, onClose, onOpenCoverStudio, initialStep, isDemoMode }) => {
   const { showToast } = useToast();
   const [step, setStep] = useState(initialStep || 1);
@@ -764,47 +880,22 @@ ${assets.adCopyExamples ? assets.adCopyExamples.map(ad => `[${ad.platform}]\n${a
                 </div>
             )}
 
-            {/* STEP 4: REVIEW */}
+            {/* STEP 4: PREVIEW */}
             {step === 4 && (
-                <div className="h-full grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in slide-in-from-right-4">
-                    {/* LEFT COLUMN: Metadata & Checklist */}
-                    <div className="overflow-y-auto pr-4">
-                        <div className="mb-8">
-                            <h3 className="text-2xl font-black text-slate-900 mb-2">Final Proofing</h3>
-                            <p className="text-slate-500 text-sm">
-                                Review the generated pages on the simulator. This is how your book will appear on mobile devices.
-                            </p>
-                        </div>
-                        
-                        <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 text-left space-y-4 mb-6">
-                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Manifest Checklist</h4>
-                            <div className="flex justify-between text-sm items-center"><span className="text-slate-500">Title Metadata</span> <CheckCircle2 size={16} className="text-emerald-500"/></div>
-                            <div className="flex justify-between text-sm items-center"><span className="text-slate-500">Author Bio</span> <span className={frontMatter.aboutAuthor ? "text-emerald-500" : "text-amber-500"}>{frontMatter.aboutAuthor ? "Ready" : "Missing"}</span></div>
-                            <div className="flex justify-between text-sm items-center"><span className="text-slate-500">Copyright Page</span> <span className={frontMatter.copyright ? "text-emerald-500" : "text-amber-500"}>{frontMatter.copyright ? "Ready" : "Auto-Generated"}</span></div>
-                            <div className="flex justify-between text-sm items-center"><span className="text-slate-500">Completed Chapters</span> <span className="font-bold text-slate-900">{data.outline?.filter(c => c.status === 'completed').length || 0}</span></div>
-                            <div className="flex justify-between text-sm items-center"><span className="text-slate-500">Est. Word Count</span> <span className="font-bold text-slate-900">{data.wordCount?.toLocaleString() || 0}</span></div>
-                        </div>
-
-                        <div className="p-4 bg-primary-50 border border-primary-100 rounded-xl flex gap-3 items-start">
-                            <AlertTriangle size={20} className="text-primary-600 shrink-0 mt-0.5"/>
-                            <div className="text-xs text-primary-800 leading-relaxed">
-                                <strong>Tip:</strong> Use the simulator to verify that your dedication and chapter breaks look correct. If something is off, go back to the Editor to fix formatting.
-                            </div>
-                        </div>
+                <div className="max-w-3xl mx-auto space-y-6 animate-in slide-in-from-right-4">
+                    <div>
+                        <h3 className="text-lg font-bold text-slate-800 mb-2">Final Preview</h3>
+                        <p className="text-sm text-slate-500">Review your complete book before publishing. All front matter, chapters, and back matter are included below.</p>
                     </div>
-
-                    {/* RIGHT COLUMN: Mobile Simulator */}
-                    <div className="bg-slate-100 rounded-3xl border border-slate-200 flex items-center justify-center p-4 relative overflow-hidden">
-                        <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, rgba(0,0,0,0.1) 1px, transparent 0)', backgroundSize: '24px 24px' }}></div>
-                        <div className="scale-[0.85] origin-center">
-                            <MobileReader 
-                                title={metadata.title} 
-                                outline={previewOutline} 
-                                design={data.design}
-                                containerHeight={700} // Force consistent scaling in wizard
-                            />
-                        </div>
-                    </div>
+                    <FullBookPreview
+                        title={metadata.title}
+                        author={metadata.author}
+                        coverImage={data.coverImage}
+                        frontMatter={frontMatter}
+                        backMatter={backMatter}
+                        outline={data.outline || []}
+                        design={data.design}
+                    />
                 </div>
             )}
 

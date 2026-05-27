@@ -9,7 +9,7 @@ import PublishWizard from './PublishWizard';
 import { MobileReader } from './MobileReader';
 import useUndoRedo from '../hooks/useUndoRedo';
 import DOMPurify from 'dompurify';
-import { Image as ImageIcon, Bold, Italic, Underline, Heading1, Heading2, Heading3, Type, AlignLeft, AlignCenter, AlignRight, AlignJustify, List, Sparkles, Wand2, Edit3, CheckCircle2, Loader2, ArrowRight, ArrowLeft, X, AlertTriangle, BookOpen, Palette, ListOrdered, Quote, Trash2, Check, RefreshCw, Feather, Undo, Redo, MoveVertical, CheckCheck, Scissors, Brain, Users, Globe, Book, FileText, Database, Zap, ChevronLeft, ChevronRight, Table, Info, Maximize2, Minimize2, Clock, Hash, BookMarked, LayoutList } from 'lucide-react';
+import { Image as ImageIcon, Bold, Italic, Underline, Heading1, Heading2, Heading3, Type, AlignLeft, AlignCenter, AlignRight, AlignJustify, List, Sparkles, Wand2, Edit3, CheckCircle2, Loader2, ArrowRight, ArrowLeft, X, AlertTriangle, BookOpen, Palette, ListOrdered, Quote, Trash2, Check, RefreshCw, Feather, Undo, Redo, MoveVertical, CheckCheck, Scissors, Brain, Users, Globe, Book, FileText, Database, Zap, ChevronLeft, ChevronRight, Table, Info } from 'lucide-react';
 import { useToast } from './ToastContext';
 import { Button } from './Button';
 
@@ -656,241 +656,6 @@ const FormattingSidebar: React.FC<{ onClose: () => void, settings: DesignSetting
     );
 };
 
-// --- PREVIEW ENHANCEMENT COMPONENTS ---
-
-const getWordCount = (html: string): number => {
-    const text = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-    return text.length > 0 ? text.split(' ').length : 0;
-};
-
-const getReadingTime = (wordCount: number): string => {
-    const mins = Math.ceil(wordCount / 250);
-    if (mins < 60) return `${mins} min`;
-    const hrs = Math.floor(mins / 60);
-    const rem = mins % 60;
-    return rem > 0 ? `${hrs}h ${rem}m` : `${hrs}h`;
-};
-
-const PreviewStatsBar: React.FC<{
-    outline: OutlineItem[];
-    frontMatter: FrontMatter;
-    backMatter: BackMatter;
-    onToggleTOC: () => void;
-    isFullscreen: boolean;
-    onToggleFullscreen: () => void;
-}> = ({ outline, frontMatter, backMatter, onToggleTOC, isFullscreen, onToggleFullscreen }) => {
-    const completedChapters = outline.filter(c => c.status === 'completed' && c.content);
-    const draftChapters = outline.filter(c => c.status !== 'completed' || !c.content);
-    const totalWords = completedChapters.reduce((sum, c) => sum + getWordCount(c.content!), 0);
-    const readingTime = getReadingTime(totalWords);
-
-    return (
-        <div className="flex items-center justify-between px-4 py-2 bg-white border-b border-slate-200 text-xs text-slate-500 flex-shrink-0">
-            <div className="flex items-center gap-4">
-                <button
-                    onClick={onToggleTOC}
-                    className="flex items-center gap-1.5 font-semibold text-slate-600 hover:text-primary-600 transition-colors"
-                    title="Toggle Table of Contents"
-                >
-                    <LayoutList size={13} />
-                    <span>TOC</span>
-                </button>
-                <div className="flex items-center gap-1"><Hash size={11} /><span><strong className="text-slate-700">{totalWords.toLocaleString()}</strong> words</span></div>
-                <div className="flex items-center gap-1"><Clock size={11} /><span><strong className="text-slate-700">{readingTime}</strong> read</span></div>
-                <div className="flex items-center gap-1">
-                    <BookMarked size={11} />
-                    <span>
-                        <strong className="text-slate-700">{completedChapters.length}</strong>/{outline.length} chapters
-                        {draftChapters.length > 0 && <span className="ml-1 text-amber-500">({draftChapters.length} draft)</span>}
-                    </span>
-                </div>
-            </div>
-            <button
-                onClick={onToggleFullscreen}
-                className="flex items-center gap-1.5 font-semibold text-slate-500 hover:text-slate-800 transition-colors"
-                title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen reading mode'}
-            >
-                {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
-                <span className="hidden sm:inline">{isFullscreen ? 'Exit' : 'Fullscreen'}</span>
-            </button>
-        </div>
-    );
-};
-
-const PreviewTOC: React.FC<{
-    outline: OutlineItem[];
-    frontMatter: FrontMatter;
-    backMatter: BackMatter;
-    onClose: () => void;
-    onNavigate: (sectionId: string) => void;
-}> = ({ outline, frontMatter, backMatter, onClose, onNavigate }) => {
-    const completedChapters = outline.filter(c => c.status === 'completed' && c.content);
-    const totalWords = completedChapters.reduce((sum, c) => sum + getWordCount(c.content!), 0);
-    const totalReadingTime = getReadingTime(totalWords);
-
-    return (
-        <div className="fixed top-0 left-0 h-full w-72 bg-white shadow-2xl border-r border-slate-200 z-50 flex flex-col animate-in slide-in-from-left duration-300">
-            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                <div>
-                    <h3 className="font-bold text-slate-800 flex items-center gap-2 text-sm"><LayoutList size={16}/> Table of Contents</h3>
-                    <p className="text-xs text-slate-400 mt-0.5">{totalWords.toLocaleString()} words · {totalReadingTime} total</p>
-                </div>
-                <Button variant="ghost" size="sm" onClick={onClose} className="p-1"><X size={18}/></Button>
-            </div>
-            <div className="flex-grow overflow-y-auto p-3 space-y-1">
-                {/* Front Matter */}
-                {(frontMatter.includeCopyright || frontMatter.dedication || frontMatter.aboutAuthor) && (
-                    <div className="mb-2">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 px-2 pb-1">Front Matter</p>
-                        {frontMatter.dedication && (
-                            <button onClick={() => onNavigate('preview-front-dedication')} className="w-full text-left px-3 py-2 rounded-lg text-xs text-slate-600 hover:bg-slate-100 transition-colors flex items-center gap-2">
-                                <span className="w-4 text-slate-300 text-center">—</span> Dedication
-                            </button>
-                        )}
-                        {frontMatter.includeCopyright && frontMatter.copyright && (
-                            <button onClick={() => onNavigate('preview-front-copyright')} className="w-full text-left px-3 py-2 rounded-lg text-xs text-slate-600 hover:bg-slate-100 transition-colors flex items-center gap-2">
-                                <span className="w-4 text-slate-300 text-center">—</span> Copyright
-                            </button>
-                        )}
-                    </div>
-                )}
-
-                {/* Chapters */}
-                <div className="mb-2">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 px-2 pb-1">Chapters</p>
-                    {outline.map((item) => {
-                        const wc = item.content ? getWordCount(item.content) : 0;
-                        const rt = wc > 0 ? getReadingTime(wc) : null;
-                        const isComplete = item.status === 'completed' && item.content;
-                        return (
-                            <button
-                                key={item.id}
-                                onClick={() => isComplete && onNavigate(`chapter-${item.id}`)}
-                                className={`w-full text-left px-3 py-2.5 rounded-lg text-xs transition-colors flex items-start gap-2 ${isComplete ? 'hover:bg-slate-100 text-slate-700 cursor-pointer' : 'text-slate-400 cursor-default'}`}
-                            >
-                                <span className="w-5 text-center font-bold text-slate-300 shrink-0 mt-0.5">{item.chapterNumber}</span>
-                                <div className="flex-grow min-w-0">
-                                    <p className="font-semibold truncate">{item.title}</p>
-                                    {rt ? (
-                                        <p className="text-slate-400 mt-0.5">{wc.toLocaleString()} words · {rt}</p>
-                                    ) : (
-                                        <p className="text-amber-400 mt-0.5">Not yet written</p>
-                                    )}
-                                </div>
-                                {isComplete && <CheckCircle2 size={12} className="text-emerald-400 shrink-0 mt-0.5" />}
-                            </button>
-                        );
-                    })}
-                </div>
-
-                {/* Back Matter */}
-                {(frontMatter.aboutAuthor || (backMatter.includeBibliography && backMatter.bibliography)) && (
-                    <div className="mb-2">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 px-2 pb-1">Back Matter</p>
-                        {frontMatter.aboutAuthor && (
-                            <button onClick={() => onNavigate('preview-back-author')} className="w-full text-left px-3 py-2 rounded-lg text-xs text-slate-600 hover:bg-slate-100 transition-colors flex items-center gap-2">
-                                <span className="w-4 text-slate-300 text-center">—</span> About the Author
-                            </button>
-                        )}
-                        {backMatter.includeBibliography && backMatter.bibliography && (
-                            <button onClick={() => onNavigate('preview-back-bibliography')} className="w-full text-left px-3 py-2 rounded-lg text-xs text-slate-600 hover:bg-slate-100 transition-colors flex items-center gap-2">
-                                <span className="w-4 text-slate-300 text-center">—</span> Bibliography
-                            </button>
-                        )}
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-};
-
-const FrontMatterPreview: React.FC<{
-    title: string;
-    author?: string;
-    frontMatter: FrontMatter;
-    coverImage?: string | null;
-    design: DesignSettings;
-}> = ({ title, author, frontMatter, coverImage, design }) => {
-    const styles = {
-        '--ebook-font': design.fontFamily,
-        '--font-size': design.fontSize,
-        '--line-height': design.lineHeight,
-    } as React.CSSProperties;
-
-    return (
-        <>
-            {/* Title Page */}
-            <div className="book-page mb-8 flex flex-col items-center justify-center min-h-[400px] text-center" style={styles}>
-                {coverImage && (
-                    <img src={coverImage} alt="Book cover" className="w-32 h-auto rounded shadow-md mb-6 object-cover" />
-                )}
-                <h1 className="font-bold text-3xl mb-2" style={{ fontFamily: design.fontFamily }}>{title}</h1>
-                {author && <p className="text-lg text-slate-500 mt-2">by {author}</p>}
-                {frontMatter.publisher && <p className="text-sm text-slate-400 mt-4">{frontMatter.publisher}</p>}
-            </div>
-
-            {/* Dedication */}
-            {frontMatter.dedication && (
-                <div id="preview-front-dedication" className="book-page mb-8 flex flex-col items-center justify-center min-h-[200px] text-center" style={styles}>
-                    <p className="text-sm font-bold uppercase tracking-widest text-slate-400 mb-4">Dedication</p>
-                    <p className="italic text-slate-600 max-w-sm leading-relaxed">{frontMatter.dedication}</p>
-                </div>
-            )}
-
-            {/* Copyright */}
-            {frontMatter.includeCopyright && frontMatter.copyright && (
-                <div id="preview-front-copyright" className="book-page mb-8" style={styles}>
-                    <p className="text-sm font-bold uppercase tracking-widest text-slate-400 mb-4">Copyright</p>
-                    <p className="text-xs text-slate-500 leading-relaxed whitespace-pre-wrap">{frontMatter.copyright}</p>
-                </div>
-            )}
-        </>
-    );
-};
-
-const BackMatterPreview: React.FC<{
-    frontMatter: FrontMatter;
-    backMatter: BackMatter;
-    design: DesignSettings;
-}> = ({ frontMatter, backMatter, design }) => {
-    const styles = {
-        '--ebook-font': design.fontFamily,
-        '--font-size': design.fontSize,
-        '--line-height': design.lineHeight,
-    } as React.CSSProperties;
-
-    const hasSomething = frontMatter.aboutAuthor || (backMatter.includeBibliography && backMatter.bibliography);
-    if (!hasSomething) return null;
-
-    return (
-        <>
-            {frontMatter.aboutAuthor && (
-                <div id="preview-back-author" className="book-page mb-8" style={styles}>
-                    <div className="mb-4 flex items-center gap-3">
-                        <div className="h-px flex-grow bg-slate-200"></div>
-                        <span className="text-xs font-bold uppercase tracking-widest text-slate-400 px-3">About the Author</span>
-                        <div className="h-px flex-grow bg-slate-200"></div>
-                    </div>
-                    <p className="text-sm text-slate-600 leading-relaxed">{frontMatter.aboutAuthor}</p>
-                </div>
-            )}
-            {backMatter.includeBibliography && backMatter.bibliography && (
-                <div id="preview-back-bibliography" className="book-page mb-8" style={styles}>
-                    <div className="mb-4 flex items-center gap-3">
-                        <div className="h-px flex-grow bg-slate-200"></div>
-                        <span className="text-xs font-bold uppercase tracking-widest text-slate-400 px-3">Bibliography</span>
-                        <div className="h-px flex-grow bg-slate-200"></div>
-                    </div>
-                    <div
-                        className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap"
-                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(backMatter.bibliography, DOMPURIFY_CONFIG) }}
-                    />
-                </div>
-            )}
-        </>
-    );
-};
-
 const DevicePreview: React.FC<{ html: string, device: 'mobile' | 'tablet' | 'desktop', design: DesignSettings, chapterTitle?: string }> = ({ html, device, design, chapterTitle }) => {
     const [currentPage, setCurrentPage] = useState(0);
     const [totalPages, setTotalPages] = useState(1);
@@ -1062,35 +827,6 @@ export const EbookDisplay: React.FC<EbookDisplayProps> = ({
     const [streamContent, setStreamContent] = useState("");
     const [activeFormats, setActiveFormats] = useState<Record<string, boolean>>({});
     const [newLoreDetected, setNewLoreDetected] = useState<ProjectMemory | null>(null);
-    const [showPreviewTOC, setShowPreviewTOC] = useState(false);
-    const [isFullscreen, setIsFullscreen] = useState(false);
-    const previewScrollRef = useRef<HTMLDivElement>(null);
-
-    const handleNavigatePreview = useCallback((sectionId: string) => {
-        const el = document.getElementById(sectionId);
-        if (el) {
-            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-        setShowPreviewTOC(false);
-    }, []);
-
-    const handleToggleFullscreen = useCallback(() => {
-        if (!document.fullscreenElement) {
-            previewScrollRef.current?.requestFullscreen?.().catch(() => {});
-            setIsFullscreen(true);
-        } else {
-            document.exitFullscreen?.().catch(() => {});
-            setIsFullscreen(false);
-        }
-    }, []);
-
-    useEffect(() => {
-        const onFullscreenChange = () => {
-            if (!document.fullscreenElement) setIsFullscreen(false);
-        };
-        document.addEventListener('fullscreenchange', onFullscreenChange);
-        return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
-    }, []);
 
     useEffect(() => {
         if (!activeChapterId && manuscript.outline.length > 0) {
@@ -1412,30 +1148,11 @@ export const EbookDisplay: React.FC<EbookDisplayProps> = ({
                     </div>
                 </div>
 
-                <div ref={previewScrollRef} className="flex-grow overflow-y-auto bg-slate-200/50 relative flex flex-col">
+                <div className="flex-grow overflow-y-auto bg-slate-200/50 relative flex flex-col">
                     {viewMode === 'write' && <EditorToolbar activeFormats={activeFormats} onUndo={undo} onRedo={redo} canUndo={canUndo} canRedo={canRedo} />}
-                    {viewMode === 'preview' && (
-                        <PreviewStatsBar
-                            outline={manuscript.outline}
-                            frontMatter={manuscript.frontMatter}
-                            backMatter={manuscript.backMatter}
-                            onToggleTOC={() => setShowPreviewTOC(v => !v)}
-                            isFullscreen={isFullscreen}
-                            onToggleFullscreen={handleToggleFullscreen}
-                        />
-                    )}
 
                     <div className="p-4 sm:p-8 flex-grow">
                         <div className="max-w-full sm:max-w-[8.5in] mx-auto pb-20 sm:pb-40">
-                            {viewMode === 'preview' && (
-                                <FrontMatterPreview
-                                    title={data.title}
-                                    author={data.author}
-                                    frontMatter={manuscript.frontMatter}
-                                    coverImage={data.coverImage}
-                                    design={manuscript.design}
-                                />
-                            )}
                             {manuscript.outline.map((item, idx) => (
                                 <div key={item.id} id={`chapter-${item.id}`} className="mb-20">
                                     {item.status === 'completed' && item.content ? (
@@ -1458,30 +1175,10 @@ export const EbookDisplay: React.FC<EbookDisplayProps> = ({
                                     )}
                                 </div>
                             ))}
-                            {viewMode === 'preview' && (
-                                <BackMatterPreview
-                                    frontMatter={manuscript.frontMatter}
-                                    backMatter={manuscript.backMatter}
-                                    design={manuscript.design}
-                                />
-                            )}
                         </div>
                     </div>
                 </div>
             </div>
-
-            {viewMode === 'preview' && showPreviewTOC && (
-                <>
-                    <div className="fixed inset-0 bg-black/20 z-40" onClick={() => setShowPreviewTOC(false)} />
-                    <PreviewTOC
-                        outline={manuscript.outline}
-                        frontMatter={manuscript.frontMatter}
-                        backMatter={manuscript.backMatter}
-                        onClose={() => setShowPreviewTOC(false)}
-                        onNavigate={handleNavigatePreview}
-                    />
-                </>
-            )}
 
             {activeTool === 'formatting' && (
                 <>
