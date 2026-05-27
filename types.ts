@@ -135,7 +135,7 @@ export interface ChapterMode {
 export interface ProjectBlueprint {
   title: string;
   subtitle?: string;
-  type: 'Non-Fiction' | 'Memoir' | 'Textbook' | 'Guide' | 'Fiction'; 
+  type: 'Non-Fiction' | 'Memoir' | 'Textbook' | 'Guide'; 
   mode?: 'Instructional' | 'Narrative'; // DUAL-MODE ARCHITECTURE
   genre: string;
   visualStyle: string; 

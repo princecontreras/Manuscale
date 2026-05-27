@@ -4,8 +4,8 @@ import React, { createContext, useContext, useState, useCallback, useEffect } fr
 import { DemoSession } from '../types';
 import { setDemoMode as setAiDemoMode } from '../services/aiClient';
 
-const DEMO_SESSION_KEY = 'manuscale_demo_session';
-const DEMO_COMPLETED_KEY = 'manuscale_demo_completed';
+const DEMO_SESSION_KEY = 'typoscale_demo_session';
+const DEMO_COMPLETED_KEY = 'typoscale_demo_completed';
 
 interface DemoContextType {
   isDemoMode: boolean;

@@ -31,18 +31,6 @@ const MOCK_MARKETING_BY_GENRE: Record<string, MarketingAssets> = {
     categories: ['Business', 'Entrepreneurship', 'Management'],
     priceStrategy: 'Launch at $9.99. Hardcover at $24.99. Corporate bulk pricing available.',
   },
-  'Fiction': {
-    blurb:
-      'A sweeping story of love, loss, and the invisible threads that connect us. When three strangers\' paths collide in a small coastal town, they discover that the secrets they\'re running from are the very things that could set them free. A novel about second chances and the courage it takes to start over.',
-    socialPosts: [
-      { platform: 'Twitter/X', content: '📚 "Some stories whisper. This one grabbed me by the heart and refused to let go." A novel about second chances, coastal magic, and finding home. #BookTwitter #NewRelease' },
-      { platform: 'Instagram', content: '✨ Cover reveal! My debut novel is HERE. A story about three strangers, one small town, and the secrets that bind them. Pre-order link in bio 📖💙' },
-    ],
-    emailAnnouncement: 'Subject: My novel is finally here\n\nDear reader,\n\nThis story has been living in my heart for years, and I\'m beyond excited to finally share it with you. It\'s a tale of love, loss, and the unexpected connections that reshape our lives.',
-    keywords: ['fiction', 'literary fiction', 'romance', 'drama', 'novel'],
-    categories: ['Literary Fiction', 'Contemporary Fiction', 'Drama'],
-    priceStrategy: 'Ebook at $4.99, paperback at $14.99. Consider KDP Select for Kindle Unlimited visibility.',
-  },
 };
 
 // Default fallback

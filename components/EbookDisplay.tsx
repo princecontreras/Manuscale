@@ -39,17 +39,6 @@ interface EbookDisplayProps {
   isDemoMode?: boolean;
 }
 
-const FICTION_DESIGN: DesignSettings = {
-    fontFamily: "'Merriweather', serif",
-    fontSize: "11pt",
-    lineHeight: "1.6",
-    dropCaps: true,
-    justification: 'justify',
-    paragraphStyle: 'indent',
-    chapterDecoration: true,
-    theme: 'classic'
-};
-
 const NON_FICTION_DESIGN: DesignSettings = {
     fontFamily: "'Inter', sans-serif",
     fontSize: "11pt",

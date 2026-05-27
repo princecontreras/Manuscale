@@ -131,7 +131,7 @@ export const parseEPUB = async (file: File): Promise<EbookData> => {
         status: "draft",
         blueprint: {
             title,
-            type: "Fiction", // Default
+            type: "Non-Fiction", // Default
             genre: "Imported",
             summary: "Imported from EPUB",
             visualStyle: "Standard",

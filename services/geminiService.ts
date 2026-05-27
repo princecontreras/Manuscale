@@ -747,6 +747,12 @@ export const analyzeTopicAndConfigure = async (
         Do not use generic archetypes like 'Historian'. INVENT a specific persona that fits this exact story or subject.
         Example: For a tech biography, the Archetype could be 'The Visionary Chronicler'.
         
+        POV SELECTION FOR NARRATIVE (Genre: ${genre}):
+        - Memoir/Biography: Use "First Person" for author voice, or "Third Person Limited" for deeper psychological access
+        - Historical Narrative: Use "Third Person Omniscient" or "Third Person Limited" for authority
+        - Personal Essay: Use "First Person" (essential for this genre)
+        Choose the POV that best serves the narrative authenticity and reader connection.
+        
         TASK 2: NARRATIVE ARCHITECTURE
         Design a custom 'Book Structure Archetype' (Macro-Structure) that fits this specific story. 
         Break the book into 3-5 distinct Phases (Parts) that guide the reader through a chronological or thematic journey.
@@ -761,7 +767,7 @@ export const analyzeTopicAndConfigure = async (
         {
             "title": "string",
             "subtitle": "string",
-            "type": "Non-Fiction" | "Memoir" | "Textbook" | "Guide" | "Fiction",
+            "type": "Non-Fiction" | "Memoir" | "Textbook" | "Guide",
             "genre": "string",
             "visualStyle": "string",
             "coverPrompt": "string",
@@ -817,6 +823,14 @@ export const analyzeTopicAndConfigure = async (
         Do not use generic archetypes like 'Consultant'. INVENT a specific persona that fits this exact niche.
         Example: If the topic is 'Stoicism', the Archetype should be 'The Modern Sage' and the Voice should be 'Calm, authoritative, timeless'.
         
+        POV SELECTION FOR INSTRUCTIONAL (Genre: ${genre}):
+        - Self-Help: Use "Second Person" to directly address reader and guide transformation
+        - Business/Strategy: Use "Third Person Omniscient" for authority and objectivity, OR "First Person" if author is thought leader sharing expertise
+        - Academic/Textbook: Use "Third Person Omniscient" for academic distance and objectivity
+        - How-To/Guide: Use "Second Person" to directly instruct reader through steps
+        - Leadership/Thought Leadership: Use "First Person" (author expertise) combined with case studies
+        Choose the POV that best establishes credibility and reader engagement for this topic.
+        
         TASK 2: INSTRUCTIONAL ARCHITECTURE
         Design a custom 'Book Structure Archetype' (Macro-Structure).
         Break the book into 3-5 distinct Phases.
@@ -831,7 +845,7 @@ export const analyzeTopicAndConfigure = async (
         {
             "title": "string",
             "subtitle": "string",
-            "type": "Non-Fiction" | "Memoir" | "Textbook" | "Guide" | "Fiction",
+            "type": "Non-Fiction" | "Memoir" | "Textbook" | "Guide",
             "genre": "string",
             "visualStyle": "string",
             "coverPrompt": "string",
@@ -987,7 +1001,7 @@ export const generateProjectOutline = async (blueprint: ProjectBlueprint, memory
     const context = memory ? `Context from memory: ${JSON.stringify(memory.concepts.slice(0, 10))} ${JSON.stringify(memory.research.slice(0, 5))}` : "";
     const thesisContext = blueprint.centralThesis ? `Central Thesis to Prove: "${blueprint.centralThesis}"` : "";
     const themeContext = blueprint.controllingIdea ? `Controlling Idea/Theme: "${blueprint.controllingIdea}"` : "";
-    const voiceDnaContext = `Voice DNA: ${blueprint.profile.voice || ''}. Archetype: ${blueprint.profile.archetype || ''}. POV: ${blueprint.profile.pov || ''}.`;
+    const voiceDnaContext = `Voice DNA: ${blueprint.profile.voice || ''}. Archetype: ${blueprint.profile.archetype || ''}. POV: ${blueprint.profile.pov || 'Third Person Omniscient'}.`;
     const personaContext = blueprint.readerPersona
         ? (blueprint.mode === 'Narrative'
             ? `Reader Persona: Intellectual curiosity — "${blueprint.readerPersona.intellectualCuriosity}". Emotional payoff — "${blueprint.readerPersona.emotionalPayoff}".`
@@ -1517,7 +1531,7 @@ export const streamChapterContent = async (
     const prompt = `Write Chapter ${chapter.chapterNumber}: "${chapter.title}" for the book "${blueprint.title}".
     Book Overview: ${blueprint.summary}
     LENGTH GOAL: Target approximately ${targetWords} words. Prioritize quality, depth, and genuine insight over hitting a word count. Do not pad, repeat, or inflate content to reach a number — a focused, well-developed chapter is far better than a bloated one. Stop when the chapter is complete.
-    Style Guide: ${profile.voice}, ${profile.archetype}. Write in ${profile.pov || 'second person'} perspective, ${profile.tense || 'present'} tense, for: ${profile.targetAudience || 'general readers'}.
+    Style Guide: ${profile.voice}, ${profile.archetype}. Write in ${profile.pov} perspective, ${profile.tense} tense, for: ${profile.targetAudience}.
     Book Progress: Chapter ${chapter.chapterNumber} of ${totalChapters} (${progressPercent}%).
     
     EXPANSIVE NON-FICTION INSTRUCTION: Write a detailed, comprehensive, and authoritative chapter. Do not use fictional characters, invented scenarios, or fabricated dialogues. All narrative elements—including scenes, dialogues, and actions—must be strictly grounded in documented historical facts, real-world events, and actual people. For instructional content, use real-world case studies and clear factual analysis. Focus on depth, clarity, and accuracy. Every section must be developed with full explanations, examples, and analysis — do NOT truncate or summarise sections. Each <h2> section should contain at least 4-6 substantial paragraphs.
@@ -2326,7 +2340,7 @@ const ProjectBlueprintSchema = z.object({
     name: z.string().optional(),
     title: z.string(),
     subtitle: z.string().optional(),
-    type: z.enum(['Non-Fiction', 'Memoir', 'Textbook', 'Guide', 'Fiction']),
+    type: z.enum(['Non-Fiction', 'Memoir', 'Textbook', 'Guide']),
     mode: z.enum(['Instructional', 'Narrative']).optional(),
     genre: z.string(),
     visualStyle: z.string(),
@@ -2713,7 +2727,7 @@ export const analyzeRemixContent = async (text: string, signal?: AbortSignal): P
         Required Specifics:
         - title: A compelling title that reflects the actual subject of the source material.
         - subtitle: A subtitle that clarifies the book's core promise.
-        - type: One of "Non-Fiction", "Memoir", "Textbook", "Guide", or "Fiction" — choose the best fit.
+        - type: One of "Non-Fiction", "Memoir", "Textbook", or "Guide" — choose the best fit.
         - genre: The specific genre (e.g. "Personal Memoir", "Narrative Non-Fiction", "Biography").
         - summary: A 2-3 sentence summary of the actual content being structured into the ebook.
         - controllingIdea: The core theme, lesson, or biographical thesis extracted from the source.
@@ -2750,7 +2764,7 @@ export const analyzeRemixContent = async (text: string, signal?: AbortSignal): P
         Required Specifics:
         - title: A compelling title that reflects the actual subject of the source material.
         - subtitle: A subtitle that clarifies the book's core promise.
-        - type: One of "Non-Fiction", "Memoir", "Textbook", "Guide", or "Fiction" — choose the best fit.
+        - type: One of "Non-Fiction", "Memoir", "Textbook", or "Guide" — choose the best fit.
         - genre: The specific genre (e.g. "Business Strategy", "Self-Help", "How-To Guide").
         - summary: A 2-3 sentence summary of the actual content being structured into the ebook.
         - centralThesis: The main argument or central claim extracted directly from the source material.
