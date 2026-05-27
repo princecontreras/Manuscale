@@ -3,8 +3,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback, useLayoutEffect } from 'react';
 import { EbookData, FrontMatter, MarketingAssets, BackMatter, OutlineItem } from '../types';
 import { generateMarketingPack, generateBookMockup, generateAboutAuthor, generateCopyright, generateSpeech, generateBibliography, generateDedication, generateMarketingImage } from '../services/aiClient';
-import { generateEPUB, getEPUBUint8Array, generateDOCX, generateAudiobookZip, generateMarketingAssetsZip } from '../services/publisher';
-import EPub from 'epubjs';
+import { generateEPUB, generateDOCX, generateAudiobookZip, generateMarketingAssetsZip } from '../services/publisher';
 
 import DOMPurify from 'dompurify';
 import { paginateContent } from '../utils/pagination';
@@ -86,325 +85,6 @@ const getReadingTime = (wordCount: number): string => {
     const hrs = Math.floor(mins / 60);
     const rem = mins % 60;
     return rem > 0 ? `${hrs}h ${rem}m` : `${hrs}h`;
-};
-
-// EPUB.js Reader Component
-const KDPPreview: React.FC<{
-    data: EbookData;
-}> = ({ data }) => {
-    const { title = '', coverImage, design, frontMatter, backMatter, outline } = data;
-    const subtitle = (data as any).subtitle || '';
-    const author = data.author || '';
-    const [device, setDevice] = useState<'phone' | 'tablet' | 'desktop'>('tablet');
-    const [showTOC, setShowTOC] = useState(false);
-    const [theme, setTheme] = useState<'light' | 'sepia' | 'dark'>('sepia');
-    const [fontSize, setFontSize] = useState<'sm' | 'md' | 'lg'>('md');
-    const [loading, setLoading] = useState(true);
-    const [percentage, setPercentage] = useState(0);
-
-    const epubRef = useRef<any>(null);
-    const renditionRef = useRef<any>(null);
-    const viewerRef = useRef<HTMLDivElement>(null);
-
-    const completedChapters = useMemo(() =>
-        (outline || []).filter(c => c.status === 'completed' && c.content),
-        [outline]);
-
-    const totalWords = useMemo(() =>
-        completedChapters.reduce((sum, c) => sum + getWordCount(c.content!), 0),
-        [completedChapters]);
-
-    const DEVICES = [
-        { id: 'phone' as const, label: 'Phone', Icon: Smartphone },
-        { id: 'tablet' as const, label: 'Tablet', Icon: Tablet },
-        { id: 'desktop' as const, label: 'Desktop', Icon: Monitor },
-    ];
-
-    const EPUB_THEMES = {
-        light: { page: '#ffffff', text: '#1c1c1c', bg: '#d4d4d8', bar: '#2a2a38', soft: '#888888', border: '#eeeeee' },
-        sepia: { page: '#f7f0e4', text: '#3a2c20', bg: '#2c231a', bar: '#221c14', soft: '#8a7458', border: '#e8dcc8' },
-        dark:  { page: '#1e1e1e', text: '#d0cdc5', bg: '#0d0d0d', bar: '#111111', soft: '#606060', border: '#2a2a2a' },
-    };
-
-    const EPUB_FONT_SIZES = { sm: 85, md: 100, lg: 115 };
-    const EPUB_DIMS = {
-        phone:   { width: 320, height: 490 },
-        tablet:  { width: 480, height: 650 },
-        desktop: { width: 800, height: 600 },
-    };
-
-    const tc = EPUB_THEMES[theme];
-    const dim = EPUB_DIMS[device];
-
-    // Initialize EPUB.js reader
-    useEffect(() => {
-        const initEpub = async () => {
-            try {
-                setLoading(true);
-                
-                // Generate EPUB as Uint8Array
-                const epubData = await getEPUBUint8Array(data);
-
-                if (!epubData) {
-                    console.error('Failed to generate EPUB');
-                    setLoading(false);
-                    return;
-                }
-
-                // Create blob and object URL
-                const blob = new Blob([epubData as any], { type: 'application/epub+zip' });
-                const url = URL.createObjectURL(blob);
-
-                // Create EPUB.js Book instance
-                const book = EPub(url);
-                epubRef.current = book;
-
-                // Create rendition
-                if (viewerRef.current) {
-                    const rendition = book.renderTo(viewerRef.current, {
-                        width: dim.width,
-                        height: dim.height,
-                        flow: 'paginated',
-                    });
-                    renditionRef.current = rendition;
-
-                    // Generate locations after rendering
-                    book.ready.then(() => {
-                        book.locations.generate(1024).catch(() => {
-                            // Continue even if location generation fails
-                        });
-                    });
-
-                    // Display first item
-                    rendition.display().then(() => {
-                        // Set up location tracking
-                        rendition.on('relocated', (location: any) => {
-                            if (location.start && location.start.percentage !== undefined) {
-                                setPercentage(Math.round(location.start.percentage * 100));
-                            }
-                        });
-                    });
-                }
-
-                setLoading(false);
-            } catch (error) {
-                console.error('Error initializing EPUB:', error);
-                setLoading(false);
-            }
-        };
-
-        initEpub();
-
-        return () => {
-            if (epubRef.current) {
-                try {
-                    epubRef.current.destroy();
-                } catch (e) {
-                    //cleanup error
-                }
-            }
-        };
-    }, [data]);
-
-    // Update viewport dimensions on device change
-    useEffect(() => {
-        if (renditionRef.current) {
-            renditionRef.current.resize(dim.width, dim.height);
-        }
-    }, [device, dim.width, dim.height]);
-
-    // Apply theme via CSS injection
-    useEffect(() => {
-        if (renditionRef.current) {
-            const themeCSS = `
-                html, body { background-color: ${tc.page} !important; color: ${tc.text} !important; }
-                * { color: ${tc.text} !important; }
-                a { color: ${tc.text} !important; text-decoration: underline; }
-                h1, h2, h3, h4, h5, h6 { color: ${tc.text} !important; }
-                p { color: ${tc.text} !important; }
-                pre, code { background-color: rgba(0,0,0,0.05); }
-            `;
-            try {
-                renditionRef.current.themes.register('manuscale', themeCSS);
-                renditionRef.current.themes.select('manuscale');
-            } catch (e) {
-                console.warn('Theme application error:', e);
-            }
-        }
-    }, [theme, tc]);
-
-    // Apply font size
-    useEffect(() => {
-        if (renditionRef.current) {
-            try {
-                renditionRef.current.themes.fontSize(`${EPUB_FONT_SIZES[fontSize]}%`);
-            } catch (e) {
-                console.warn('Font size application error:', e);
-            }
-        }
-    }, [fontSize]);
-
-    // Navigation handlers
-    const goNext = useCallback(() => {
-        if (renditionRef.current) {
-            renditionRef.current.next().catch(() => {
-                // End of book
-            });
-        }
-    }, []);
-
-    const goPrev = useCallback(() => {
-        if (renditionRef.current) {
-            renditionRef.current.prev().catch(() => {
-                // Beginning of book
-            });
-        }
-    }, []);
-
-    return (
-        <div className="space-y-4">
-            {/* Stats bar */}
-            <div className="grid grid-cols-3 gap-3 bg-gradient-to-r from-primary-50 to-blue-50 p-4 rounded-xl border border-primary-100">
-                <div className="text-center">
-                    <div className="text-xs text-slate-500 uppercase font-bold tracking-wider">Total Words</div>
-                    <div className="text-xl font-bold text-slate-900 mt-1">{totalWords.toLocaleString()}</div>
-                </div>
-                <div className="text-center">
-                    <div className="text-xs text-slate-500 uppercase font-bold tracking-wider">Reading Time</div>
-                    <div className="text-xl font-bold text-slate-900 mt-1">{getReadingTime(totalWords)}</div>
-                </div>
-                <div className="text-center">
-                    <div className="text-xs text-slate-500 uppercase font-bold tracking-wider">Chapters</div>
-                    <div className="text-xl font-bold text-slate-900 mt-1">
-                        {completedChapters.length}<span className="text-sm font-normal text-slate-400"> / {(outline || []).length}</span>
-                    </div>
-                </div>
-            </div>
-
-            {/* EPUB Reader Shell */}
-            <div className="rounded-2xl overflow-hidden shadow-2xl border border-black/20"
-                 style={{ background: tc.bg }}>
-
-                {/* Top Reader Toolbar */}
-                <div className="flex items-center gap-2 px-4 py-2.5"
-                     style={{ background: tc.bar, borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-                    {/* TOC toggle */}
-                    <button onClick={() => setShowTOC(t => !t)}
-                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${showTOC ? 'bg-white/20 text-white' : 'text-white/40 hover:text-white/80 hover:bg-white/10'}`}>
-                        <BookOpen size={13} /><span className="hidden sm:inline">Contents</span>
-                    </button>
-                    <div className="w-px h-4 bg-white/10 mx-0.5" />
-                    {/* Book title */}
-                    <span className="flex-grow text-center text-xs font-medium truncate"
-                          style={{ color: tc.soft }}>{title}</span>
-                    <div className="w-px h-4 bg-white/10 mx-0.5" />
-                    {/* Theme swatches */}
-                    <div className="flex items-center gap-1.5">
-                        {(['light', 'sepia', 'dark'] as const).map(t => (
-                            <button key={t} onClick={() => setTheme(t)}
-                                title={t.charAt(0).toUpperCase() + t.slice(1)}
-                                className={`w-4 h-4 rounded-full border-2 transition-all ${theme === t ? 'border-white scale-125' : 'border-white/25 hover:border-white/60'}`}
-                                style={{ background: t === 'light' ? '#fff' : t === 'sepia' ? '#f7f0e4' : '#1e1e1e' }} />
-                        ))}
-                    </div>
-                    <div className="w-px h-4 bg-white/10 mx-0.5" />
-                    {/* Font size */}
-                    <div className="flex items-center gap-0.5">
-                        {(['sm', 'md', 'lg'] as const).map((s, i) => (
-                            <button key={s} onClick={() => setFontSize(s)}
-                                className={`px-1 rounded transition-all font-bold ${fontSize === s ? 'text-white' : 'text-white/30 hover:text-white/60'}`}
-                                style={{ fontSize: `${9 + i * 3}px` }}>A</button>
-                        ))}
-                    </div>
-                    <div className="w-px h-4 bg-white/10 mx-0.5" />
-                    {/* Device picker */}
-                    <div className="flex gap-0.5">
-                        {DEVICES.map(({ id, Icon }) => (
-                            <button key={id} onClick={() => setDevice(id)}
-                                className={`p-1.5 rounded-lg transition-all ${device === id ? 'text-white bg-white/20' : 'text-white/30 hover:text-white/70 hover:bg-white/10'}`}>
-                                <Icon size={14} />
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Reading area */}
-                <div className="flex" style={{ minHeight: 660 }}>
-                    {/* TOC Sidebar */}
-                    {showTOC && (
-                        <div className="flex flex-col shrink-0 z-20 w-52"
-                             style={{ background: tc.bar, borderRight: '1px solid rgba(255,255,255,0.07)' }}>
-                            <div className="px-4 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-                                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: tc.soft }}>Contents</p>
-                            </div>
-                            <div className="flex-grow overflow-y-auto py-2">
-                                {(outline || []).map((ch, i) => (
-                                    <button key={ch.id} 
-                                        className="w-full text-left px-4 py-2 text-xs transition-all"
-                                        style={{
-                                            color: tc.soft,
-                                            borderLeft: `2px solid ${tc.border}`,
-                                        }}>
-                                        <span className="block truncate">
-                                            {ch.chapterNumber > 0 && <span className="opacity-40 font-mono text-[10px] mr-1">{ch.chapterNumber}.</span>}
-                                            {ch.title}
-                                        </span>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* EPUB.js Viewer Container */}
-                    <div className="flex-grow flex items-center justify-center p-6 relative select-none"
-                         style={{ background: tc.bg }}>
-                        {/* Prev arrow */}
-                        <button onClick={goPrev}
-                            className="absolute left-3 z-10 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 transition-all flex items-center justify-center text-white">
-                            <ChevronLeft size={18} />
-                        </button>
-
-                        {/* EPUB.js Viewer */}
-                        <div ref={viewerRef} style={{
-                            width: dim.width,
-                            height: dim.height,
-                            background: tc.page,
-                            borderRadius: '2px',
-                            overflow: 'hidden',
-                            boxShadow: '0 2px 6px rgba(0,0,0,0.15), 0 12px 40px rgba(0,0,0,0.45), inset -1px 0 0 rgba(0,0,0,0.06)',
-                        }} />
-
-                        {/* Next arrow */}
-                        <button onClick={goNext}
-                            className="absolute right-3 z-10 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 transition-all flex items-center justify-center text-white">
-                            <ChevronRight size={18} />
-                        </button>
-
-                        {/* Loading indicator */}
-                        {loading && (
-                            <div className="absolute inset-0 flex items-center justify-center"
-                                 style={{ background: 'rgba(0,0,0,0.3)' }}>
-                                <Loader2 className="animate-spin text-white" size={28} />
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* Bottom progress bar */}
-                <div className="flex items-center gap-4 px-6 py-2.5"
-                     style={{ background: tc.bar, borderTop: '1px solid rgba(255,255,255,0.07)' }}>
-                    <span className="text-xs truncate max-w-[30%]" style={{ color: tc.soft }}>Reading</span>
-                    <div className="flex-grow h-0.5 rounded-full" style={{ background: 'rgba(255,255,255,0.12)' }}>
-                        <div className="h-full rounded-full transition-all duration-500"
-                             style={{ width: `${percentage}%`, background: 'rgba(255,255,255,0.45)' }} />
-                    </div>
-                    <span className="text-xs font-mono shrink-0" style={{ color: tc.soft }}>
-                        {percentage}%
-                    </span>
-                </div>
-            </div>
-        </div>
-    );
 };
 
 const PublishWizard: React.FC<PublishWizardProps> = ({ data, onUpdateData, onClose, onOpenCoverStudio, initialStep, isDemoMode }) => {
@@ -817,7 +497,7 @@ ${assets.adCopyExamples ? assets.adCopyExamples.map(ad => `[${ad.platform}]\n${a
               // Don't fail the publish for activity logging
           }
 
-          setStep(5); 
+          setStep(4); 
       } catch (e) {
           const errorMsg = e instanceof Error ? e.message : 'Unknown error';
           console.error('Publish failed:', errorMsg, e);
@@ -936,7 +616,7 @@ ${assets.adCopyExamples ? assets.adCopyExamples.map(ad => `[${ad.platform}]\n${a
                <div>
                    <h2 className="text-xl font-bold text-slate-900">Publishing Wizard</h2>
                    <p className="text-xs text-slate-500">
-                       {step < 5 ? `Step ${step} of 4: Configuration` : 'Publication Complete'}
+                       {step < 4 ? `Step ${step} of 3: Configuration` : 'Publication Complete'}
                    </p>
                </div>
            </div>
@@ -1063,21 +743,8 @@ ${assets.adCopyExamples ? assets.adCopyExamples.map(ad => `[${ad.platform}]\n${a
                 </div>
             )}
 
-            {/* STEP 4: PREVIEW */}
+            {/* STEP 4: SUCCESS */}
             {step === 4 && (
-                <div className="max-w-5xl mx-auto space-y-4 animate-in slide-in-from-right-4">
-                    <div>
-                        <h3 className="text-lg font-bold text-slate-800 mb-1">Final Preview</h3>
-                        <p className="text-sm text-slate-500">Preview your ebook across Phone, Tablet, and Desktop. Use the Contents panel to jump to any section.</p>
-                    </div>
-                    <KDPPreview
-                        data={data}
-                    />
-                </div>
-            )}
-
-            {/* STEP 5: SUCCESS */}
-            {step === 5 && (
                 <div className="h-full flex flex-col animate-in zoom-in-95 duration-500">
                     <div className="text-center mb-8">
                         <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce">
@@ -1306,7 +973,7 @@ ${assets.adCopyExamples ? assets.adCopyExamples.map(ad => `[${ad.platform}]\n${a
         </div>
 
         {/* Footer Navigation */}
-        {step < 5 && (
+        {step < 4 && (
             <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-between items-center">
                 <button 
                     onClick={handleBack} 
@@ -1316,7 +983,7 @@ ${assets.adCopyExamples ? assets.adCopyExamples.map(ad => `[${ad.platform}]\n${a
                     Back
                 </button>
                 <div className="flex gap-2">
-                    {step < 4 ? (
+                    {step < 3 ? (
                         <button 
                             onClick={handleNext} 
                             className="bg-slate-900 hover:bg-primary-600 text-white px-8 py-3 rounded-xl font-bold text-sm shadow-lg hover:scale-[1.02] transition-all flex items-center gap-2"
