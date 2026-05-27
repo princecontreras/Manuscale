@@ -1,6 +1,6 @@
 
 "use client";
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback, useLayoutEffect } from 'react';
 import { EbookData, FrontMatter, MarketingAssets, BackMatter, OutlineItem } from '../types';
 import { generateMarketingPack, generateBookMockup, generateAboutAuthor, generateCopyright, generateSpeech, generateBibliography, generateDedication, generateMarketingImage } from '../services/aiClient';
 import { generateEPUB, generateDOCX, generateAudiobookZip, generateMarketingAssetsZip } from '../services/publisher';
@@ -12,7 +12,6 @@ import { logActivity } from '../services/storage';
 import { validateExportData } from '../utils/exportValidator';
 import { CheckCircle2, AlertTriangle, Book, Share2, ArrowRight, Loader2, Sparkles, X, FileText, Image as ImageIcon, Tag, ShoppingCart, Copy, Check, Palette, List, Mic, Headphones, Play, Square, Volume2, ChevronDown, Smartphone, Tablet, Monitor, ChevronLeft, ChevronRight, BookOpen } from 'lucide-react';
 import { useToast } from './ToastContext';
-import { MobileReader } from './MobileReader';
 
 interface PublishWizardProps {
   data: EbookData;
@@ -100,7 +99,14 @@ const KDPPreview: React.FC<{
 }> = ({ title, subtitle, author, coverImage, frontMatter, backMatter, outline, design }) => {
     const [device, setDevice] = useState<'phone' | 'tablet' | 'desktop'>('phone');
     const [activeIdx, setActiveIdx] = useState(0);
+    const [page, setPage] = useState(0);
+    const [totalPages, setTotalPages] = useState(1);
     const [showTOC, setShowTOC] = useState(false);
+    const [showChrome, setShowChrome] = useState(true);
+
+    const touchStartX = useRef<number | null>(null);
+    const contentRef = useRef<HTMLDivElement>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
 
     const completedChapters = useMemo(() =>
         outline.filter(c => c.status === 'completed' && c.content),
@@ -183,8 +189,50 @@ const KDPPreview: React.FC<{
 
     const designStyles: React.CSSProperties = {
         fontFamily: design?.fontFamily || "'Georgia', serif",
-        fontSize: design?.fontSize || '11pt',
         lineHeight: design?.lineHeight || '1.75',
+    };
+
+    // Reset page when section or device changes
+    useEffect(() => { setPage(0); setTotalPages(1); }, [activeIdx, device]);
+
+    // Measure total pages via CSS column overflow
+    const calculatePages = useCallback(() => {
+        if (!contentRef.current || !containerRef.current) return;
+        const scrollW = contentRef.current.scrollWidth;
+        const clientW = containerRef.current.clientWidth;
+        if (clientW > 0) setTotalPages(Math.max(1, Math.ceil(scrollW / clientW)));
+    }, [sanitizedContent, device]);
+
+    useLayoutEffect(() => {
+        const timer = setTimeout(calculatePages, 100);
+        return () => clearTimeout(timer);
+    }, [calculatePages]);
+
+    const goNext = useCallback(() => {
+        if (page < totalPages - 1) setPage(p => p + 1);
+        else if (activeIdx < fullOutline.length - 1) setActiveIdx(i => i + 1);
+    }, [page, totalPages, activeIdx, fullOutline.length]);
+
+    const goPrev = useCallback(() => {
+        if (page > 0) setPage(p => p - 1);
+        else if (activeIdx > 0) setActiveIdx(i => i - 1);
+    }, [page, activeIdx]);
+
+    const handleTouchStart = (e: React.TouchEvent) => { touchStartX.current = e.touches[0].clientX; };
+    const handleTouchEnd = (e: React.TouchEvent) => {
+        if (touchStartX.current === null) return;
+        const delta = e.changedTouches[0].clientX - touchStartX.current;
+        touchStartX.current = null;
+        if (Math.abs(delta) < 40) return;
+        if (delta < 0) goNext(); else goPrev();
+    };
+    const handlePhoneTap = (e: React.MouseEvent<HTMLDivElement>) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const w = rect.width;
+        if (x < w * 0.35) goPrev();
+        else if (x > w * 0.65) goNext();
+        else setShowChrome(c => !c);
     };
 
     const DEVICES = [
@@ -195,33 +243,25 @@ const KDPPreview: React.FC<{
 
     const progressPct = fullOutline.length > 1 ? (activeIdx / (fullOutline.length - 1)) * 100 : 100;
 
-    const ReaderContent = () => (
-        <div className="flex flex-col h-full bg-[#faf9f7]">
-            <div className="flex items-center justify-between px-5 py-2.5 bg-white border-b border-slate-200 shrink-0">
-                <span className="text-xs font-semibold text-slate-500 truncate max-w-[45%]">{title}</span>
-                <span className="text-xs text-slate-400 font-medium truncate max-w-[45%]">{currentEntry?.title}</span>
-            </div>
-            <div className="flex-grow overflow-y-auto px-8 md:px-14 py-8 text-slate-800">
-                <div className="max-w-prose mx-auto" style={designStyles}
-                    dangerouslySetInnerHTML={{ __html: sanitizedContent }}
-                />
-            </div>
-            <div className="shrink-0 bg-white border-t border-slate-200">
-                <div className="h-1 bg-slate-100">
-                    <div className="h-full bg-primary-400 transition-all duration-300" style={{ width: `${progressPct}%` }} />
-                </div>
-                <div className="flex items-center justify-between px-5 py-2.5">
-                    <button onClick={() => setActiveIdx(i => Math.max(0, i - 1))} disabled={activeIdx === 0}
-                        className="flex items-center gap-1 text-xs font-semibold text-slate-600 disabled:opacity-30 hover:text-slate-900 transition-colors">
-                        <ChevronLeft size={14} /> Previous
-                    </button>
-                    <span className="text-xs text-slate-400 font-mono">{activeIdx + 1} / {fullOutline.length}</span>
-                    <button onClick={() => setActiveIdx(i => Math.min(fullOutline.length - 1, i + 1))} disabled={activeIdx >= fullOutline.length - 1}
-                        className="flex items-center gap-1 text-xs font-semibold text-slate-600 disabled:opacity-30 hover:text-slate-900 transition-colors">
-                        Next <ChevronRight size={14} />
-                    </button>
-                </div>
-            </div>
+    // Inline helper (not a React component) — column-paginated content with flip animation
+    const renderColumns = (padding: string) => (
+        <div ref={containerRef} className="w-full h-full overflow-hidden"
+             onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+            <div ref={contentRef}
+                 style={{
+                     height: '100%',
+                     columnWidth: 'calc(100% - 0px)',
+                     columnGap: '0px',
+                     columnFill: 'auto',
+                     overflow: 'visible',
+                     padding,
+                     boxSizing: 'border-box',
+                     transform: `translateX(calc(-${page} * 100%))`,
+                     transition: 'transform 0.3s cubic-bezier(0.25, 1, 0.5, 1)',
+                     ...designStyles,
+                 } as React.CSSProperties}
+                 dangerouslySetInnerHTML={{ __html: sanitizedContent }}
+            />
         </div>
     );
 
@@ -290,30 +330,103 @@ const KDPPreview: React.FC<{
 
                 {/* Device frame */}
                 <div className="flex-grow flex items-center justify-center p-4 sm:p-8 overflow-auto">
+
+                    {/* PHONE — sepia e-reader, tap left/right to flip, tap center to toggle chrome */}
                     {device === 'phone' && (
-                        <MobileReader title={title} outline={fullOutline} design={design} />
-                    )}
-                    {device === 'tablet' && (
-                        <div className="mx-auto rounded-[1.5rem] border-[10px] border-slate-700 shadow-2xl overflow-hidden flex flex-col"
-                            style={{ width: 660, height: 600, maxWidth: '100%' }}>
-                            <ReaderContent />
+                        <div className="relative bg-[#f4ecd8] border-[14px] border-slate-900 rounded-[3rem] shadow-2xl overflow-hidden select-none"
+                             style={{ width: 375, height: 800 }}>
+                            {/* Status bar */}
+                            <div className="absolute top-0 inset-x-0 h-10 z-30 flex justify-between items-center px-6 pt-2 text-[10px] font-bold text-[#5b4636]/50 pointer-events-none">
+                                <span>{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                <span className="opacity-60">●●● ▮</span>
+                            </div>
+                            {/* Top chrome */}
+                            <div className={`absolute top-0 inset-x-0 h-20 z-20 pointer-events-none transition-opacity duration-300 ${showChrome ? 'opacity-100' : 'opacity-0'} bg-gradient-to-b from-[#f4ecd8] to-transparent flex items-end justify-between px-5 pb-3`}>
+                                <span className="text-[9px] font-bold text-[#5b4636] uppercase tracking-widest truncate max-w-[55%] opacity-60">{title}</span>
+                                <span className="text-[8px] text-[#5b4636] opacity-40 truncate max-w-[40%]">{currentEntry?.title}</span>
+                            </div>
+                            {/* Tappable/swipeable content area */}
+                            <div className={`absolute inset-0 ${showChrome ? 'pt-20 pb-16' : 'pt-10 pb-4'}`}
+                                 onClick={handlePhoneTap} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+                                {renderColumns('0.25rem 1.5rem')}
+                            </div>
+                            {/* Bottom chrome */}
+                            <div className={`absolute bottom-0 inset-x-0 h-16 z-20 pointer-events-none transition-opacity duration-300 ${showChrome ? 'opacity-100' : 'opacity-0'} bg-gradient-to-t from-[#f4ecd8] to-transparent flex flex-col justify-end px-5 pb-3`}>
+                                <div className="h-0.5 bg-[#5b4636]/15 rounded-full mb-2 overflow-hidden">
+                                    <div className="h-full bg-[#8b7355] transition-all" style={{ width: `${progressPct}%` }} />
+                                </div>
+                                <div className="flex justify-between text-[9px] text-[#5b4636]/40 font-bold">
+                                    <span className="truncate max-w-[65%]">{currentEntry?.title}</span>
+                                    <span>{page + 1} / {totalPages}</span>
+                                </div>
+                            </div>
                         </div>
                     )}
+
+                    {/* TABLET — iPad frame with side arrow buttons + swipe */}
+                    {device === 'tablet' && (
+                        <div className="mx-auto rounded-[1.5rem] border-[10px] border-slate-700 shadow-2xl overflow-hidden flex flex-col bg-[#faf9f7] select-none"
+                             style={{ width: 660, height: 600, maxWidth: '100%' }}>
+                            <div className="flex items-center justify-between px-5 py-2 bg-white border-b border-slate-200 shrink-0">
+                                <span className="text-xs font-semibold text-slate-600 truncate max-w-[45%]">{title}</span>
+                                <span className="text-xs text-slate-400 truncate max-w-[45%]">{currentEntry?.title}</span>
+                            </div>
+                            <div className="flex-grow min-h-0 relative overflow-hidden">
+                                {renderColumns('2rem 3rem')}
+                                <button onClick={(e) => { e.stopPropagation(); goPrev(); }} disabled={activeIdx === 0 && page === 0}
+                                    className="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-8 h-8 flex items-center justify-center bg-white/90 rounded-full shadow border border-slate-200 disabled:opacity-20 hover:bg-slate-50 transition-all">
+                                    <ChevronLeft size={16} className="text-slate-700" />
+                                </button>
+                                <button onClick={(e) => { e.stopPropagation(); goNext(); }} disabled={activeIdx >= fullOutline.length - 1 && page >= totalPages - 1}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-8 h-8 flex items-center justify-center bg-white/90 rounded-full shadow border border-slate-200 disabled:opacity-20 hover:bg-slate-50 transition-all">
+                                    <ChevronRight size={16} className="text-slate-700" />
+                                </button>
+                            </div>
+                            <div className="shrink-0 bg-white border-t border-slate-200">
+                                <div className="h-1 bg-slate-100">
+                                    <div className="h-full bg-primary-400 transition-all" style={{ width: `${progressPct}%` }} />
+                                </div>
+                                <div className="flex items-center justify-center py-1.5 text-[10px] text-slate-400 font-mono">
+                                    Page {page + 1} of {totalPages} · Section {activeIdx + 1} of {fullOutline.length}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* DESKTOP — browser chrome frame with side arrow buttons + swipe */}
                     {device === 'desktop' && (
-                        <div className="w-full max-w-4xl mx-auto rounded-xl overflow-hidden shadow-2xl border border-slate-400 flex flex-col"
-                            style={{ height: 600 }}>
+                        <div className="w-full max-w-4xl mx-auto rounded-xl overflow-hidden shadow-2xl border border-slate-400 flex flex-col bg-[#faf9f7] select-none"
+                             style={{ height: 600 }}>
                             <div className="flex items-center gap-1.5 px-3 h-9 bg-slate-800 shrink-0">
                                 <div className="w-3 h-3 rounded-full bg-red-400 opacity-80" />
                                 <div className="w-3 h-3 rounded-full bg-yellow-400 opacity-80" />
                                 <div className="w-3 h-3 rounded-full bg-green-400 opacity-80" />
                                 <div className="flex-grow flex justify-center">
-                                    <div className="bg-slate-700 text-slate-300 text-[10px] px-4 py-0.5 rounded-full truncate max-w-xs">
-                                        Manuscale eBook Preview
-                                    </div>
+                                    <div className="bg-slate-700 text-slate-300 text-[10px] px-4 py-0.5 rounded-full truncate max-w-xs">Manuscale eBook Preview</div>
                                 </div>
                             </div>
-                            <div className="flex-grow flex min-h-0">
-                                <ReaderContent />
+                            <div className="flex items-center justify-between px-6 py-2 bg-white border-b border-slate-200 shrink-0">
+                                <span className="text-sm font-semibold text-slate-700 truncate max-w-[50%]">{title}</span>
+                                <span className="text-xs text-slate-400">{currentEntry?.title}</span>
+                            </div>
+                            <div className="flex-grow min-h-0 relative overflow-hidden">
+                                {renderColumns('2.5rem 5rem')}
+                                <button onClick={(e) => { e.stopPropagation(); goPrev(); }} disabled={activeIdx === 0 && page === 0}
+                                    className="absolute left-3 top-1/2 -translate-y-1/2 z-10 w-9 h-9 flex items-center justify-center bg-white/90 rounded-full shadow border border-slate-200 disabled:opacity-20 hover:bg-slate-50 transition-all">
+                                    <ChevronLeft size={18} className="text-slate-700" />
+                                </button>
+                                <button onClick={(e) => { e.stopPropagation(); goNext(); }} disabled={activeIdx >= fullOutline.length - 1 && page >= totalPages - 1}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 z-10 w-9 h-9 flex items-center justify-center bg-white/90 rounded-full shadow border border-slate-200 disabled:opacity-20 hover:bg-slate-50 transition-all">
+                                    <ChevronRight size={18} className="text-slate-700" />
+                                </button>
+                            </div>
+                            <div className="shrink-0 bg-white border-t border-slate-200">
+                                <div className="h-1 bg-slate-100">
+                                    <div className="h-full bg-primary-400 transition-all" style={{ width: `${progressPct}%` }} />
+                                </div>
+                                <div className="flex items-center justify-center py-1.5 text-[10px] text-slate-400 font-mono">
+                                    Page {page + 1} of {totalPages} · Section {activeIdx + 1} of {fullOutline.length}
+                                </div>
                             </div>
                         </div>
                     )}
