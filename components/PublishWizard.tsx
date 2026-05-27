@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback, useLayoutEffect } from 'react';
 import { EbookData, FrontMatter, MarketingAssets, BackMatter, OutlineItem } from '../types';
 import { generateMarketingPack, generateBookMockup, generateAboutAuthor, generateCopyright, generateSpeech, generateBibliography, generateDedication, generateMarketingImage } from '../services/aiClient';
-import { generateEPUB, generateDOCX, generateAudiobookZip, generateMarketingAssetsZip } from '../services/publisher';
+import { generateEPUB, getEPUBUint8Array, generateDOCX, generateAudiobookZip, generateMarketingAssetsZip } from '../services/publisher';
+import EPub from 'epubjs';
 
 import DOMPurify from 'dompurify';
 import { paginateContent } from '../utils/pagination';
@@ -87,146 +88,31 @@ const getReadingTime = (wordCount: number): string => {
     return rem > 0 ? `${hrs}h ${rem}m` : `${hrs}h`;
 };
 
+// EPUB.js Reader Component
 const KDPPreview: React.FC<{
-    title: string;
-    subtitle?: string;
-    author?: string;
-    coverImage?: string | null;
-    frontMatter: FrontMatter;
-    backMatter: BackMatter;
-    outline: OutlineItem[];
-    design?: any;
-}> = ({ title, subtitle, author, coverImage, frontMatter, backMatter, outline, design }) => {
+    data: EbookData;
+}> = ({ data }) => {
+    const { title = '', coverImage, design, frontMatter, backMatter, outline } = data;
+    const subtitle = (data as any).subtitle || '';
+    const author = data.author || '';
     const [device, setDevice] = useState<'phone' | 'tablet' | 'desktop'>('tablet');
-    const [activeIdx, setActiveIdx] = useState(0);
-    const [page, setPage] = useState(0);
-    const [totalPages, setTotalPages] = useState(1);
     const [showTOC, setShowTOC] = useState(false);
     const [theme, setTheme] = useState<'light' | 'sepia' | 'dark'>('sepia');
     const [fontSize, setFontSize] = useState<'sm' | 'md' | 'lg'>('md');
+    const [loading, setLoading] = useState(true);
+    const [percentage, setPercentage] = useState(0);
 
-    const touchStartX = useRef<number | null>(null);
-    const contentRef = useRef<HTMLDivElement>(null);
-    const containerRef = useRef<HTMLDivElement>(null);
+    const epubRef = useRef<any>(null);
+    const renditionRef = useRef<any>(null);
+    const viewerRef = useRef<HTMLDivElement>(null);
 
     const completedChapters = useMemo(() =>
-        outline.filter(c => c.status === 'completed' && c.content),
-    [outline]);
+        (outline || []).filter(c => c.status === 'completed' && c.content),
+        [outline]);
 
     const totalWords = useMemo(() =>
         completedChapters.reduce((sum, c) => sum + getWordCount(c.content!), 0),
-    [completedChapters]);
-
-    const fullOutline = useMemo((): OutlineItem[] => {
-        const pages: OutlineItem[] = [];
-
-        pages.push({
-            id: '__kdp_title__',
-            chapterNumber: 0,
-            title: 'Title Page',
-            beat: '',
-            targetWordCount: 0,
-            status: 'completed',
-            content: `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;text-align:center;padding:2em 1em;">
-                ${coverImage ? `<img src="${coverImage}" alt="Cover" style="max-height:200px;border-radius:6px;box-shadow:0 8px 30px rgba(0,0,0,0.2);margin-bottom:2em;"/>` : ''}
-                <h1 style="font-size:1.8em;font-weight:700;line-height:1.2;margin-bottom:0.4em;">${title}</h1>
-                ${subtitle ? `<p style="font-size:1em;color:#94a3b8;margin-bottom:0.5em;font-style:italic;">${subtitle}</p>` : ''}
-                ${author ? `<p style="font-size:0.9em;color:#64748b;margin-top:1.5em;">by <strong>${author}</strong></p>` : ''}
-            </div>`
-        });
-
-        if (frontMatter.copyright) {
-            pages.push({
-                id: '__kdp_copyright__',
-                chapterNumber: 0,
-                title: 'Copyright',
-                beat: '',
-                targetWordCount: 0,
-                status: 'completed',
-                content: `<div style="font-size:0.75em;text-align:center;padding:3em 1em;color:#94a3b8;line-height:1.6;">${frontMatter.copyright.replace(/\n/g, '<br/>')}</div>`
-            });
-        }
-
-        if (frontMatter.dedication) {
-            pages.push({
-                id: '__kdp_dedication__',
-                chapterNumber: 0,
-                title: 'Dedication',
-                beat: '',
-                targetWordCount: 0,
-                status: 'completed',
-                content: `<div style="font-style:italic;text-align:center;padding:4em 2em;font-size:1.05em;line-height:1.8;">${frontMatter.dedication}</div>`
-            });
-        }
-
-        completedChapters.forEach(c => pages.push(c));
-
-        if (frontMatter.aboutAuthor) {
-            pages.push({
-                id: '__kdp_about__',
-                chapterNumber: 0,
-                title: 'About the Author',
-                beat: '',
-                targetWordCount: 0,
-                status: 'completed',
-                content: `<div style="padding:1em 0;"><h2 style="font-size:1.3em;font-weight:700;margin-bottom:1em;padding-bottom:0.5em;border-bottom:1px solid #e2e8f0;">About the Author</h2><p style="line-height:1.7;">${frontMatter.aboutAuthor}</p></div>`
-            });
-        }
-
-        return pages;
-    }, [title, subtitle, author, coverImage, frontMatter, completedChapters]);
-
-    const currentEntry = fullOutline[Math.min(activeIdx, fullOutline.length - 1)] || fullOutline[0];
-
-    const sanitizedContent = useMemo(() => {
-        if (!currentEntry?.content) return '';
-        return DOMPurify.sanitize(currentEntry.content, {
-            ALLOWED_TAGS: ['h1','h2','h3','h4','h5','h6','p','br','hr','div','span',
-                           'strong','b','em','i','u','mark','ol','ul','li',
-                           'blockquote','img','a'],
-            ALLOWED_ATTR: ['style','class','src','alt','href']
-        });
-    }, [currentEntry]);
-
-    const designStyles: React.CSSProperties = {
-        fontFamily: design?.fontFamily || "'Georgia', serif",
-        lineHeight: design?.lineHeight || '1.75',
-    };
-
-    // Reset page when section, device, font size, or theme changes
-    useEffect(() => { setPage(0); setTotalPages(1); }, [activeIdx, device, fontSize, theme]);
-
-    // Measure total pages: each CSS column == contentRef's own clientWidth
-    const calculatePages = useCallback(() => {
-        if (!contentRef.current) return;
-        const scrollW = contentRef.current.scrollWidth;
-        const clientW = contentRef.current.clientWidth;
-        if (clientW > 0) setTotalPages(Math.max(1, Math.ceil(scrollW / clientW)));
-    }, [sanitizedContent, device, fontSize]);
-
-    useLayoutEffect(() => {
-        const timer = setTimeout(calculatePages, 100);
-        return () => clearTimeout(timer);
-    }, [calculatePages]);
-
-    const goNext = useCallback(() => {
-        if (page < totalPages - 1) setPage(p => p + 1);
-        else if (activeIdx < fullOutline.length - 1) setActiveIdx(i => i + 1);
-    }, [page, totalPages, activeIdx, fullOutline.length]);
-
-    const goPrev = useCallback(() => {
-        if (page > 0) setPage(p => p - 1);
-        else if (activeIdx > 0) setActiveIdx(i => i - 1);
-    }, [page, activeIdx]);
-
-    const handleTouchStart = (e: React.TouchEvent) => { touchStartX.current = e.touches[0].clientX; };
-    const handleTouchEnd = (e: React.TouchEvent) => {
-        if (touchStartX.current === null) return;
-        const delta = e.changedTouches[0].clientX - touchStartX.current;
-        touchStartX.current = null;
-        if (Math.abs(delta) < 40) return;
-        if (delta < 0) goNext(); else goPrev();
-    };
+        [completedChapters]);
 
     const DEVICES = [
         { id: 'phone' as const, label: 'Phone', Icon: Smartphone },
@@ -239,41 +125,141 @@ const KDPPreview: React.FC<{
         sepia: { page: '#f7f0e4', text: '#3a2c20', bg: '#2c231a', bar: '#221c14', soft: '#8a7458', border: '#e8dcc8' },
         dark:  { page: '#1e1e1e', text: '#d0cdc5', bg: '#0d0d0d', bar: '#111111', soft: '#606060', border: '#2a2a2a' },
     };
-    const EPUB_FONT_SIZES = { sm: '0.875rem', md: '1rem', lg: '1.125rem' };
+
+    const EPUB_FONT_SIZES = { sm: 85, md: 100, lg: 115 };
     const EPUB_DIMS = {
-        phone:   { width: 320, height: 490, padding: '1.5rem 1.75rem' },
-        tablet:  { width: 480, height: 650, padding: '2.5rem 2.5rem' },
-        desktop: { width: 660, height: 540, padding: '2.5rem 4rem' },
+        phone:   { width: 320, height: 490 },
+        tablet:  { width: 480, height: 650 },
+        desktop: { width: 800, height: 600 },
     };
+
     const tc = EPUB_THEMES[theme];
     const dim = EPUB_DIMS[device];
-    const progressPct = fullOutline.length > 1 ? (activeIdx / (fullOutline.length - 1)) * 100 : 100;
 
-    // Inline helper — EPUB column-paginated reader using book-content styles
-    const renderColumns = () => (
-        <div ref={containerRef} className="w-full h-full overflow-hidden"
-             style={{ padding: dim.padding, boxSizing: 'border-box' }}
-             onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
-            <div ref={contentRef}
-                 className="book-content paragraph-indent"
-                 style={{
-                     height: '100%',
-                     columnWidth: 'calc(100% - 0px)',
-                     columnGap: '0px',
-                     columnFill: 'auto',
-                     overflow: 'visible',
-                     transform: `translateX(calc(-${page} * 100%))`,
-                     transition: 'transform 0.3s cubic-bezier(0.25, 1, 0.5, 1)',
-                     '--ebook-font': design?.fontFamily || "'Georgia', serif",
-                     '--font-size': EPUB_FONT_SIZES[fontSize],
-                     '--line-height': design?.lineHeight || '1.75',
-                     '--text-color': tc.text,
-                     color: tc.text,
-                 } as React.CSSProperties}
-                 dangerouslySetInnerHTML={{ __html: sanitizedContent }}
-            />
-        </div>
-    );
+    // Initialize EPUB.js reader
+    useEffect(() => {
+        const initEpub = async () => {
+            try {
+                setLoading(true);
+                
+                // Generate EPUB as Uint8Array
+                const epubData = await getEPUBUint8Array(data);
+
+                if (!epubData) {
+                    console.error('Failed to generate EPUB');
+                    setLoading(false);
+                    return;
+                }
+
+                // Create blob and object URL
+                const blob = new Blob([epubData as any], { type: 'application/epub+zip' });
+                const url = URL.createObjectURL(blob);
+
+                // Create EPUB.js Book instance
+                const book = EPub(url);
+                epubRef.current = book;
+
+                // Create rendition
+                if (viewerRef.current) {
+                    const rendition = book.renderTo(viewerRef.current, {
+                        width: dim.width,
+                        height: dim.height,
+                        flow: 'paginated',
+                    });
+                    renditionRef.current = rendition;
+
+                    // Generate locations after rendering
+                    book.ready.then(() => {
+                        book.locations.generate(1024).catch(() => {
+                            // Continue even if location generation fails
+                        });
+                    });
+
+                    // Display first item
+                    rendition.display().then(() => {
+                        // Set up location tracking
+                        rendition.on('relocated', (location: any) => {
+                            if (location.start && location.start.percentage !== undefined) {
+                                setPercentage(Math.round(location.start.percentage * 100));
+                            }
+                        });
+                    });
+                }
+
+                setLoading(false);
+            } catch (error) {
+                console.error('Error initializing EPUB:', error);
+                setLoading(false);
+            }
+        };
+
+        initEpub();
+
+        return () => {
+            if (epubRef.current) {
+                try {
+                    epubRef.current.destroy();
+                } catch (e) {
+                    //cleanup error
+                }
+            }
+        };
+    }, [data]);
+
+    // Update viewport dimensions on device change
+    useEffect(() => {
+        if (renditionRef.current) {
+            renditionRef.current.resize(dim.width, dim.height);
+        }
+    }, [device, dim.width, dim.height]);
+
+    // Apply theme via CSS injection
+    useEffect(() => {
+        if (renditionRef.current) {
+            const themeCSS = `
+                html, body { background-color: ${tc.page} !important; color: ${tc.text} !important; }
+                * { color: ${tc.text} !important; }
+                a { color: ${tc.text} !important; text-decoration: underline; }
+                h1, h2, h3, h4, h5, h6 { color: ${tc.text} !important; }
+                p { color: ${tc.text} !important; }
+                pre, code { background-color: rgba(0,0,0,0.05); }
+            `;
+            try {
+                renditionRef.current.themes.register('manuscale', themeCSS);
+                renditionRef.current.themes.select('manuscale');
+            } catch (e) {
+                console.warn('Theme application error:', e);
+            }
+        }
+    }, [theme, tc]);
+
+    // Apply font size
+    useEffect(() => {
+        if (renditionRef.current) {
+            try {
+                renditionRef.current.themes.fontSize(`${EPUB_FONT_SIZES[fontSize]}%`);
+            } catch (e) {
+                console.warn('Font size application error:', e);
+            }
+        }
+    }, [fontSize]);
+
+    // Navigation handlers
+    const goNext = useCallback(() => {
+        if (renditionRef.current) {
+            renditionRef.current.next().catch(() => {
+                // End of book
+            });
+        }
+    }, []);
+
+    const goPrev = useCallback(() => {
+        if (renditionRef.current) {
+            renditionRef.current.prev().catch(() => {
+                // Beginning of book
+            });
+        }
+    }, []);
 
     return (
         <div className="space-y-4">
@@ -290,7 +276,7 @@ const KDPPreview: React.FC<{
                 <div className="text-center">
                     <div className="text-xs text-slate-500 uppercase font-bold tracking-wider">Chapters</div>
                     <div className="text-xl font-bold text-slate-900 mt-1">
-                        {completedChapters.length}<span className="text-sm font-normal text-slate-400"> / {outline.length}</span>
+                        {completedChapters.length}<span className="text-sm font-normal text-slate-400"> / {(outline || []).length}</span>
                     </div>
                 </div>
             </div>
@@ -346,19 +332,18 @@ const KDPPreview: React.FC<{
                 <div className="flex" style={{ minHeight: 660 }}>
                     {/* TOC Sidebar */}
                     {showTOC && (
-                        <div className="flex flex-col shrink-0 z-20"
-                             style={{ width: 210, background: tc.bar, borderRight: '1px solid rgba(255,255,255,0.07)' }}>
+                        <div className="flex flex-col shrink-0 z-20 w-52"
+                             style={{ background: tc.bar, borderRight: '1px solid rgba(255,255,255,0.07)' }}>
                             <div className="px-4 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
                                 <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: tc.soft }}>Contents</p>
                             </div>
                             <div className="flex-grow overflow-y-auto py-2">
-                                {fullOutline.map((ch, i) => (
-                                    <button key={ch.id} onClick={() => { setActiveIdx(i); setShowTOC(false); }}
+                                {(outline || []).map((ch, i) => (
+                                    <button key={ch.id} 
                                         className="w-full text-left px-4 py-2 text-xs transition-all"
                                         style={{
-                                            color: i === activeIdx ? '#fff' : tc.soft,
-                                            background: i === activeIdx ? 'rgba(255,255,255,0.12)' : 'transparent',
-                                            fontWeight: i === activeIdx ? 600 : 400,
+                                            color: tc.soft,
+                                            borderLeft: `2px solid ${tc.border}`,
                                         }}>
                                         <span className="block truncate">
                                             {ch.chapterNumber > 0 && <span className="opacity-40 font-mono text-[10px] mr-1">{ch.chapterNumber}.</span>}
@@ -370,75 +355,51 @@ const KDPPreview: React.FC<{
                         </div>
                     )}
 
-                    {/* Page area */}
+                    {/* EPUB.js Viewer Container */}
                     <div className="flex-grow flex items-center justify-center p-6 relative select-none"
-                         onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+                         style={{ background: tc.bg }}>
                         {/* Prev arrow */}
-                        <button onClick={goPrev} disabled={activeIdx === 0 && page === 0}
-                            className="absolute left-3 z-10 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 disabled:opacity-20 transition-all flex items-center justify-center text-white">
+                        <button onClick={goPrev}
+                            className="absolute left-3 z-10 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 transition-all flex items-center justify-center text-white">
                             <ChevronLeft size={18} />
                         </button>
 
-                        {/* EPUB page — clean white/sepia/dark rectangle with running header + footer */}
-                        <div style={{
+                        {/* EPUB.js Viewer */}
+                        <div ref={viewerRef} style={{
                             width: dim.width,
                             height: dim.height,
                             background: tc.page,
-                            position: 'relative',
                             borderRadius: '2px',
                             overflow: 'hidden',
                             boxShadow: '0 2px 6px rgba(0,0,0,0.15), 0 12px 40px rgba(0,0,0,0.45), inset -1px 0 0 rgba(0,0,0,0.06)',
-                        }}>
-                            {/* Running header */}
-                            <div style={{
-                                position: 'absolute', top: 0, left: 0, right: 0, height: 28,
-                                borderBottom: `1px solid ${tc.border}`,
-                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                padding: '0 1.75rem',
-                            }}>
-                                <span style={{ fontSize: '7.5px', textTransform: 'uppercase', letterSpacing: '0.14em', fontWeight: 700, color: tc.text, opacity: 0.28, maxWidth: '48%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</span>
-                                <span style={{ fontSize: '7.5px', textTransform: 'uppercase', letterSpacing: '0.14em', fontWeight: 700, color: tc.text, opacity: 0.28, maxWidth: '48%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>{currentEntry?.title}</span>
-                            </div>
-
-                            {/* Content zone — absolutely positioned so CSS columns get a definite height */}
-                            <div style={{ position: 'absolute', top: 28, bottom: 28, left: 0, right: 0, overflow: 'hidden', cursor: 'pointer' }}
-                                 onClick={(e) => {
-                                     const rect = e.currentTarget.getBoundingClientRect();
-                                     const x = e.clientX - rect.left;
-                                     if (x < rect.width * 0.3) goPrev();
-                                     else if (x > rect.width * 0.7) goNext();
-                                 }}>
-                                {renderColumns()}
-                            </div>
-
-                            {/* Running footer */}
-                            <div style={{
-                                position: 'absolute', bottom: 0, left: 0, right: 0, height: 28,
-                                borderTop: `1px solid ${tc.border}`,
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            }}>
-                                <span style={{ fontSize: '9px', fontFamily: 'monospace', color: tc.text, opacity: 0.28 }}>{page + 1}</span>
-                            </div>
-                        </div>
+                        }} />
 
                         {/* Next arrow */}
-                        <button onClick={goNext} disabled={activeIdx >= fullOutline.length - 1 && page >= totalPages - 1}
-                            className="absolute right-3 z-10 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 disabled:opacity-20 transition-all flex items-center justify-center text-white">
+                        <button onClick={goNext}
+                            className="absolute right-3 z-10 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 transition-all flex items-center justify-center text-white">
                             <ChevronRight size={18} />
                         </button>
+
+                        {/* Loading indicator */}
+                        {loading && (
+                            <div className="absolute inset-0 flex items-center justify-center"
+                                 style={{ background: 'rgba(0,0,0,0.3)' }}>
+                                <Loader2 className="animate-spin text-white" size={28} />
+                            </div>
+                        )}
                     </div>
                 </div>
 
                 {/* Bottom progress bar */}
                 <div className="flex items-center gap-4 px-6 py-2.5"
                      style={{ background: tc.bar, borderTop: '1px solid rgba(255,255,255,0.07)' }}>
-                    <span className="text-xs truncate max-w-[30%]" style={{ color: tc.soft }}>{currentEntry?.title}</span>
+                    <span className="text-xs truncate max-w-[30%]" style={{ color: tc.soft }}>Reading</span>
                     <div className="flex-grow h-0.5 rounded-full" style={{ background: 'rgba(255,255,255,0.12)' }}>
                         <div className="h-full rounded-full transition-all duration-500"
-                             style={{ width: `${progressPct}%`, background: 'rgba(255,255,255,0.45)' }} />
+                             style={{ width: `${percentage}%`, background: 'rgba(255,255,255,0.45)' }} />
                     </div>
                     <span className="text-xs font-mono shrink-0" style={{ color: tc.soft }}>
-                        {Math.round(progressPct)}%
+                        {percentage}%
                     </span>
                 </div>
             </div>
@@ -694,7 +655,7 @@ ${assets.adCopyExamples ? assets.adCopyExamples.map(ad => `[${ad.platform}]\n${a
       setIsGeneratingAudio(true);
       setAudioProgress(0);
       try {
-          const blob = await generateAudiobookZip(finalDownloadableData, selectedVoice, (progress) => {
+          const blob = await generateAudiobookZip(finalDownloadableData, selectedVoice, (progress: number) => {
               setAudioProgress(progress);
           }, true, selectedQuality);
           if (blob) {
@@ -1110,14 +1071,7 @@ ${assets.adCopyExamples ? assets.adCopyExamples.map(ad => `[${ad.platform}]\n${a
                         <p className="text-sm text-slate-500">Preview your ebook across Phone, Tablet, and Desktop. Use the Contents panel to jump to any section.</p>
                     </div>
                     <KDPPreview
-                        title={metadata.title}
-                        subtitle={metadata.subtitle}
-                        author={metadata.author}
-                        coverImage={data.coverImage}
-                        frontMatter={frontMatter}
-                        backMatter={backMatter}
-                        outline={data.outline || []}
-                        design={data.design}
+                        data={data}
                     />
                 </div>
             )}
