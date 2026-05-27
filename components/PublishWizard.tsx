@@ -97,12 +97,13 @@ const KDPPreview: React.FC<{
     outline: OutlineItem[];
     design?: any;
 }> = ({ title, subtitle, author, coverImage, frontMatter, backMatter, outline, design }) => {
-    const [device, setDevice] = useState<'phone' | 'tablet' | 'desktop'>('phone');
+    const [device, setDevice] = useState<'phone' | 'tablet' | 'desktop'>('tablet');
     const [activeIdx, setActiveIdx] = useState(0);
     const [page, setPage] = useState(0);
     const [totalPages, setTotalPages] = useState(1);
     const [showTOC, setShowTOC] = useState(false);
-    const [showChrome, setShowChrome] = useState(true);
+    const [theme, setTheme] = useState<'light' | 'sepia' | 'dark'>('sepia');
+    const [fontSize, setFontSize] = useState<'sm' | 'md' | 'lg'>('md');
 
     const touchStartX = useRef<number | null>(null);
     const contentRef = useRef<HTMLDivElement>(null);
@@ -192,16 +193,16 @@ const KDPPreview: React.FC<{
         lineHeight: design?.lineHeight || '1.75',
     };
 
-    // Reset page when section or device changes
-    useEffect(() => { setPage(0); setTotalPages(1); }, [activeIdx, device]);
+    // Reset page when section, device, font size, or theme changes
+    useEffect(() => { setPage(0); setTotalPages(1); }, [activeIdx, device, fontSize, theme]);
 
-    // Measure total pages via CSS column overflow
+    // Measure total pages: each CSS column == contentRef's own clientWidth
     const calculatePages = useCallback(() => {
-        if (!contentRef.current || !containerRef.current) return;
+        if (!contentRef.current) return;
         const scrollW = contentRef.current.scrollWidth;
-        const clientW = containerRef.current.clientWidth;
+        const clientW = contentRef.current.clientWidth;
         if (clientW > 0) setTotalPages(Math.max(1, Math.ceil(scrollW / clientW)));
-    }, [sanitizedContent, device]);
+    }, [sanitizedContent, device, fontSize]);
 
     useLayoutEffect(() => {
         const timer = setTimeout(calculatePages, 100);
@@ -226,14 +227,6 @@ const KDPPreview: React.FC<{
         if (Math.abs(delta) < 40) return;
         if (delta < 0) goNext(); else goPrev();
     };
-    const handlePhoneTap = (e: React.MouseEvent<HTMLDivElement>) => {
-        const rect = e.currentTarget.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const w = rect.width;
-        if (x < w * 0.35) goPrev();
-        else if (x > w * 0.65) goNext();
-        else setShowChrome(c => !c);
-    };
 
     const DEVICES = [
         { id: 'phone' as const, label: 'Phone', Icon: Smartphone },
@@ -241,24 +234,41 @@ const KDPPreview: React.FC<{
         { id: 'desktop' as const, label: 'Desktop', Icon: Monitor },
     ];
 
+    const EPUB_THEMES = {
+        light: { page: '#ffffff', text: '#1c1c1c', bg: '#d4d4d8', bar: '#2a2a38', soft: '#888888', border: '#eeeeee' },
+        sepia: { page: '#f7f0e4', text: '#3a2c20', bg: '#2c231a', bar: '#221c14', soft: '#8a7458', border: '#e8dcc8' },
+        dark:  { page: '#1e1e1e', text: '#d0cdc5', bg: '#0d0d0d', bar: '#111111', soft: '#606060', border: '#2a2a2a' },
+    };
+    const EPUB_FONT_SIZES = { sm: '0.875rem', md: '1rem', lg: '1.125rem' };
+    const EPUB_DIMS = {
+        phone:   { width: 320, height: 490, padding: '1.5rem 1.75rem' },
+        tablet:  { width: 480, height: 650, padding: '2.5rem 2.5rem' },
+        desktop: { width: 660, height: 540, padding: '2.5rem 4rem' },
+    };
+    const tc = EPUB_THEMES[theme];
+    const dim = EPUB_DIMS[device];
     const progressPct = fullOutline.length > 1 ? (activeIdx / (fullOutline.length - 1)) * 100 : 100;
 
-    // Inline helper (not a React component) — column-paginated content with flip animation
-    const renderColumns = (padding: string) => (
+    // Inline helper — EPUB column-paginated reader using book-content styles
+    const renderColumns = () => (
         <div ref={containerRef} className="w-full h-full overflow-hidden"
+             style={{ padding: dim.padding, boxSizing: 'border-box' }}
              onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
             <div ref={contentRef}
+                 className="book-content paragraph-indent"
                  style={{
                      height: '100%',
                      columnWidth: 'calc(100% - 0px)',
                      columnGap: '0px',
                      columnFill: 'auto',
                      overflow: 'visible',
-                     padding,
-                     boxSizing: 'border-box',
                      transform: `translateX(calc(-${page} * 100%))`,
                      transition: 'transform 0.3s cubic-bezier(0.25, 1, 0.5, 1)',
-                     ...designStyles,
+                     '--ebook-font': design?.fontFamily || "'Georgia', serif",
+                     '--font-size': EPUB_FONT_SIZES[fontSize],
+                     '--line-height': design?.lineHeight || '1.75',
+                     '--text-color': tc.text,
+                     color: tc.text,
                  } as React.CSSProperties}
                  dangerouslySetInnerHTML={{ __html: sanitizedContent }}
             />
@@ -285,151 +295,151 @@ const KDPPreview: React.FC<{
                 </div>
             </div>
 
-            {/* KDP-style device toolbar */}
-            <div className="flex items-center justify-between bg-slate-900 rounded-xl px-3 py-2">
-                <div className="flex bg-slate-800 rounded-lg p-0.5 gap-0.5">
-                    {DEVICES.map(({ id, label, Icon }) => (
-                        <button key={id} onClick={() => setDevice(id)}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all duration-200 ${device === id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-white'}`}
-                        >
-                            <Icon size={13} /> <span className="hidden sm:inline">{label}</span>
-                        </button>
-                    ))}
-                </div>
-                <span className="text-xs text-slate-500 truncate max-w-[30%] hidden md:block">{title}</span>
-                <button onClick={() => setShowTOC(t => !t)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${showTOC ? 'bg-primary-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-700'}`}
-                >
-                    <BookOpen size={13} /> <span className="hidden sm:inline">Contents</span>
-                </button>
-            </div>
+            {/* EPUB Reader Shell */}
+            <div className="rounded-2xl overflow-hidden shadow-2xl border border-black/20"
+                 style={{ background: tc.bg }}>
 
-            {/* Preview area */}
-            <div className="relative bg-slate-300 rounded-xl flex overflow-hidden" style={{ minHeight: 680 }}>
-                {/* TOC Sidebar */}
-                {showTOC && (
-                    <div className="w-56 bg-white border-r border-slate-200 flex flex-col z-20 shrink-0">
-                        <div className="px-4 py-3 border-b bg-slate-50 shrink-0">
-                            <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider">Table of Contents</h3>
-                            <p className="text-xs text-slate-500 mt-0.5">{fullOutline.length} sections</p>
-                        </div>
-                        <div className="flex-grow overflow-y-auto">
-                            {fullOutline.map((ch, i) => (
-                                <button key={ch.id} onClick={() => setActiveIdx(i)}
-                                    className={`w-full text-left px-4 py-2.5 text-xs transition-colors border-l-2 ${i === activeIdx ? 'bg-primary-50 text-primary-700 font-semibold border-primary-500' : 'text-slate-600 hover:bg-slate-50 border-transparent'}`}
-                                >
-                                    <span className="block truncate">
-                                        {ch.chapterNumber > 0 && <span className="text-slate-400 mr-1.5 font-mono">{ch.chapterNumber}.</span>}
-                                        {ch.title}
-                                    </span>
-                                </button>
-                            ))}
-                        </div>
+                {/* Top Reader Toolbar */}
+                <div className="flex items-center gap-2 px-4 py-2.5"
+                     style={{ background: tc.bar, borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                    {/* TOC toggle */}
+                    <button onClick={() => setShowTOC(t => !t)}
+                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${showTOC ? 'bg-white/20 text-white' : 'text-white/40 hover:text-white/80 hover:bg-white/10'}`}>
+                        <BookOpen size={13} /><span className="hidden sm:inline">Contents</span>
+                    </button>
+                    <div className="w-px h-4 bg-white/10 mx-0.5" />
+                    {/* Book title */}
+                    <span className="flex-grow text-center text-xs font-medium truncate"
+                          style={{ color: tc.soft }}>{title}</span>
+                    <div className="w-px h-4 bg-white/10 mx-0.5" />
+                    {/* Theme swatches */}
+                    <div className="flex items-center gap-1.5">
+                        {(['light', 'sepia', 'dark'] as const).map(t => (
+                            <button key={t} onClick={() => setTheme(t)}
+                                title={t.charAt(0).toUpperCase() + t.slice(1)}
+                                className={`w-4 h-4 rounded-full border-2 transition-all ${theme === t ? 'border-white scale-125' : 'border-white/25 hover:border-white/60'}`}
+                                style={{ background: t === 'light' ? '#fff' : t === 'sepia' ? '#f7f0e4' : '#1e1e1e' }} />
+                        ))}
                     </div>
-                )}
+                    <div className="w-px h-4 bg-white/10 mx-0.5" />
+                    {/* Font size */}
+                    <div className="flex items-center gap-0.5">
+                        {(['sm', 'md', 'lg'] as const).map((s, i) => (
+                            <button key={s} onClick={() => setFontSize(s)}
+                                className={`px-1 rounded transition-all font-bold ${fontSize === s ? 'text-white' : 'text-white/30 hover:text-white/60'}`}
+                                style={{ fontSize: `${9 + i * 3}px` }}>A</button>
+                        ))}
+                    </div>
+                    <div className="w-px h-4 bg-white/10 mx-0.5" />
+                    {/* Device picker */}
+                    <div className="flex gap-0.5">
+                        {DEVICES.map(({ id, Icon }) => (
+                            <button key={id} onClick={() => setDevice(id)}
+                                className={`p-1.5 rounded-lg transition-all ${device === id ? 'text-white bg-white/20' : 'text-white/30 hover:text-white/70 hover:bg-white/10'}`}>
+                                <Icon size={14} />
+                            </button>
+                        ))}
+                    </div>
+                </div>
 
-                {/* Device frame */}
-                <div className="flex-grow flex items-center justify-center p-4 sm:p-8 overflow-auto">
-
-                    {/* PHONE — sepia e-reader, tap left/right to flip, tap center to toggle chrome */}
-                    {device === 'phone' && (
-                        <div className="relative bg-[#f4ecd8] border-[14px] border-slate-900 rounded-[3rem] shadow-2xl overflow-hidden select-none"
-                             style={{ width: 375, height: 800 }}>
-                            {/* Status bar */}
-                            <div className="absolute top-0 inset-x-0 h-10 z-30 flex justify-between items-center px-6 pt-2 text-[10px] font-bold text-[#5b4636]/50 pointer-events-none">
-                                <span>{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                <span className="opacity-60">●●● ▮</span>
+                {/* Reading area */}
+                <div className="flex" style={{ minHeight: 660 }}>
+                    {/* TOC Sidebar */}
+                    {showTOC && (
+                        <div className="flex flex-col shrink-0 z-20"
+                             style={{ width: 210, background: tc.bar, borderRight: '1px solid rgba(255,255,255,0.07)' }}>
+                            <div className="px-4 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: tc.soft }}>Contents</p>
                             </div>
-                            {/* Top chrome */}
-                            <div className={`absolute top-0 inset-x-0 h-20 z-20 pointer-events-none transition-opacity duration-300 ${showChrome ? 'opacity-100' : 'opacity-0'} bg-gradient-to-b from-[#f4ecd8] to-transparent flex items-end justify-between px-5 pb-3`}>
-                                <span className="text-[9px] font-bold text-[#5b4636] uppercase tracking-widest truncate max-w-[55%] opacity-60">{title}</span>
-                                <span className="text-[8px] text-[#5b4636] opacity-40 truncate max-w-[40%]">{currentEntry?.title}</span>
-                            </div>
-                            {/* Tappable/swipeable content area */}
-                            <div className={`absolute inset-0 ${showChrome ? 'pt-20 pb-16' : 'pt-10 pb-4'}`}
-                                 onClick={handlePhoneTap} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
-                                {renderColumns('0.25rem 1.5rem')}
-                            </div>
-                            {/* Bottom chrome */}
-                            <div className={`absolute bottom-0 inset-x-0 h-16 z-20 pointer-events-none transition-opacity duration-300 ${showChrome ? 'opacity-100' : 'opacity-0'} bg-gradient-to-t from-[#f4ecd8] to-transparent flex flex-col justify-end px-5 pb-3`}>
-                                <div className="h-0.5 bg-[#5b4636]/15 rounded-full mb-2 overflow-hidden">
-                                    <div className="h-full bg-[#8b7355] transition-all" style={{ width: `${progressPct}%` }} />
-                                </div>
-                                <div className="flex justify-between text-[9px] text-[#5b4636]/40 font-bold">
-                                    <span className="truncate max-w-[65%]">{currentEntry?.title}</span>
-                                    <span>{page + 1} / {totalPages}</span>
-                                </div>
+                            <div className="flex-grow overflow-y-auto py-2">
+                                {fullOutline.map((ch, i) => (
+                                    <button key={ch.id} onClick={() => { setActiveIdx(i); setShowTOC(false); }}
+                                        className="w-full text-left px-4 py-2 text-xs transition-all"
+                                        style={{
+                                            color: i === activeIdx ? '#fff' : tc.soft,
+                                            background: i === activeIdx ? 'rgba(255,255,255,0.12)' : 'transparent',
+                                            fontWeight: i === activeIdx ? 600 : 400,
+                                        }}>
+                                        <span className="block truncate">
+                                            {ch.chapterNumber > 0 && <span className="opacity-40 font-mono text-[10px] mr-1">{ch.chapterNumber}.</span>}
+                                            {ch.title}
+                                        </span>
+                                    </button>
+                                ))}
                             </div>
                         </div>
                     )}
 
-                    {/* TABLET — iPad frame with side arrow buttons + swipe */}
-                    {device === 'tablet' && (
-                        <div className="mx-auto rounded-[1.5rem] border-[10px] border-slate-700 shadow-2xl overflow-hidden flex flex-col bg-[#faf9f7] select-none"
-                             style={{ width: 660, height: 600, maxWidth: '100%' }}>
-                            <div className="flex items-center justify-between px-5 py-2 bg-white border-b border-slate-200 shrink-0">
-                                <span className="text-xs font-semibold text-slate-600 truncate max-w-[45%]">{title}</span>
-                                <span className="text-xs text-slate-400 truncate max-w-[45%]">{currentEntry?.title}</span>
-                            </div>
-                            <div className="flex-grow min-h-0 relative overflow-hidden">
-                                {renderColumns('2rem 3rem')}
-                                <button onClick={(e) => { e.stopPropagation(); goPrev(); }} disabled={activeIdx === 0 && page === 0}
-                                    className="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-8 h-8 flex items-center justify-center bg-white/90 rounded-full shadow border border-slate-200 disabled:opacity-20 hover:bg-slate-50 transition-all">
-                                    <ChevronLeft size={16} className="text-slate-700" />
-                                </button>
-                                <button onClick={(e) => { e.stopPropagation(); goNext(); }} disabled={activeIdx >= fullOutline.length - 1 && page >= totalPages - 1}
-                                    className="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-8 h-8 flex items-center justify-center bg-white/90 rounded-full shadow border border-slate-200 disabled:opacity-20 hover:bg-slate-50 transition-all">
-                                    <ChevronRight size={16} className="text-slate-700" />
-                                </button>
-                            </div>
-                            <div className="shrink-0 bg-white border-t border-slate-200">
-                                <div className="h-1 bg-slate-100">
-                                    <div className="h-full bg-primary-400 transition-all" style={{ width: `${progressPct}%` }} />
-                                </div>
-                                <div className="flex items-center justify-center py-1.5 text-[10px] text-slate-400 font-mono">
-                                    Page {page + 1} of {totalPages} · Section {activeIdx + 1} of {fullOutline.length}
-                                </div>
-                            </div>
-                        </div>
-                    )}
+                    {/* Page area */}
+                    <div className="flex-grow flex items-center justify-center p-6 relative select-none"
+                         onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+                        {/* Prev arrow */}
+                        <button onClick={goPrev} disabled={activeIdx === 0 && page === 0}
+                            className="absolute left-3 z-10 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 disabled:opacity-20 transition-all flex items-center justify-center text-white">
+                            <ChevronLeft size={18} />
+                        </button>
 
-                    {/* DESKTOP — browser chrome frame with side arrow buttons + swipe */}
-                    {device === 'desktop' && (
-                        <div className="w-full max-w-4xl mx-auto rounded-xl overflow-hidden shadow-2xl border border-slate-400 flex flex-col bg-[#faf9f7] select-none"
-                             style={{ height: 600 }}>
-                            <div className="flex items-center gap-1.5 px-3 h-9 bg-slate-800 shrink-0">
-                                <div className="w-3 h-3 rounded-full bg-red-400 opacity-80" />
-                                <div className="w-3 h-3 rounded-full bg-yellow-400 opacity-80" />
-                                <div className="w-3 h-3 rounded-full bg-green-400 opacity-80" />
-                                <div className="flex-grow flex justify-center">
-                                    <div className="bg-slate-700 text-slate-300 text-[10px] px-4 py-0.5 rounded-full truncate max-w-xs">Manuscale eBook Preview</div>
-                                </div>
+                        {/* EPUB page — clean white/sepia/dark rectangle with running header + footer */}
+                        <div style={{
+                            width: dim.width,
+                            height: dim.height,
+                            background: tc.page,
+                            position: 'relative',
+                            borderRadius: '2px',
+                            overflow: 'hidden',
+                            boxShadow: '0 2px 6px rgba(0,0,0,0.15), 0 12px 40px rgba(0,0,0,0.45), inset -1px 0 0 rgba(0,0,0,0.06)',
+                        }}>
+                            {/* Running header */}
+                            <div style={{
+                                position: 'absolute', top: 0, left: 0, right: 0, height: 28,
+                                borderBottom: `1px solid ${tc.border}`,
+                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                padding: '0 1.75rem',
+                            }}>
+                                <span style={{ fontSize: '7.5px', textTransform: 'uppercase', letterSpacing: '0.14em', fontWeight: 700, color: tc.text, opacity: 0.28, maxWidth: '48%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</span>
+                                <span style={{ fontSize: '7.5px', textTransform: 'uppercase', letterSpacing: '0.14em', fontWeight: 700, color: tc.text, opacity: 0.28, maxWidth: '48%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>{currentEntry?.title}</span>
                             </div>
-                            <div className="flex items-center justify-between px-6 py-2 bg-white border-b border-slate-200 shrink-0">
-                                <span className="text-sm font-semibold text-slate-700 truncate max-w-[50%]">{title}</span>
-                                <span className="text-xs text-slate-400">{currentEntry?.title}</span>
+
+                            {/* Content zone — absolutely positioned so CSS columns get a definite height */}
+                            <div style={{ position: 'absolute', top: 28, bottom: 28, left: 0, right: 0, overflow: 'hidden', cursor: 'pointer' }}
+                                 onClick={(e) => {
+                                     const rect = e.currentTarget.getBoundingClientRect();
+                                     const x = e.clientX - rect.left;
+                                     if (x < rect.width * 0.3) goPrev();
+                                     else if (x > rect.width * 0.7) goNext();
+                                 }}>
+                                {renderColumns()}
                             </div>
-                            <div className="flex-grow min-h-0 relative overflow-hidden">
-                                {renderColumns('2.5rem 5rem')}
-                                <button onClick={(e) => { e.stopPropagation(); goPrev(); }} disabled={activeIdx === 0 && page === 0}
-                                    className="absolute left-3 top-1/2 -translate-y-1/2 z-10 w-9 h-9 flex items-center justify-center bg-white/90 rounded-full shadow border border-slate-200 disabled:opacity-20 hover:bg-slate-50 transition-all">
-                                    <ChevronLeft size={18} className="text-slate-700" />
-                                </button>
-                                <button onClick={(e) => { e.stopPropagation(); goNext(); }} disabled={activeIdx >= fullOutline.length - 1 && page >= totalPages - 1}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 z-10 w-9 h-9 flex items-center justify-center bg-white/90 rounded-full shadow border border-slate-200 disabled:opacity-20 hover:bg-slate-50 transition-all">
-                                    <ChevronRight size={18} className="text-slate-700" />
-                                </button>
-                            </div>
-                            <div className="shrink-0 bg-white border-t border-slate-200">
-                                <div className="h-1 bg-slate-100">
-                                    <div className="h-full bg-primary-400 transition-all" style={{ width: `${progressPct}%` }} />
-                                </div>
-                                <div className="flex items-center justify-center py-1.5 text-[10px] text-slate-400 font-mono">
-                                    Page {page + 1} of {totalPages} · Section {activeIdx + 1} of {fullOutline.length}
-                                </div>
+
+                            {/* Running footer */}
+                            <div style={{
+                                position: 'absolute', bottom: 0, left: 0, right: 0, height: 28,
+                                borderTop: `1px solid ${tc.border}`,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}>
+                                <span style={{ fontSize: '9px', fontFamily: 'monospace', color: tc.text, opacity: 0.28 }}>{page + 1}</span>
                             </div>
                         </div>
-                    )}
+
+                        {/* Next arrow */}
+                        <button onClick={goNext} disabled={activeIdx >= fullOutline.length - 1 && page >= totalPages - 1}
+                            className="absolute right-3 z-10 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 disabled:opacity-20 transition-all flex items-center justify-center text-white">
+                            <ChevronRight size={18} />
+                        </button>
+                    </div>
+                </div>
+
+                {/* Bottom progress bar */}
+                <div className="flex items-center gap-4 px-6 py-2.5"
+                     style={{ background: tc.bar, borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+                    <span className="text-xs truncate max-w-[30%]" style={{ color: tc.soft }}>{currentEntry?.title}</span>
+                    <div className="flex-grow h-0.5 rounded-full" style={{ background: 'rgba(255,255,255,0.12)' }}>
+                        <div className="h-full rounded-full transition-all duration-500"
+                             style={{ width: `${progressPct}%`, background: 'rgba(255,255,255,0.45)' }} />
+                    </div>
+                    <span className="text-xs font-mono shrink-0" style={{ color: tc.soft }}>
+                        {Math.round(progressPct)}%
+                    </span>
                 </div>
             </div>
         </div>
