@@ -522,64 +522,6 @@ const EditorToolbar: React.FC<{ activeFormats: Record<string, boolean>; onUndo?:
     );
 };
 
-const DocxPreview: React.FC<{ html: string, design: DesignSettings, chapterTitle?: string }> = ({ html, design, chapterTitle }) => {
-    const styles = { 
-        '--ebook-font': design.fontFamily, 
-        '--font-size': design.fontSize, 
-        '--line-height': design.lineHeight, 
-        '--paragraph-spacing': design.paragraphSpacing,
-        '--first-line-indent': design.firstLineIndent,
-        '--block-indent': design.blockIndent,
-        textAlign: design.justification === 'justify' ? 'justify' : 'left', 
-    } as React.CSSProperties;
-    const paraClass = design.paragraphStyle === 'block' ? 'paragraph-block' : 'paragraph-indent';
-
-    return (
-        <div className="relative group">
-            {/* Chapter label ribbon */}
-            {chapterTitle && (
-                <div className="mb-4 flex items-center gap-3">
-                    <div className="h-px flex-grow bg-slate-300"></div>
-                    <span className="text-xs font-bold uppercase tracking-widest text-slate-400 px-3 py-1 bg-slate-100 rounded-full border border-slate-200">{chapterTitle}</span>
-                    <div className="h-px flex-grow bg-slate-300"></div>
-                </div>
-            )}
-            <div className="book-page">
-                <div 
-                    className={`book-content ${paraClass}`} 
-                    style={styles} 
-                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(html, DOMPURIFY_CONFIG) }} 
-                />
-            </div>
-        </div>
-    );
-};
-
-const PageView = React.memo<{ html: string, pageNum: number, chapterId?: string, pageIndex?: number, design?: DesignSettings, onContentChange?: (chapterId: string, pageIndex: number, newHtml: string, skipPagination?: boolean) => void, readOnly?: boolean }>(({ html, pageNum, chapterId, pageIndex, design, onContentChange, readOnly }) => {
-    const contentRef = useRef<HTMLDivElement>(null);
-    const sanitizedHtml = useMemo(() => DOMPurify.sanitize(html, DOMPURIFY_CONFIG), [html]);
-
-    useLayoutEffect(() => { if (contentRef.current && contentRef.current.innerHTML !== sanitizedHtml) { contentRef.current.innerHTML = sanitizedHtml; } }, [sanitizedHtml]);
-    
-    const styles = design ? { 
-        '--ebook-font': design.fontFamily, 
-        '--font-size': design.fontSize, 
-        '--line-height': design.lineHeight, 
-        '--paragraph-spacing': design.paragraphSpacing,
-        '--first-line-indent': design.firstLineIndent,
-        '--block-indent': design.blockIndent,
-        textAlign: design.justification === 'justify' ? 'justify' : 'left', 
-    } as React.CSSProperties : {};
-    const paraClass = design?.paragraphStyle === 'block' ? 'paragraph-block' : 'paragraph-indent';
-    
-    return (
-        <div className="book-page group">
-            <div ref={contentRef} className={`book-content ${paraClass} outline-none focus:outline-none cursor-text select-text z-20 relative`} style={styles} contentEditable={!readOnly && !!chapterId && !!onContentChange} suppressContentEditableWarning={true} onBlur={() => { if (contentRef.current && onContentChange && chapterId) onContentChange(chapterId, pageIndex || 0, contentRef.current.innerHTML); }} dangerouslySetInnerHTML={{ __html: sanitizedHtml }} />
-            <div className="page-number">{pageNum}</div>
-        </div>
-    );
-});
-
 const FormattingSidebar: React.FC<{ onClose: () => void, settings: DesignSettings, onUpdateSettings: (s: DesignSettings) => void }> = ({ onClose, settings, onUpdateSettings }) => {
     return (
         <div className="fixed top-0 right-0 h-full w-[85vw] sm:w-80 max-w-80 bg-white shadow-2xl border-l border-slate-200 z-50 flex flex-col animate-in slide-in-from-right duration-300">
@@ -656,162 +598,12 @@ const FormattingSidebar: React.FC<{ onClose: () => void, settings: DesignSetting
     );
 };
 
-const DevicePreview: React.FC<{ html: string, device: 'mobile' | 'tablet' | 'desktop', design: DesignSettings, chapterTitle?: string }> = ({ html, device, design, chapterTitle }) => {
-    const [currentPage, setCurrentPage] = useState(0);
-    const [totalPages, setTotalPages] = useState(1);
-    const contentRef = useRef<HTMLDivElement>(null);
-    const viewportRef = useRef<HTMLDivElement>(null);
-    const measureRef = useRef<HTMLDivElement>(null);
-
-    const isTwoPage = device !== 'mobile';
-    const gap = isTwoPage ? 40 : 20;
-    const padding = isTwoPage ? 40 : 20;
-    
-    const styles = { 
-        '--ebook-font': design.fontFamily, 
-        '--font-size': design.fontSize, 
-        '--line-height': design.lineHeight, 
-        '--paragraph-spacing': design.paragraphSpacing,
-        '--first-line-indent': design.firstLineIndent,
-        '--block-indent': design.blockIndent,
-        textAlign: design.justification === 'justify' ? 'justify' : 'left', 
-    } as React.CSSProperties;
-    
-    const paraClass = design.paragraphStyle === 'block' ? 'paragraph-block' : 'paragraph-indent';
-    
-    let containerClass = "mx-auto bg-white shadow-xl overflow-hidden relative transition-all duration-300 flex flex-col";
-    if (device === 'mobile') containerClass += " w-full max-w-[375px] h-[600px] sm:h-[812px] rounded-[2rem] sm:rounded-[3rem] border-[6px] sm:border-[8px] border-slate-800 my-4 sm:my-8";
-    else if (device === 'tablet') containerClass += " w-full max-w-[768px] h-[500px] sm:h-[1024px] rounded-[1.5rem] sm:rounded-[2rem] border-[6px] sm:border-[8px] border-slate-800 my-4 sm:my-8";
-    else containerClass += " w-full max-w-[1000px] h-[400px] sm:h-[600px] my-4 sm:my-8 rounded-lg border border-slate-200";
-
-    useEffect(() => {
-        const updatePagination = () => {
-            // Use a hidden measuring div to get the true scrollWidth
-            if (measureRef.current && viewportRef.current) {
-                const viewportWidth = viewportRef.current.clientWidth - padding * 2;
-                const colCount = isTwoPage ? 2 : 1;
-                const pageWidth = viewportWidth; // full viewport width per "page turn"
-                const scrollW = measureRef.current.scrollWidth;
-                const pages = Math.max(1, Math.ceil(scrollW / (pageWidth + gap)));
-                setTotalPages(pages);
-                if (currentPage >= pages) {
-                    setCurrentPage(Math.max(0, pages - 1));
-                }
-            }
-        };
-
-        const timeout = setTimeout(updatePagination, 150);
-        window.addEventListener('resize', updatePagination);
-        return () => {
-            clearTimeout(timeout);
-            window.removeEventListener('resize', updatePagination);
-        };
-    }, [html, device, design, currentPage, gap, isTwoPage, padding]);
-
-    useEffect(() => {
-        setCurrentPage(0);
-    }, [device, html]);
-
-    // Keyboard navigation
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'ArrowLeft') setCurrentPage(p => Math.max(0, p - 1));
-            else if (e.key === 'ArrowRight') setCurrentPage(p => Math.min(totalPages - 1, p + 1));
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [totalPages]);
-
-    const handlePrev = () => setCurrentPage(p => Math.max(0, p - 1));
-    const handleNext = () => setCurrentPage(p => Math.min(totalPages - 1, p + 1));
-
-    // Progress bar percentage
-    const progress = totalPages > 1 ? ((currentPage) / (totalPages - 1)) * 100 : 100;
-
-    return (
-        <div className={containerClass}>
-            {/* Chapter title bar */}
-            {chapterTitle && (
-                <div className="h-8 bg-slate-50 border-b border-slate-100 flex items-center justify-center px-4 shrink-0">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 truncate">{chapterTitle}</span>
-                </div>
-            )}
-            
-            {/* Hidden measuring container */}
-            <div style={{ position: 'absolute', visibility: 'hidden', left: 0, top: 0, width: viewportRef.current ? `${viewportRef.current.clientWidth - padding * 2}px` : '100%', pointerEvents: 'none' }}>
-                <div 
-                    ref={measureRef}
-                    className={`book-content ${paraClass}`}
-                    style={{
-                        ...styles,
-                        height: viewportRef.current ? `${viewportRef.current.clientHeight - padding * 2}px` : '600px',
-                        columnCount: isTwoPage ? 2 : 1,
-                        columnGap: `${gap}px`,
-                        columnFill: 'auto',
-                        overflow: 'visible',
-                    }}
-                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(html, DOMPURIFY_CONFIG) }}
-                />
-            </div>
-
-            <div className="flex-grow relative overflow-hidden" ref={viewportRef} style={{ padding: `${padding}px` }}>
-                <div 
-                    ref={contentRef}
-                    className={`book-content ${paraClass}`} 
-                    style={{ 
-                        ...styles,
-                        height: '100%',
-                        columnCount: isTwoPage ? 2 : 1,
-                        columnGap: `${gap}px`,
-                        columnFill: 'auto',
-                        transform: `translateX(calc(${currentPage} * (-100% - ${gap}px)))`,
-                        transition: 'transform 0.4s cubic-bezier(0.4, 0.0, 0.2, 1)',
-                        overflow: 'visible',
-                    }} 
-                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(html, DOMPURIFY_CONFIG) }} 
-                />
-            </div>
-
-            {/* Reading progress bar */}
-            <div className="h-1 bg-slate-100 shrink-0">
-                <div className="h-full bg-indigo-400 transition-all duration-300" style={{ width: `${progress}%` }}></div>
-            </div>
-            
-            <div className="h-12 border-t border-slate-100 flex items-center justify-between px-4 bg-slate-50 text-slate-500 z-10 relative shrink-0">
-                <Button 
-                    variant="ghost"
-                    size="sm"
-                    onClick={handlePrev} 
-                    disabled={currentPage === 0}
-                    className="p-2"
-                >
-                    <ChevronLeft size={20} />
-                </Button>
-                <span className="text-xs font-bold font-mono">
-                    Page {currentPage + 1} of {totalPages}
-                </span>
-                <Button 
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleNext} 
-                    disabled={currentPage >= totalPages - 1}
-                    className="p-2"
-                >
-                    <ChevronRight size={20} />
-                </Button>
-            </div>
-        </div>
-    );
-};
-
 export const EbookDisplay: React.FC<EbookDisplayProps> = ({ 
     data, onUpdate, onSetCover, onOpenCoverStudio, onOpenCoAuthor, onBackToDashboard, initialWizardState, onResetWizardState, isDemoMode 
 }) => {
     const { showToast } = useToast();
     const [activeChapterId, setActiveChapterId] = useState<string | null>(null);
     const [activeTool, setActiveTool] = useState<'formatting' | 'context' | 'nav' | 'publish' | null>(initialWizardState ? 'publish' : null);
-    const [viewMode, setViewMode] = useState<'preview' | 'write'>('write'); 
-    const [previewDevice, setPreviewDevice] = useState<'print' | 'mobile' | 'tablet' | 'desktop'>('print');
     
     const { state: manuscript, setState: setManuscript, undo, redo, canUndo, canRedo } = useUndoRedo<ManuscriptState>({
         outline: data.outline || [],
@@ -869,25 +661,7 @@ export const EbookDisplay: React.FC<EbookDisplayProps> = ({
         };
     }, []);
 
-    const switchToPreview = useCallback(() => {
-        setManuscript(prev => {
-            const newOutline = prev.outline.map(chapter => {
-                if (chapter.status === 'completed' && chapter.content) {
-                    return {
-                        ...chapter,
-                        generatedPages: paginateContent(chapter.content)
-                    };
-                }
-                return chapter;
-            });
-            return { ...prev, outline: newOutline };
-        });
-        setViewMode('preview');
-    }, [setManuscript]);
 
-    const switchToWrite = useCallback(() => {
-        setViewMode('write');
-    }, []);
 
     const handleProofreadBook = async () => {
         if (isProofreading) return;
@@ -1126,18 +900,6 @@ export const EbookDisplay: React.FC<EbookDisplayProps> = ({
                         <span className="font-bold text-slate-700 ml-2 hidden sm:inline truncate max-w-[200px]">{data.title}</span>
                     </div>
                     <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto scrollbar-hide">
-                        <div className="flex bg-slate-100 p-1 rounded-lg gap-1 flex-shrink-0">
-                            <Button variant={viewMode === 'write' ? 'neutral' : 'ghost'} size="sm" onClick={switchToWrite} className="px-2 sm:px-3 py-1 text-xs">Write</Button>
-                            <Button variant={viewMode === 'preview' ? 'neutral' : 'ghost'} size="sm" onClick={switchToPreview} className="px-2 sm:px-3 py-1 text-xs">Preview</Button>
-                        </div>
-                        {viewMode === 'preview' && (
-                            <div className="hidden sm:flex bg-slate-100 p-1 rounded-lg gap-1 ml-2 flex-shrink-0">
-                                <Button variant={previewDevice === 'print' ? 'neutral' : 'ghost'} size="sm" onClick={() => setPreviewDevice('print')} className="px-3 py-1 text-xs">Print</Button>
-                                <Button variant={previewDevice === 'desktop' ? 'neutral' : 'ghost'} size="sm" onClick={() => setPreviewDevice('desktop')} className="px-3 py-1 text-xs">Desktop</Button>
-                                <Button variant={previewDevice === 'tablet' ? 'neutral' : 'ghost'} size="sm" onClick={() => setPreviewDevice('tablet')} className="px-3 py-1 text-xs">Tablet</Button>
-                                <Button variant={previewDevice === 'mobile' ? 'neutral' : 'ghost'} size="sm" onClick={() => setPreviewDevice('mobile')} className="px-3 py-1 text-xs">Mobile</Button>
-                            </div>
-                        )}
                         <Button variant="neutral" size="sm" onClick={handleProofreadBook} disabled={isProofreading} className="gap-1 sm:gap-2 flex-shrink-0 hidden sm:flex">
                             {isProofreading ? <Loader2 size={14} className="animate-spin" /> : <CheckCheck size={14} />}
                             <span className="hidden sm:inline">{isProofreading ? `Proofreading... ${proofreadProgress}%` : 'Proofread'}</span>
@@ -1149,27 +911,19 @@ export const EbookDisplay: React.FC<EbookDisplayProps> = ({
                 </div>
 
                 <div className="flex-grow overflow-y-auto bg-slate-200/50 relative flex flex-col">
-                    {viewMode === 'write' && <EditorToolbar activeFormats={activeFormats} onUndo={undo} onRedo={redo} canUndo={canUndo} canRedo={canRedo} />}
+                    <EditorToolbar activeFormats={activeFormats} onUndo={undo} onRedo={redo} canUndo={canUndo} canRedo={canRedo} />
 
                     <div className="p-4 sm:p-8 flex-grow">
                         <div className="max-w-full sm:max-w-[8.5in] mx-auto pb-20 sm:pb-40">
                             {manuscript.outline.map((item, idx) => (
                                 <div key={item.id} id={`chapter-${item.id}`} className="mb-20">
                                     {item.status === 'completed' && item.content ? (
-                                        viewMode === 'preview' ? (
-                                            previewDevice === 'print' ? (
-                                                <DocxPreview html={item.content} design={manuscript.design} chapterTitle={item.title} />
-                                            ) : (
-                                                <DevicePreview html={item.content} device={previewDevice as 'mobile' | 'tablet' | 'desktop'} design={manuscript.design} chapterTitle={item.title} />
-                                            )
-                                        ) : (
-                                            <ChapterEditor 
-                                                html={item.content} 
-                                                onChange={(newHtml) => handleFullContentChange(item.id, newHtml)}
-                                                design={manuscript.design}
-                                                isDemoMode={isDemoMode}
-                                            />
-                                        )
+                                        <ChapterEditor 
+                                            html={item.content} 
+                                            onChange={(newHtml) => handleFullContentChange(item.id, newHtml)}
+                                            design={manuscript.design}
+                                            isDemoMode={isDemoMode}
+                                        />
                                     ) : (
                                         <DraftCard item={item} onWrite={handleWrite} isWriting={isWriting && activeChapterId === item.id} streamContent={activeChapterId === item.id ? streamContent : undefined} />
                                     )}
