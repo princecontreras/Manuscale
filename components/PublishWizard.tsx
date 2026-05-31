@@ -1,17 +1,17 @@
 
 "use client";
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback, useLayoutEffect } from 'react';
 import { EbookData, FrontMatter, MarketingAssets, BackMatter, OutlineItem } from '../types';
 import { generateMarketingPack, generateBookMockup, generateAboutAuthor, generateCopyright, generateSpeech, generateBibliography, generateDedication, generateMarketingImage } from '../services/aiClient';
 import { generateEPUB, generateDOCX, generateAudiobookZip, generateMarketingAssetsZip } from '../services/publisher';
 
+import DOMPurify from 'dompurify';
 import { paginateContent } from '../utils/pagination';
 import { trackEvent } from '../services/analytics';
 import { logActivity } from '../services/storage';
 import { validateExportData } from '../utils/exportValidator';
-import { CheckCircle2, AlertTriangle, Book, Share2, ArrowRight, Loader2, Sparkles, X, FileText, Image as ImageIcon, Tag, ShoppingCart, Copy, Check, Palette, List, Printer, Mic, Headphones, Play, Square, Volume2, ChevronDown } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, Book, Share2, ArrowRight, Loader2, Sparkles, X, FileText, Image as ImageIcon, Tag, ShoppingCart, Copy, Check, Palette, List, Mic, Headphones, Play, Square, Volume2, ChevronDown, Smartphone, Tablet, Monitor, ChevronLeft, ChevronRight, BookOpen } from 'lucide-react';
 import { useToast } from './ToastContext';
-import { MobileReader } from './MobileReader';
 
 interface PublishWizardProps {
   data: EbookData;
@@ -70,6 +70,21 @@ const createWavBlob = (base64PCM: string): Blob => {
     view.setUint32(40, dataSize, true);
 
     return new Blob([header, bytes], { type: 'audio/wav' });
+};
+
+// --- FULL BOOK PREVIEW COMPONENTS ---
+
+const getWordCount = (html: string): number => {
+    const text = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    return text.length > 0 ? text.split(' ').length : 0;
+};
+
+const getReadingTime = (wordCount: number): string => {
+    const mins = Math.ceil(wordCount / 250);
+    if (mins < 60) return `${mins} min`;
+    const hrs = Math.floor(mins / 60);
+    const rem = mins % 60;
+    return rem > 0 ? `${hrs}h ${rem}m` : `${hrs}h`;
 };
 
 const PublishWizard: React.FC<PublishWizardProps> = ({ data, onUpdateData, onClose, onOpenCoverStudio, initialStep, isDemoMode }) => {
@@ -320,7 +335,7 @@ ${assets.adCopyExamples ? assets.adCopyExamples.map(ad => `[${ad.platform}]\n${a
       setIsGeneratingAudio(true);
       setAudioProgress(0);
       try {
-          const blob = await generateAudiobookZip(finalDownloadableData, selectedVoice, (progress) => {
+          const blob = await generateAudiobookZip(finalDownloadableData, selectedVoice, (progress: number) => {
               setAudioProgress(progress);
           }, true, selectedQuality);
           if (blob) {
@@ -482,7 +497,7 @@ ${assets.adCopyExamples ? assets.adCopyExamples.map(ad => `[${ad.platform}]\n${a
               // Don't fail the publish for activity logging
           }
 
-          setStep(5); 
+          setStep(4); 
       } catch (e) {
           const errorMsg = e instanceof Error ? e.message : 'Unknown error';
           console.error('Publish failed:', errorMsg, e);
@@ -588,42 +603,6 @@ ${assets.adCopyExamples ? assets.adCopyExamples.map(ad => `[${ad.platform}]\n${a
       { id: 'Fenrir', label: 'Fenrir (Male, Deep)', desc: 'Good for history & biographies' },
   ];
 
-  // Construct Preview Data for Step 4
-  const previewOutline: OutlineItem[] = [
-        {
-            id: 'title-page',
-            chapterNumber: 0,
-            title: 'Title Page',
-            beat: '',
-            targetWordCount: 0,
-            status: 'completed',
-            content: `<div style="text-align: center; margin-top: 30%;">
-                <h1 style="font-family: 'Playfair Display', serif; font-size: 2.2em; font-weight: 700; line-height: 1.1;">${metadata.title}</h1>
-                <p style="font-size:1.5em; font-style:italic; color: #64748b; margin-top: 1em;">${metadata.subtitle}</p>
-                <p style="margin-top:2em; font-size: 1.2em;">by ${metadata.author}</p>
-            </div>`
-        },
-        ...(frontMatter.copyright ? [{
-            id: 'copyright',
-            chapterNumber: 0,
-            title: 'Copyright',
-            beat: '',
-            targetWordCount: 0,
-            status: 'completed',
-            content: `<div style="font-size: 0.8em; text-align: center; margin-top: 50%;"><p>${frontMatter.copyright.replace(/\n/g, '<br />')}</p></div>`
-        } as OutlineItem] : []),
-        ...(frontMatter.dedication ? [{
-            id: 'dedication',
-            chapterNumber: 0,
-            title: 'Dedication',
-            beat: '',
-            targetWordCount: 0,
-            status: 'completed',
-            content: `<div style="font-style: italic; text-align: center; margin-top: 30%;"><p>${frontMatter.dedication}</p></div>`
-        } as OutlineItem] : []),
-        ...(data.outline || []).filter(c => c.status === 'completed'),
-  ];
-
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
       <div className="bg-white rounded-3xl w-full max-w-5xl shadow-2xl overflow-hidden flex flex-col max-h-[100dvh]">
@@ -637,7 +616,7 @@ ${assets.adCopyExamples ? assets.adCopyExamples.map(ad => `[${ad.platform}]\n${a
                <div>
                    <h2 className="text-xl font-bold text-slate-900">Publishing Wizard</h2>
                    <p className="text-xs text-slate-500">
-                       {step < 5 ? `Step ${step} of 4: Configuration` : 'Publication Complete'}
+                       {step < 4 ? `Step ${step} of 3: Configuration` : 'Publication Complete'}
                    </p>
                </div>
            </div>
@@ -764,52 +743,8 @@ ${assets.adCopyExamples ? assets.adCopyExamples.map(ad => `[${ad.platform}]\n${a
                 </div>
             )}
 
-            {/* STEP 4: REVIEW */}
+            {/* STEP 4: SUCCESS */}
             {step === 4 && (
-                <div className="h-full grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in slide-in-from-right-4">
-                    {/* LEFT COLUMN: Metadata & Checklist */}
-                    <div className="overflow-y-auto pr-4">
-                        <div className="mb-8">
-                            <h3 className="text-2xl font-black text-slate-900 mb-2">Final Proofing</h3>
-                            <p className="text-slate-500 text-sm">
-                                Review the generated pages on the simulator. This is how your book will appear on mobile devices.
-                            </p>
-                        </div>
-                        
-                        <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 text-left space-y-4 mb-6">
-                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Manifest Checklist</h4>
-                            <div className="flex justify-between text-sm items-center"><span className="text-slate-500">Title Metadata</span> <CheckCircle2 size={16} className="text-emerald-500"/></div>
-                            <div className="flex justify-between text-sm items-center"><span className="text-slate-500">Author Bio</span> <span className={frontMatter.aboutAuthor ? "text-emerald-500" : "text-amber-500"}>{frontMatter.aboutAuthor ? "Ready" : "Missing"}</span></div>
-                            <div className="flex justify-between text-sm items-center"><span className="text-slate-500">Copyright Page</span> <span className={frontMatter.copyright ? "text-emerald-500" : "text-amber-500"}>{frontMatter.copyright ? "Ready" : "Auto-Generated"}</span></div>
-                            <div className="flex justify-between text-sm items-center"><span className="text-slate-500">Completed Chapters</span> <span className="font-bold text-slate-900">{data.outline?.filter(c => c.status === 'completed').length || 0}</span></div>
-                            <div className="flex justify-between text-sm items-center"><span className="text-slate-500">Est. Word Count</span> <span className="font-bold text-slate-900">{data.wordCount?.toLocaleString() || 0}</span></div>
-                        </div>
-
-                        <div className="p-4 bg-primary-50 border border-primary-100 rounded-xl flex gap-3 items-start">
-                            <AlertTriangle size={20} className="text-primary-600 shrink-0 mt-0.5"/>
-                            <div className="text-xs text-primary-800 leading-relaxed">
-                                <strong>Tip:</strong> Use the simulator to verify that your dedication and chapter breaks look correct. If something is off, go back to the Editor to fix formatting.
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* RIGHT COLUMN: Mobile Simulator */}
-                    <div className="bg-slate-100 rounded-3xl border border-slate-200 flex items-center justify-center p-4 relative overflow-hidden">
-                        <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, rgba(0,0,0,0.1) 1px, transparent 0)', backgroundSize: '24px 24px' }}></div>
-                        <div className="scale-[0.85] origin-center">
-                            <MobileReader 
-                                title={metadata.title} 
-                                outline={previewOutline} 
-                                design={data.design}
-                                containerHeight={700} // Force consistent scaling in wizard
-                            />
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* STEP 5: SUCCESS */}
-            {step === 5 && (
                 <div className="h-full flex flex-col animate-in zoom-in-95 duration-500">
                     <div className="text-center mb-8">
                         <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce">
@@ -1038,7 +973,7 @@ ${assets.adCopyExamples ? assets.adCopyExamples.map(ad => `[${ad.platform}]\n${a
         </div>
 
         {/* Footer Navigation */}
-        {step < 5 && (
+        {step < 4 && (
             <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-between items-center">
                 <button 
                     onClick={handleBack} 
@@ -1048,7 +983,7 @@ ${assets.adCopyExamples ? assets.adCopyExamples.map(ad => `[${ad.platform}]\n${a
                     Back
                 </button>
                 <div className="flex gap-2">
-                    {step < 4 ? (
+                    {step < 3 ? (
                         <button 
                             onClick={handleNext} 
                             className="bg-slate-900 hover:bg-primary-600 text-white px-8 py-3 rounded-xl font-bold text-sm shadow-lg hover:scale-[1.02] transition-all flex items-center gap-2"

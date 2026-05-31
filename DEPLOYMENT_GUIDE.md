@@ -24,7 +24,7 @@ npm install -g firebase-tools
 # 2. Login to Firebase
 firebase login
 
-# 3. From the Manuscale project directory, deploy the rules
+# 3. From the Typoscale project directory, deploy the rules
 firebase deploy --only firestore:rules --project gen-lang-client-0724614586
 ```
 

@@ -99,7 +99,7 @@ This is a **browser-level limitation** that affects all JavaScript, not just our
 
 ### Option 3: Keep Tab Visible in Split View
 1. Use your browser's split-screen feature
-2. Keep the Manuscale tab visible (even if not in focus)
+2. Keep the Typoscale tab visible (even if not in focus)
 3. Engine runs at full speed
 4. See progress updates in real-time
 

@@ -184,6 +184,19 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                                 </>
                             )}
                         </div>
+
+                        {/* Betalist Badge */}
+                        <div className="mt-12 sm:mt-16 flex justify-center">
+                            <a target="_blank" href="https://betalist.com/startups/typoscale?utm_campaign=badge-typoscale&utm_medium=badge&utm_source=badge-featured" rel="noopener noreferrer" className="transition-transform hover:scale-105">
+                                <img 
+                                    alt="Typoscale - Write entire e-books in minutes with an autonomous AI writing engine | BetaList" 
+                                    width="156" 
+                                    height="54" 
+                                    style={{ width: '156px', height: '54px' }}
+                                    src="https://betalist.com/badges/featured?id=164450&theme=color"
+                                />
+                            </a>
+                        </div>
                     </motion.div>
                 </section>
 
