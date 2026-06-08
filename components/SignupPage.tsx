@@ -7,6 +7,7 @@ import { Button } from './Button';
 import { Logo } from './Logo';
 import { useToast } from './ToastContext';
 import { EmailVerificationModal } from './EmailVerificationModal';
+import { GoogleWelcomeModal } from './GoogleWelcomeModal';
 
 const getFirebaseErrorMessage = (error: any): string => {
     const errorCode = error?.code || error?.message || 'unknown';
@@ -55,16 +56,18 @@ export const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onGoToLogin, o
     const [password, setPassword] = useState('');
     const [showVerificationModal, setShowVerificationModal] = useState(false);
     const [verificationEmail, setVerificationEmail] = useState('');
+    const [showGoogleWelcomeModal, setShowGoogleWelcomeModal] = useState(false);
+    const [googleWelcomeEmail, setGoogleWelcomeEmail] = useState('');
     const { showToast } = useToast();
 
     const handleGoogleSignup = async () => {
         setLoading(true);
         try {
             const userCredential = await signInWithPopup(auth, googleProvider);
-            // Google sign-in automatically verifies email, no verification modal needed
-            showToast("Account created! Please sign in to continue.", "success");
+            // Google sign-in automatically verifies email, show welcome modal
             await signOut(auth);
-            onGoToLogin();
+            setGoogleWelcomeEmail(userCredential.user.email || '');
+            setShowGoogleWelcomeModal(true);
         } catch (error: any) {
             console.error("Google signup failed:", error);
             const errorMessage = getFirebaseErrorMessage(error);
@@ -208,6 +211,18 @@ export const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onGoToLogin, o
                     onClose={() => setShowVerificationModal(false)}
                     onGoToLogin={() => {
                         setShowVerificationModal(false);
+                        onGoToLogin();
+                    }}
+                />
+            )}
+
+            {/* Google Welcome Modal */}
+            {showGoogleWelcomeModal && (
+                <GoogleWelcomeModal
+                    email={googleWelcomeEmail}
+                    onClose={() => setShowGoogleWelcomeModal(false)}
+                    onGoToLogin={() => {
+                        setShowGoogleWelcomeModal(false);
                         onGoToLogin();
                     }}
                 />
