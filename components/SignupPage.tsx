@@ -61,11 +61,10 @@ export const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onGoToLogin, o
         setLoading(true);
         try {
             const userCredential = await signInWithPopup(auth, googleProvider);
-            // Google sign-in automatically verifies email, so sign them out and ask to log in
+            // Google sign-in automatically verifies email, no verification modal needed
             showToast("Account created! Please sign in to continue.", "success");
             await signOut(auth);
-            setVerificationEmail(userCredential.user.email || '');
-            setShowVerificationModal(true);
+            onGoToLogin();
         } catch (error: any) {
             console.error("Google signup failed:", error);
             const errorMessage = getFirebaseErrorMessage(error);
