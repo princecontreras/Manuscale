@@ -13,7 +13,7 @@ export const MODEL_FLASH = 'gemini-2.5-flash';       // TIER 1: Unified standard
 export const MODEL_FLASH_STABLE = 'gemini-2.5-flash'; // TIER 1 Stable (same model)
 export const MODEL_LITE = 'gemini-3.1-flash-lite';  // TIER 2: Ultra-cheap for simple tasks (~$0.15 / 1M input)
 export const MODEL_LITE_STABLE = 'gemini-3.1-flash-lite'; // TIER 2 Fallback (same model)
-export const MODEL_IMAGE = 'gemini-3-pro-image-preview'; // Premium image generation model
+export const MODEL_IMAGE = 'gemini-3.1-flash-image'; // Premium image generation model
 export const MODEL_IMAGE_STABLE = 'gemini-2.5-flash-image'; // Image fallback (2.5 Flash)
 export const MODEL_TTS = 'gemini-2.5-pro-tts';
 
